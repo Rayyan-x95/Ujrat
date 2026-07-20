@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /$
+Allow: /login
+Allow: /signup
+Allow: /forgot
+Allow: /reset
+Disallow: /dashboard
+Disallow: /clients
+Disallow: /projects
+Disallow: /invoices
+Disallow: /payments
+Disallow: /settings
+Disallow: /portal
+Disallow: /api/
+
+Sitemap: https://ujrat.ninety5.in/sitemap.xml

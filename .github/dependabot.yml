@@ -1,0 +1,36 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "automated"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      dev-deps:
+        patterns:
+          - "@types/*"
+          - "eslint*"
+          - "prettier*"
+          - "typescript*"
+          - "vitest*"
+          - "playwright*"
+          - "oxlint*"
+      prod-deps:
+        patterns:
+          - "react*"
+          - "@supabase/*"
+          - "@tanstack/*"
+          - "zod"
+          - "date-fns"
+          - "clsx"
+          - "lucide-react"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]

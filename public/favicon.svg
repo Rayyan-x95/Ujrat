@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!--
+    Ujrat Favicon — Transparent Background
+    Faithful recreation of the U+arrow logo mark.
+    Colors extracted from official PNG:
+      Body:  #0C1225  (dark navy)
+      Arrow: #3355FF  (electric blue)
+      Trail: #FFFFFF  (white cutout)
+  -->
+
+  <!-- ═══ BODY: The asymmetric U / J letterform ═══ -->
+  <!-- Left pillar — thin, with angled top -->
+  <path
+    d="M100 60
+       L100 310
+       Q100 430 256 430
+       Q412 430 412 310
+       L412 60
+       L320 60
+       L320 308
+       Q320 350 256 350
+       Q192 350 192 308
+       L192 200
+       Z"
+    fill="#0C1225"
+  />
+
+  <!-- Right pillar — taller, with slight angle cut at top-right -->
+  <!-- Already included in the main U path above (412 side) -->
+
+  <!-- Top of left pillar — angled cut to match logo -->
+  <polygon points="100,60 192,60 192,130 100,200" fill="#0C1225"/>
+
+  <!-- ═══ WHITE TRAIL (paper plane sweep cut-out) ═══ -->
+  <!-- Diagonal white wedge from bottom-left of left pillar up to right -->
+  <path
+    d="M168 270 Q230 200 340 120 L412 120 Q310 200 240 310 L192 310 Z"
+    fill="white"
+  />
+
+  <!-- ═══ BLUE ARROW (paper plane tip) ═══ -->
+  <polygon
+    points="260,158  340,100  370,148  295,185"
+    fill="#3355FF"
+  />
+  <!-- Arrow tail triangle for depth -->
+  <polygon
+    points="295,185  370,148  380,185"
+    fill="#2244EE"
+  />
+</svg>
