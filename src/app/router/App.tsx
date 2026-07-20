@@ -89,6 +89,8 @@ function UjratApp() {
         <Route path="/invoices" element={authGate(<ErrorBoundary><WorkspaceView view="invoices" /></ErrorBoundary>)} />
         <Route path="/payments" element={authGate(<ErrorBoundary><WorkspaceView view="payments" /></ErrorBoundary>)} />
         <Route path="/settings" element={authGate(<ErrorBoundary><WorkspaceView view="settings" /></ErrorBoundary>)} />
+        <Route path="/settings/:tab" element={authGate(<ErrorBoundary><WorkspaceView view="settings" /></ErrorBoundary>)} />
+
 
         {/* Catch-all Redirect */}
         <Route path="*" element={authLoading ? <RouteLoader /> : <Navigate to={user ? "/dashboard" : "/login"} replace />} />

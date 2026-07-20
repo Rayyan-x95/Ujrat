@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { SettingsLayout } from '@/app/layouts/SettingsLayout';
 import { Input, Textarea, Select } from '@/shared/ui/Input';
 import { Button } from '@/shared/ui/Button';
@@ -14,15 +15,21 @@ interface SettingsTemplateProps {
   workspaceId: string;
   profileId: string;
   addToast: (type: 'success' | 'info' | 'warning' | 'error', message: string, desc?: string) => void;
+  activeTab: string;
 }
 
 export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
   workspaceId,
   profileId,
   addToast,
+  activeTab,
 }) => {
-  const [activeTab, setActiveTab] = useState('profile');
+  const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
+  
+  const handleTabChange = (tabId: string) => {
+    navigate(`/settings/${tabId}`);
+  };
 
   const { profile, settings, isLoading, updateProfile, updateSettings } = useWorkspaceSettings(workspaceId, profileId);
   
@@ -62,6 +69,7 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
       setUpiVpa(settings.upi_id || '');
       setAddress(settings.address || '');
       setProfilePhone(settings.phone || '');
+      setGstType(settings.is_gst_registered ? 'regular' : 'unregistered');
     }
   }, [settings]);
 
@@ -97,11 +105,11 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
       });
       
       await updateSettings({
-        bank_name: validated.bank_name,
-        bank_account_no: validated.bank_account_no,
-        bank_ifsc: validated.bank_ifsc,
-        upi_id: validated.upi_id,
-        company_name: validated.company_name,
+        bank_name: validated.bank_name ?? null,
+        bank_account_no: validated.bank_account_no ?? null,
+        bank_ifsc: validated.bank_ifsc ?? null,
+        upi_id: validated.upi_id ?? null,
+        company_name: validated.company_name ?? null,
       });
       addToast('success', 'Banking & UPI Info Saved');
     } catch (e: any) {
@@ -119,12 +127,14 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
         gstin: gstin || null,
         address: address || null,
         phone: profilePhone || null,
+        is_gst_registered: gstType !== 'unregistered',
       });
       
       await updateSettings({
         gstin: validated.gstin ?? null,
         address: validated.address ?? null,
         phone: validated.phone ?? null,
+        is_gst_registered: validated.is_gst_registered ?? false,
       });
       addToast('success', 'Branding & GST Info Saved');
     } catch (e: any) {
@@ -176,7 +186,7 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
         description="Configure your registered profile details, UPI settings, bank accounts, and GST compliance parameters."
       />
 
-      <SettingsLayout activeTab={activeTab} onTabChange={setActiveTab}>
+      <SettingsLayout activeTab={activeTab} onTabChange={handleTabChange}>
         {activeTab === 'profile' && (
           <Section title="Profile Details" description="This information will appear on client proposals and agreements.">
             <div className="space-y-6 pt-1">

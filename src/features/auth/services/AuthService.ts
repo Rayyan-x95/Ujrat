@@ -33,17 +33,13 @@ export class AuthService {
 
   static async updateProfile(profileId: string, profileData: Partial<Profile>): Promise<Result<Profile>> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const email = user?.email;
-
       const { data, error } = await supabase
         .from('profiles')
-        .upsert({
-          id: profileId,
-          email: email || '',
+        .update({
           full_name: profileData.full_name ?? null,
           avatar_url: profileData.avatar_url ?? null,
         } as any)
+        .eq('id', profileId)
         .select()
         .single();
 

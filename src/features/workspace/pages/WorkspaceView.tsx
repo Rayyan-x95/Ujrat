@@ -24,7 +24,7 @@ export interface WorkspaceViewProps {
 
 export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ view }) => {
   const navigate = useNavigate();
-  const { projectId } = useParams<{ projectId: string }>();
+  const { projectId, tab } = useParams<{ projectId?: string; tab?: string }>();
   const addToast = useToastStore((state) => state.addToast);
 
   const { user, workspaceId, profileId, authLoading, signOut: handleSignOut } = useAuth();
@@ -118,7 +118,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ view }) => {
                 )}
                 {view === 'settings' && (
                   <div className="space-y-6">
-                    <SettingsTemplate workspaceId={workspaceId} profileId={profileId} addToast={addToast} />
+                    <SettingsTemplate workspaceId={workspaceId} profileId={profileId} addToast={addToast} activeTab={tab || 'profile'} />
                     <div className="flex justify-end border-t border-border pt-4">
                       <Button variant="ghost" size="sm" onClick={handleSignOut}>
                         Sign Out / Exit Workspace

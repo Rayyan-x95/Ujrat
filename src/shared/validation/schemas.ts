@@ -8,14 +8,14 @@ export const ProfileSchema = z.object({
 });
 
 export const WorkspaceSettingsSchema = z.object({
-  company_name: z.string().min(2, 'Company name is required').nullable(),
+  company_name: z.string().min(2, 'Company name is required').optional().nullable(),
   gstin: z.string().regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Invalid Indian GSTIN format').optional().nullable().or(z.string().length(0)),
-  bank_name: z.string().min(2, 'Bank name is required').nullable(),
-  bank_account_no: z.string().min(8, 'Bank account number is required').nullable(),
-  bank_ifsc: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, 'Invalid IFSC code format').nullable(),
-  upi_id: z.string().regex(/^[\w.-]+@[\w.-]+$/, 'Invalid UPI ID format (e.g. name@upi)').nullable(),
-  address: z.string().min(5, 'Address must be descriptive').nullable(),
-  phone: z.string().regex(/^[6-9]\d{9}$/, 'Invalid 10-digit Indian phone number').nullable(),
+  bank_name: z.string().min(2, 'Bank name is required').optional().nullable(),
+  bank_account_no: z.string().min(8, 'Bank account number is required').optional().nullable(),
+  bank_ifsc: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, 'Invalid IFSC code format').optional().nullable(),
+  upi_id: z.string().regex(/^[\w.-]+@[\w.-]+$/, 'Invalid UPI ID format (e.g. name@upi)').optional().nullable(),
+  address: z.string().min(5, 'Address must be descriptive').optional().nullable(),
+  phone: z.string().regex(/^[6-9]\d{9}$/, 'Invalid 10-digit Indian phone number').optional().nullable(),
   logo_url: z.string().url().optional().nullable().or(z.string().length(0)),
   state: z.string().optional().nullable(),
   is_gst_registered: z.boolean().default(false),
