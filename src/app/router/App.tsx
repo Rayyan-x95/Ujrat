@@ -64,12 +64,23 @@ function UjratApp() {
     return !user ? <>{element}</> : <Navigate to="/dashboard" replace />;
   };
 
+  const renderLandingPage = () => {
+    // Check if there is a previously stored Supabase auth session token in localStorage
+    const hasPreviousSession = typeof window !== 'undefined' && 
+      Object.keys(localStorage).some(key => key.includes('auth-token'));
+
+    if (hasPreviousSession && authLoading) {
+      return <RouteLoader />;
+    }
+    return user ? <Navigate to="/dashboard" replace /> : <LandingPage />;
+  };
+
   return (
     <Suspense fallback={<RouteLoader />}>
       <RoutingRedirects />
       <Routes>
-        {/* Public Marketing Landing Page — renders immediately, no auth wait */}
-        <Route path="/" element={<LandingPage />} />
+        {/* Public Marketing Landing Page — renders immediately, no auth wait for new users */}
+        <Route path="/" element={renderLandingPage()} />
 
         {/* Public Client Portal */}
         <Route path="/portal/:portalToken" element={<PortalView />} />

@@ -1,5 +1,3 @@
-import { ActivityLogRepository } from '@/features/dashboard/repositories/ActivityLogRepository';
-import { AuthService } from '@/features/auth/services/AuthService';
 import { supabase } from '@/shared/lib/supabaseClient';
 import type { Result, ActivityLog } from '@/shared/types';
 
@@ -17,37 +15,33 @@ export interface DashboardMetrics {
 export class DashboardService {
   static async getDashboardData(workspaceId: string, profileId: string): Promise<Result<DashboardMetrics>> {
     try {
-      // Fetch profile details, activities, invoices, projects, and clients count in parallel
-      const [profRes, activities, invoicesRes, projectsRes, clientsRes] = await Promise.all([
-        AuthService.getProfile(profileId),
-        ActivityLogRepository.getRecent(workspaceId, profileId, 5),
-        supabase
-          .from('invoices')
-          .select('total, status, created_at')
-          .eq('workspace_id', workspaceId)
-          .is('deleted_at', null),
-        supabase
-          .from('projects')
-          .select('status')
-          .eq('workspace_id', workspaceId)
-          .is('deleted_at', null),
-        supabase
-          .from('clients')
-          .select('*', { count: 'exact', head: true })
-          .eq('workspace_id', workspaceId)
-          .is('deleted_at', null),
-      ]);
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_dashboard_data', {
+        p_workspace_id: workspaceId,
+        p_profile_id: profileId,
+      });
 
-      const profileName = (profRes.success && profRes.data?.full_name) || 'Freelancer';
+      if (rpcError) {
+        return { success: false, error: new Error(rpcError.message) };
+      }
 
-      // Calculate metrics from invoice data
-      const invoiceData = invoicesRes.data || [];
+      const typedData = rpcData as {
+        profile_name: string;
+        activities: ActivityLog[];
+        invoices: { total: number | null; status: string; created_at: string }[];
+        projects: { status: string }[];
+        total_clients: number;
+      };
+
+      const profileName = typedData.profile_name || 'Freelancer';
+      const activities = typedData.activities || [];
+      const invoiceData = typedData.invoices || [];
+      const projects = typedData.projects || [];
+      const totalClients = typedData.total_clients || 0;
+
       let activeProjects = 0;
       let outstanding = 0;
       let earnedThisMonth = 0;
       const pipelineMap = new Map<string, number>();
-
-      const projects = projectsRes.data || [];
       projects.forEach((p: { status: string }) => {
         const status = p.status;
         if (['proposal', 'approved', 'contract_signed', 'advance_paid', 'in_progress', 'delivered', 'invoice_sent'].includes(status)) {
@@ -68,8 +62,6 @@ export class DashboardService {
           outstanding += Number(inv.total) || 0;
         }
       });
-
-      const totalClients = clientsRes.count || 0;
 
       const pipelineVariants: Record<string, 'outline' | 'primary' | 'success' | 'warning'> = {
         'Proposal Sent': 'outline',

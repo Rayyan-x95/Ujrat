@@ -519,6 +519,13 @@ export type Database = {
         };
         Returns: InvoicePaymentTransactionResult;
       };
+      get_dashboard_data: {
+        Args: {
+          p_workspace_id: string;
+          p_profile_id: string;
+        };
+        Returns: unknown;
+      };
     };
     Enums: {
       [_ in never]: never;

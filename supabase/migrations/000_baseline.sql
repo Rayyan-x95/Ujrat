@@ -1898,3 +1898,96 @@ ALTER TABLE public.email_logs SET (
 CREATE INDEX IF NOT EXISTS idx_invoices_dashboard_aggregation 
 ON public.invoices(workspace_id) 
 WHERE deleted_at IS NULL;
+
+-- 6. Additional performance indexes for workspace query routing
+CREATE INDEX IF NOT EXISTS idx_projects_workspace_deleted 
+ON public.projects(workspace_id) 
+WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_clients_workspace_deleted 
+ON public.clients(workspace_id) 
+WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_activity_logs_workspace_profile_created 
+ON public.activity_logs(workspace_id, profile_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_workspaces_profile_deleted 
+ON public.workspaces(profile_id) 
+WHERE deleted_at IS NULL;
+
+-- 7. Get Consolidated Dashboard Data RPC
+CREATE OR REPLACE FUNCTION public.get_dashboard_data(p_workspace_id UUID, p_profile_id UUID)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_profile_name TEXT;
+  v_total_clients INT;
+  v_activities JSON;
+  v_invoices JSON;
+  v_projects JSON;
+BEGIN
+  -- Verify workspace ownership
+  IF NOT EXISTS (
+    SELECT 1 FROM public.workspaces 
+    WHERE id = p_workspace_id AND profile_id = auth.uid()
+  ) THEN
+    RAISE EXCEPTION 'Unauthorized';
+  END IF;
+
+  -- 1. Profile name
+  SELECT COALESCE(full_name, 'Freelancer') INTO v_profile_name 
+  FROM public.profiles 
+  WHERE id = p_profile_id AND deleted_at IS NULL;
+
+  -- 2. Recent activities
+  SELECT COALESCE(json_agg(t), '[]'::json) INTO v_activities 
+  FROM (
+    SELECT id, workspace_id, profile_id, project_id, action, details, created_at 
+    FROM public.activity_logs 
+    WHERE workspace_id = p_workspace_id AND profile_id = p_profile_id 
+    ORDER BY created_at DESC 
+    LIMIT 5
+  ) t;
+
+  -- 3. Invoices
+  SELECT COALESCE(json_agg(t), '[]'::json) INTO v_invoices 
+  FROM (
+    SELECT total, status, created_at 
+    FROM public.invoices 
+    WHERE workspace_id = p_workspace_id AND deleted_at IS NULL
+  ) t;
+
+  -- 4. Projects
+  SELECT COALESCE(json_agg(t), '[]'::json) INTO v_projects 
+  FROM (
+    SELECT status 
+    FROM public.projects 
+    WHERE workspace_id = p_workspace_id AND deleted_at IS NULL
+  ) t;
+
+  -- 5. Clients count
+  SELECT COUNT(*) INTO v_total_clients 
+  FROM public.clients 
+  WHERE workspace_id = p_workspace_id AND deleted_at IS NULL;
+
+  RETURN json_build_object(
+    'profile_name', v_profile_name,
+    'activities', v_activities,
+    'invoices', v_invoices,
+    'projects', v_projects,
+    'total_clients', v_total_clients
+  );
+END;
+$$;
+
+-- Grant execution permissions
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'get_dashboard_data') THEN
+        REVOKE EXECUTE ON FUNCTION public.get_dashboard_data(uuid, uuid) FROM PUBLIC;
+        GRANT EXECUTE ON FUNCTION public.get_dashboard_data(uuid, uuid) TO authenticated, service_role;
+    END IF;
+END $$;
