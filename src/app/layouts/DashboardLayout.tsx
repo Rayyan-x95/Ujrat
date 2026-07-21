@@ -10,14 +10,14 @@ import {
   Moon, 
   Search, 
   ChevronLeft, 
-  ChevronRight,
-  Menu,
-  X
+  ChevronRight
 } from 'lucide-react';
 import { useTheme } from '@/shared/hooks/useTheme';
+import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { Avatar } from '@/shared/ui/Containers';
 import { UjratLogo } from '@/shared/ui/UjratLogo';
 import { CommandPalette } from './CommandPalette';
+import { MobileLayout } from './MobileLayout';
 
 // ─── Module-level constant — never recreated on render ────────────────────────
 const NAV_ITEMS = [
@@ -30,9 +30,6 @@ const NAV_ITEMS = [
 ] as const;
 
 // ─── NavButton extracted + memoized ──────────────────────────────────────────
-// Previously defined inside DashboardLayout — React.memo couldn't work because
-// the function reference changed on every parent render. Now it only re-renders
-// when its own props (isActive, expanded) actually change.
 interface NavButtonProps {
   item: { id: string; name: string; icon: React.ElementType };
   isActive: boolean;
@@ -70,6 +67,7 @@ interface DashboardLayoutProps {
   user?: any;
   workspaceId: string;
   profileId: string;
+  onQuickAction?: (actionType: 'client' | 'project' | 'invoice') => void;
 }
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
@@ -80,18 +78,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   user,
   workspaceId,
   profileId,
+  onQuickAction,
 }) => {
+  const isMobile = useIsMobile(768);
   const { theme, toggleTheme } = useTheme();
   const [expanded, setExpanded] = useState(() => {
     const saved = localStorage.getItem('ujrat_sidebar_expanded');
     return saved !== 'false';
   });
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-
-  // Removed: useProjects() was firing a Supabase fetch on every page for
-  // the "Pinned Projects" sidebar feature. Projects are cached by TanStack
-  // Query when visiting /projects — no pre-fetch needed in the layout.
 
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Freelancer';
   const userEmail = user?.email || '';
@@ -113,13 +108,28 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const handleMobileClose = useCallback(() => setMobileMenuOpen(false), []);
   const handleExpandSidebar = useCallback(() => setExpanded(true), []);
   const handleCollapseSidebar = useCallback(() => setExpanded(false), []);
   const handleOpenCommandPalette = useCallback(() => setCommandPaletteOpen(true), []);
   const handleCloseCommandPalette = useCallback(() => setCommandPaletteOpen(false), []);
 
-
+  // Delegate mobile viewport rendering to dedicated MobileLayout
+  if (isMobile) {
+    return (
+      <MobileLayout
+        currentView={currentView}
+        onViewChange={onViewChange}
+        pageTitle={pageTitle}
+        breadcrumbs={breadcrumbs}
+        user={user}
+        workspaceId={workspaceId}
+        profileId={profileId}
+        onQuickAction={onQuickAction}
+      >
+        {children}
+      </MobileLayout>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
@@ -188,9 +198,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               </button>
             </div>
           )}
-
-          {/* Pinned projects removed — was causing a full useProjects() Supabase
-              fetch on every page. Projects are cached when user visits /projects. */}
         </nav>
 
         {/* Sidebar Footer */}
@@ -225,13 +232,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         {/* Sticky Page Header */}
         <header className="sticky top-0 z-20 h-14 flex items-center justify-between px-4 md:px-8 bg-background/90 backdrop-blur-md border-b border-border">
           <div className="flex items-center gap-3 min-w-0">
-            <button
-              onClick={() => setMobileMenuOpen(true)}
-              className="md:hidden p-1.5 -ml-1 rounded hover:bg-surface text-muted-foreground cursor-pointer"
-              aria-label="Open navigation"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
             <div className="min-w-0">
               <h1 className="text-[14px] font-display font-semibold text-foreground m-0 truncate select-none">{pageTitle}</h1>
               {breadcrumbs.length > 1 && (
@@ -256,54 +256,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         </main>
       </div>
 
-      {/* Mobile Drawer Backdrop + Content */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 flex md:hidden">
-          <div className="fixed inset-0 bg-overlay/50 backdrop-blur-[1px] transition-opacity" onClick={handleMobileClose} />
-          <aside className="relative flex w-64 max-w-[80vw] flex-col bg-background border-r border-border animate-slide-up">
-            <div className="flex h-14 items-center justify-between px-4 border-b border-border-subtle shrink-0">
-              <div className="flex items-center gap-2">
-                <UjratLogo size={26} />
-                <span className="font-display font-semibold text-body">Ujrat</span>
-              </div>
-              <button onClick={handleMobileClose} className="p-1.5 rounded hover:bg-surface text-muted-foreground cursor-pointer" aria-label="Close navigation">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <nav className="flex-1 px-3 py-4 space-y-0.5">
-              {NAV_ITEMS.map(item => (
-                <NavButton key={item.id} item={item} isActive={currentView === item.id} expanded={true} mobile onViewChange={onViewChange} onMobileClose={handleMobileClose} />
-              ))}
-            </nav>
-          </aside>
-        </div>
-      )}
-
-      {/* Mobile Bottom Navigation Bar */}
-      <nav
-        className="fixed bottom-0 inset-x-0 h-15.5 md:hidden flex items-stretch justify-around bg-background border-t border-border z-20"
-        aria-label="Mobile navigation"
-      >
-        {NAV_ITEMS.slice(0, 5).map(item => {
-          const Icon = item.icon;
-          const isActive = currentView === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => onViewChange(item.id)}
-              className={`flex flex-1 flex-col items-center justify-center gap-0.5 text-[9px] font-semibold transition-colors cursor-pointer ${
-                isActive ? 'text-primary' : 'text-muted-foreground'
-              }`}
-            >
-              <Icon className="h-4.5 w-4.5" strokeWidth={isActive ? 2.5 : 2} />
-              <span>{item.name}</span>
-            </button>
-          );
-        })}
-      </nav>
-
-      {/* Command Palette — conditionally mounted so useClients/useProjects
-          hooks inside it only run when the palette is actually open */}
+      {/* Command Palette */}
       {commandPaletteOpen && (
         <CommandPalette
           open={commandPaletteOpen}
