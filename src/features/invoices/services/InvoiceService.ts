@@ -4,7 +4,6 @@ import { InvoiceSchema } from '@/shared/validation/schemas';
 import type { Invoice, InvoiceWithItems, Result, QueryOptions, PaginatedResult, InvoiceStatus } from '@/shared/types';
 
 import { InvoiceStateMachine } from '@/shared/utils/StateMachine';
-import { ClientRepository } from '@/features/clients/repositories/ClientRepository';
 import { WorkspaceService } from '@/features/workspace/services/WorkspaceService';
 import { determineGSTType, calculateGST } from '@/features/invoices/utils/TaxEngine';
 import { supabase } from '@/shared/lib/supabaseClient';
@@ -68,7 +67,7 @@ export class InvoiceService {
         throw new Error('Project not found');
       }
 
-      const client = await ClientRepository.getById(workspaceId, project.client_id);
+      const client = project.clients;
       if (!client) {
         throw new Error('Client not found');
       }

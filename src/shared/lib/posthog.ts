@@ -23,7 +23,7 @@ export function initPostHog() {
         console.warn('[PostHog] Initialized');
       }
     },
-    disable_session_recording: import.meta.env.PROD ? false : true,
+    disable_session_recording: true,
     person_profiles: 'identified_only',
     respect_dnt: true,
     mask_all_element_attributes: true,

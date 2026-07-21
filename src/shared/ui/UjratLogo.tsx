@@ -6,16 +6,6 @@ interface UjratLogoProps {
   showText?: boolean;
 }
 
-/**
- * UjratLogo — renders the official Ujrat brand logo.
- *
- * - showText=true  → full lockup (symbol + "UJRAT" wordmark)
- * - showText=false → icon-only mark (U + arrow)
- *
- * The images are white-background PNGs, so on dark backgrounds
- * we use a CSS `invert` filter to flip them to a dark-mode-friendly
- * white rendering. On light backgrounds they render natively.
- */
 export const UjratLogo: React.FC<UjratLogoProps> = ({
   className = '',
   size = 32,

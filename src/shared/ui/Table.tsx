@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { EmptyState } from './Feedback';
 
@@ -65,28 +65,30 @@ function Table<T extends object>({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const getValue = (row: T, key: string): unknown => (row as any)[key];
 
-  const filtered = searchable && search.trim()
-    ? data.filter(row =>
-        columns.some(col => {
-          const val = getValue(row, String(col.key));
-          return typeof val === 'string' && val.toLowerCase().includes(search.toLowerCase());
-        })
-      )
-    : data;
+  const sorted = useMemo(() => {
+    const filtered = searchable && search.trim()
+      ? data.filter(row =>
+          columns.some(col => {
+            const val = getValue(row, String(col.key));
+            return typeof val === 'string' && val.toLowerCase().includes(search.toLowerCase());
+          })
+        )
+      : data;
 
-  const sorted = sortKey
-    ? [...filtered].sort((a, b) => {
-        const av = getValue(a, sortKey);
-        const bv = getValue(b, sortKey);
-        if (typeof av === 'string' && typeof bv === 'string') {
-          return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-        }
-        if (typeof av === 'number' && typeof bv === 'number') {
-          return sortDir === 'asc' ? av - bv : bv - av;
-        }
-        return 0;
-      })
-    : filtered;
+    return sortKey
+      ? [...filtered].sort((a, b) => {
+          const av = getValue(a, sortKey);
+          const bv = getValue(b, sortKey);
+          if (typeof av === 'string' && typeof bv === 'string') {
+            return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+          }
+          if (typeof av === 'number' && typeof bv === 'number') {
+            return sortDir === 'asc' ? av - bv : bv - av;
+          }
+          return 0;
+        })
+      : filtered;
+  }, [data, searchable, search, columns, sortKey, sortDir]);
 
   const rowVirtualizer = useVirtualizer({
     count: sorted.length,

@@ -4,10 +4,46 @@ import { Badge, ProjectStatusBadge } from '@/shared/ui/Badge';
 import { Card } from '@/shared/ui/Card';
 import { Input, Textarea } from '@/shared/ui/Input';
 import { AlertBanner, ClientPortalSkeleton } from '@/shared/ui/Feedback';
-import { QRPreviewContainer } from '@/shared/ui/Containers';
+import { QRCodeSVG } from 'qrcode.react';
 import { useClientPortal } from '@/features/portal';
 import type { Invoice } from '@/shared/types';
 import { useToastStore } from '@/shared/hooks/useToastStore';
+
+const QRPreviewContainer: React.FC<{
+  value: string;
+  label?: string;
+  sublabel?: string;
+}> = ({ value, label, sublabel }) => {
+  const downloadQR = () => {
+    const svg = document.getElementById('upi-qr-svg');
+    if (!svg) return;
+    const svgXml = new XMLSerializer().serializeToString(svg);
+    const svgBlob = new Blob([svgXml], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+    const trigger = document.createElement('a');
+    trigger.href = url;
+    trigger.download = 'upi-qr.svg';
+    document.body.appendChild(trigger);
+    trigger.click();
+    document.body.removeChild(trigger);
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-3 bg-surface rounded-lg p-6">
+      <div className="h-40 w-40 rounded-md overflow-hidden bg-white flex items-center justify-center ring-1 ring-inset ring-border-subtle p-2">
+        <QRCodeSVG id="upi-qr-svg" value={value} size={144} className="h-full w-full object-contain" />
+      </div>
+      {label && <p className="text-body font-medium text-foreground m-0">{label}</p>}
+      {sublabel && <p className="text-small text-muted-foreground m-0">{sublabel}</p>}
+      <button
+        onClick={downloadQR}
+        className="text-small font-medium text-primary hover:underline"
+      >
+        Download QR Code
+      </button>
+    </div>
+  );
+};
 import { 
   Lock, 
   CheckCircle, 

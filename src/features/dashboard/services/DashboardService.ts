@@ -17,13 +17,23 @@ export interface DashboardMetrics {
 export class DashboardService {
   static async getDashboardData(workspaceId: string, profileId: string): Promise<Result<DashboardMetrics>> {
     try {
-      // Fetch profile details, activities, and invoices all in parallel
-      const [profRes, activities, invoicesRes] = await Promise.all([
+      // Fetch profile details, activities, invoices, projects, and clients count in parallel
+      const [profRes, activities, invoicesRes, projectsRes, clientsRes] = await Promise.all([
         AuthService.getProfile(profileId),
         ActivityLogRepository.getRecent(workspaceId, profileId, 5),
         supabase
           .from('invoices')
           .select('total, status, created_at')
+          .eq('workspace_id', workspaceId)
+          .is('deleted_at', null),
+        supabase
+          .from('projects')
+          .select('status')
+          .eq('workspace_id', workspaceId)
+          .is('deleted_at', null),
+        supabase
+          .from('clients')
+          .select('*', { count: 'exact', head: true })
           .eq('workspace_id', workspaceId)
           .is('deleted_at', null),
       ]);
@@ -37,14 +47,8 @@ export class DashboardService {
       let earnedThisMonth = 0;
       const pipelineMap = new Map<string, number>();
 
-      // We'll calculate pipeline from project statuses
-      const { data: projects } = await supabase
-        .from('projects')
-        .select('status')
-        .eq('workspace_id', workspaceId)
-        .is('deleted_at', null);
-
-      (projects || []).forEach((p: { status: string }) => {
+      const projects = projectsRes.data || [];
+      projects.forEach((p: { status: string }) => {
         const status = p.status;
         if (['proposal', 'approved', 'contract_signed', 'advance_paid', 'in_progress', 'delivered', 'invoice_sent'].includes(status)) {
           activeProjects++;
@@ -65,12 +69,7 @@ export class DashboardService {
         }
       });
 
-      // Count total clients
-      const { count: totalClients } = await supabase
-        .from('clients')
-        .select('*', { count: 'exact', head: true })
-        .eq('workspace_id', workspaceId)
-        .is('deleted_at', null);
+      const totalClients = clientsRes.count || 0;
 
       const pipelineVariants: Record<string, 'outline' | 'primary' | 'success' | 'warning'> = {
         'Proposal Sent': 'outline',
