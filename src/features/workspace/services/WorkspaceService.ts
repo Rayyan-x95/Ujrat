@@ -18,6 +18,21 @@ export class WorkspaceService {
     }
   }
 
+  static async createWorkspace(profileId: string, name: string = 'My Workspace'): Promise<Result<Workspace>> {
+    try {
+      const { data, error } = await supabase
+        .from('workspaces')
+        .insert({ profile_id: profileId, name })
+        .select()
+        .single();
+
+      if (error) return { success: false, error: new Error(error.message) };
+      return { success: true, data };
+    } catch (e: any) {
+      return { success: false, error: e };
+    }
+  }
+
   static async getSettings(workspaceId: string): Promise<Result<WorkspaceSettings | null>> {
     try {
       const { data, error } = await supabase

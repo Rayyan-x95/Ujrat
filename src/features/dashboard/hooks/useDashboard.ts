@@ -15,6 +15,8 @@ export function useDashboard(workspaceId: string, profileId: string) {
   return {
     metrics: dashboardQuery.data,
     isLoading: dashboardQuery.isLoading,
+    isPending: dashboardQuery.isPending,
+    isError: dashboardQuery.isError,
     error: dashboardQuery.error,
     refetch: dashboardQuery.refetch,
   };

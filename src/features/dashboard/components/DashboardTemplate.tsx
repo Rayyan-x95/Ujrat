@@ -4,7 +4,8 @@ import { DashboardSkeleton } from '@/shared/ui/Feedback';
 import { useDashboard } from '@/features/dashboard';
 import { 
   TrendingUp, 
-  Plus
+  Plus,
+  AlertCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/shared/ui/Button';
@@ -32,7 +33,7 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({
   workspaceId,
   profileId,
 }) => {
-  const { metrics, isLoading } = useDashboard(workspaceId, profileId);
+  const { metrics, isLoading, isError, error, refetch } = useDashboard(workspaceId, profileId);
   const navigate = useNavigate();
   const [chartRange, setChartRange] = useState<'month' | 'week'>('month');
 
@@ -41,22 +42,23 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({
     [metrics?.pipeline]
   );
 
-  // Memoize all chart computations — only recalculate when monthlyRevenue data changes
+  // Memoize all chart computations based on live metrics.monthlyRevenue
   const { points, pathD, gridLines, chartMonths } = useMemo(() => {
-    const monthlyRevenue = metrics?.monthlyRevenue || [12000, 18000, 32000, 24000, 48000, 35000, 52000, 42000, 60000, 55000, 48000, 64000];
-    const chartMonths = ['Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct'];
-    const chartValues = [
-      monthlyRevenue[2] || 20000,
-      monthlyRevenue[3] || 50000,
-      monthlyRevenue[4] || 33000,
-      monthlyRevenue[5] || 41000,
-      monthlyRevenue[6] || 80000,
-      monthlyRevenue[7] || 50000,
-      monthlyRevenue[8] || 47000,
-      monthlyRevenue[9] || 62000,
-    ];
-    const maxVal = Math.max(...chartValues, 80000);
-    const points = chartValues.map((val, idx) => ({
+    const monthlyRevenue = metrics?.monthlyRevenue || new Array(12).fill(0);
+    const now = new Date();
+    const currentMonthIndex = now.getMonth();
+
+    const chartMonthsList: string[] = [];
+    const chartValuesList: number[] = [];
+    for (let i = 7; i >= 0; i--) {
+      const mIdx = (currentMonthIndex - i + 12) % 12;
+      const d = new Date(now.getFullYear(), mIdx, 1);
+      chartMonthsList.push(d.toLocaleString('en-IN', { month: 'short' }));
+      chartValuesList.push(monthlyRevenue[mIdx] || 0);
+    }
+
+    const maxVal = Math.max(...chartValuesList, 1000);
+    const points = chartValuesList.map((val, idx) => ({
       x: 50 + idx * 60,
       y: 140 - (val / maxVal) * 90,
       val,
@@ -64,15 +66,70 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({
     const pathD = points.reduce((acc, p, idx) =>
       idx === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`, ''
     );
-    const gridLines = [0, 0.25, 0.5, 0.75, 1].map((ratio) => ({
-      y: 140 - ratio * 90,
-      label: `₹${((ratio * maxVal) / 1000).toFixed(0)}K`,
-    }));
-    return { points, pathD, gridLines, chartMonths };
+    const gridLines = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+      const val = ratio * maxVal;
+      return {
+        y: 140 - ratio * 90,
+        label: val === 0 ? '₹0' : val >= 1000 ? `₹${(val / 1000).toFixed(0)}K` : `₹${val.toFixed(0)}`,
+      };
+    });
+    return { points, pathD, gridLines, chartMonths: chartMonthsList };
   }, [metrics?.monthlyRevenue]);
 
-  if (isLoading || !metrics) {
+  const revenueComparison = useMemo(() => {
+    const rev = metrics?.monthlyRevenue || new Array(12).fill(0);
+    const currentM = new Date().getMonth();
+    const prevM = (currentM - 1 + 12) % 12;
+    const thisMonthRev = metrics?.earnedThisMonth || 0;
+    const lastMonthRev = rev[prevM] || 0;
+
+    if (lastMonthRev > 0) {
+      const diff = thisMonthRev - lastMonthRev;
+      const pct = Math.round((diff / lastMonthRev) * 100);
+      return {
+        hasComparison: true,
+        isPositive: diff >= 0,
+        pctLabel: `${diff >= 0 ? '+' : ''}${pct}%`,
+        diffLabel: `₹${Math.abs(diff).toLocaleString('en-IN')} ${diff >= 0 ? 'more' : 'less'} than last month`,
+      };
+    }
+    if (thisMonthRev > 0) {
+      return {
+        hasComparison: true,
+        isPositive: true,
+        pctLabel: 'New',
+        diffLabel: 'First revenue recorded this month',
+      };
+    }
+    return {
+      hasComparison: false,
+      isPositive: true,
+      pctLabel: '0%',
+      diffLabel: 'No revenue recorded this month yet',
+    };
+  }, [metrics?.monthlyRevenue, metrics?.earnedThisMonth]);
+
+  if (isLoading) {
     return <DashboardSkeleton />;
+  }
+
+  if (isError || !metrics) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 border border-border rounded-lg bg-card text-center space-y-4 my-8">
+        <div className="p-3 bg-destructive/10 rounded-full text-destructive">
+          <AlertCircle className="h-6 w-6" />
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-body font-bold text-foreground">Failed to Load Dashboard</h3>
+          <p className="text-small text-muted-foreground max-w-md">
+            {error instanceof Error ? error.message : 'An error occurred while fetching your dashboard metrics.'}
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          Retry Loading
+        </Button>
+      </div>
+    );
   }
 
   const hasActions = actionItems.length > 0;
@@ -135,12 +192,18 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({
                   <h2 className="font-display text-3xl font-bold tracking-tight text-foreground m-0">
                     ₹{metrics.earnedThisMonth.toLocaleString('en-IN')}
                   </h2>
-                  <div className="flex items-center gap-0.5 text-[9px] font-bold text-success bg-success/5 border border-success/10 px-1.5 py-0.5 rounded-full">
-                    <TrendingUp className="h-2.5 w-2.5" />
-                    <span>+23%</span>
-                  </div>
+                  {revenueComparison.hasComparison && (
+                    <div className={`flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${
+                      revenueComparison.isPositive
+                        ? 'text-success bg-success/5 border-success/10'
+                        : 'text-destructive bg-destructive/5 border-destructive/10'
+                    }`}>
+                      <TrendingUp className={`h-2.5 w-2.5 ${!revenueComparison.isPositive ? 'rotate-180' : ''}`} />
+                      <span>{revenueComparison.pctLabel}</span>
+                    </div>
+                  )}
                 </div>
-                <p className="text-[11px] text-muted-foreground">₹24,800 more than last month</p>
+                <p className="text-[11px] text-muted-foreground">{revenueComparison.diffLabel}</p>
               </div>
               
               <div className="flex items-center gap-1.5 bg-secondary p-0.5 rounded-md border border-border">
@@ -286,39 +349,32 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({
               <div className="p-3 border border-border bg-surface/50 rounded-lg flex flex-col justify-between">
                 <span className="text-[9.5px] font-bold text-muted-foreground uppercase">Outstanding Proposals</span>
                 <span className="font-display text-xl font-bold text-foreground mt-1">
-                  ₹{metrics.outstanding > 0 ? metrics.outstanding.toLocaleString('en-IN') : '1,25,000'}
+                  {outstandingProposalsCount}
                 </span>
-                <span className="text-[10px] text-primary font-medium mt-0.5">{outstandingProposalsCount} active offers</span>
+                <span className="text-[10px] text-primary font-medium mt-0.5">Active client offers</span>
               </div>
 
               {/* Stat 2 */}
               <div className="p-3 border border-border bg-surface/50 rounded-lg flex flex-col justify-between">
                 <span className="text-[9.5px] font-bold text-muted-foreground uppercase">Unpaid Invoices</span>
                 <span className="font-display text-xl font-bold text-foreground mt-1">
-                  ₹{metrics.outstanding > 0 ? metrics.outstanding.toLocaleString('en-IN') : '85,500'}
+                  ₹{metrics.outstanding.toLocaleString('en-IN')}
                 </span>
-                <span className="text-[10px] text-warning font-medium mt-0.5">{unpaidInvoicesCount} invoices shared</span>
+                <span className="text-[10px] text-warning font-medium mt-0.5">{unpaidInvoicesCount} invoices pending payment</span>
               </div>
 
               {/* Stat 3 */}
               <div className="p-3 border border-border bg-surface/50 rounded-lg flex flex-col justify-between">
-                <span className="text-[9.5px] font-bold text-muted-foreground uppercase">Milestones Cleared</span>
-                <span className="font-display text-xl font-bold text-foreground mt-1">148%</span>
-                <span className="text-[10px] text-success font-medium mt-0.5">Above monthly baseline</span>
+                <span className="text-[9.5px] font-bold text-muted-foreground uppercase">Active Projects</span>
+                <span className="font-display text-xl font-bold text-foreground mt-1">{metrics.activeProjects}</span>
+                <span className="text-[10px] text-success font-medium mt-0.5">Projects in execution</span>
               </div>
 
               {/* Stat 4 */}
               <div className="p-3 border border-border bg-surface/50 rounded-lg flex flex-col justify-between">
-                <span className="text-[9.5px] font-bold text-muted-foreground uppercase">Yearly Revenue Target</span>
-                <span className="font-display text-xl font-bold text-foreground mt-1">86%</span>
-                <span className="text-[10px] text-muted-foreground font-medium mt-0.5">₹4,82,000 of ₹5,60,000</span>
-              </div>
-
-              {/* Stat 5 */}
-              <div className="p-3 border border-border bg-surface/50 rounded-lg flex flex-col justify-between">
-                <span className="text-[9.5px] font-bold text-muted-foreground uppercase">Active Clients</span>
+                <span className="text-[9.5px] font-bold text-muted-foreground uppercase">Total Clients</span>
                 <span className="font-display text-xl font-bold text-foreground mt-1">{metrics.totalClients}</span>
-                <span className="text-[10px] text-muted-foreground font-medium mt-0.5">Verified contacts</span>
+                <span className="text-[10px] text-muted-foreground font-medium mt-0.5">Contacts in workspace</span>
               </div>
             </div>
           </div>

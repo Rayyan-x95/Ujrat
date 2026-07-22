@@ -22,9 +22,14 @@ export function useAuth() {
         setUser(res.data);
         setProfileId(res.data.id);
         
-        const workspacesRes = await WorkspaceService.getWorkspaces(res.data.id);
+        let workspacesRes = await WorkspaceService.getWorkspaces(res.data.id);
         if (workspacesRes.success && workspacesRes.data.length > 0) {
           setWorkspaceId(workspacesRes.data[0]?.id || '');
+        } else if (workspacesRes.success && workspacesRes.data.length === 0) {
+          const createRes = await WorkspaceService.createWorkspace(res.data.id, 'My Workspace');
+          if (createRes.success && createRes.data) {
+            setWorkspaceId(createRes.data.id);
+          }
         }
       } else {
         setUser(null);
@@ -37,6 +42,9 @@ export function useAuth() {
   }, []);
 
   useEffect(() => {
+    // Run initial session check
+    fetchSession();
+
     // Check if recovery in query params or url hash
     const params = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.replace('#', '?'));
@@ -61,6 +69,13 @@ export function useAuth() {
           if (isMounted) {
             if (workspacesRes.success && workspacesRes.data.length > 0) {
               setWorkspaceId(workspacesRes.data[0]?.id || '');
+            } else if (workspacesRes.success && workspacesRes.data.length === 0) {
+              const createRes = await WorkspaceService.createWorkspace(typedSession.user.id, 'My Workspace');
+              if (createRes.success && createRes.data) {
+                setWorkspaceId(createRes.data.id);
+              } else {
+                setWorkspaceId('');
+              }
             } else {
               setWorkspaceId('');
             }
@@ -81,7 +96,7 @@ export function useAuth() {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [fetchSession, navigate, addToast]);
 
   const signOut = useCallback(async () => {
     await AuthService.signOut();
