@@ -1,10 +1,12 @@
 import React from 'react';
 import { Section } from './Section';
 
+/* ── Card ────────────────────────────────────────────────────────────────── */
+
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
   className?: string;
-  padding?: 'sm' | 'md' | 'lg' | 'none';
+  padding?: 'none' | 'sm' | 'md' | 'lg';
   variant?: 'default' | 'ghost' | 'elevated';
 }
 
@@ -17,17 +19,18 @@ export const Card: React.FC<CardProps> = ({
 }) => {
   const paddings = { none: '', sm: 'p-4', md: 'p-5', lg: 'p-6' };
   const variants = {
-    default: 'border border-border bg-card rounded-lg shadow-sm',
-    ghost: 'bg-surface/60 rounded-lg border border-border/40',
-    elevated: 'bg-card rounded-lg border border-border shadow-md',
+    default:  'border border-border bg-card rounded-lg',
+    ghost:    'bg-surface/60 rounded-lg',
+    elevated: 'bg-card rounded-lg border border-border shadow-sm',
   };
-
   return (
     <div className={`${variants[variant]} ${paddings[padding]} ${className}`} {...props}>
       {children}
     </div>
   );
 };
+
+/* ── Metric ──────────────────────────────────────────────────────────────── */
 
 interface MetricProps {
   label: string;
@@ -37,11 +40,19 @@ interface MetricProps {
 
 export const Metric: React.FC<MetricProps> = ({ label, value, hint }) => (
   <div className="space-y-1">
-    <p className="text-label m-0 font-semibold tracking-wider text-muted-foreground">{label}</p>
-    <p className="font-display text-2xl font-bold text-foreground tracking-tight m-0">{value}</p>
-    {hint && <p className="text-small text-muted-foreground m-0 leading-normal">{hint}</p>}
+    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider m-0">
+      {label}
+    </p>
+    <p className="font-mono text-2xl font-bold text-foreground tracking-tight m-0">
+      {value}
+    </p>
+    {hint && (
+      <p className="text-[12px] text-muted-foreground m-0 leading-normal">{hint}</p>
+    )}
   </div>
 );
+
+/* ── StatCard ────────────────────────────────────────────────────────────── */
 
 interface StatCardProps {
   label: string;
@@ -54,14 +65,18 @@ export const StatCard: React.FC<StatCardProps> = ({ label, value, sublabel, tren
   <div className="py-4 px-1">
     <Metric label={label} value={value} hint={sublabel} />
     {trend && (
-      <span className={`inline-flex items-center gap-1 mt-2 text-small font-semibold ${
-        trend.up ? 'text-success' : 'text-destructive'
-      }`}>
+      <span
+        className={`inline-flex items-center gap-1 mt-2 text-[12px] font-medium ${
+          trend.up ? 'text-success' : 'text-destructive'
+        }`}
+      >
         {trend.up ? '↑' : '↓'} {trend.value}
       </span>
     )}
   </div>
 );
+
+/* ── SummaryCard ─────────────────────────────────────────────────────────── */
 
 interface SummaryCardProps {
   title: string;
@@ -74,7 +89,7 @@ export const SummaryCard: React.FC<SummaryCardProps> = ({ title, badge, actions,
   <Section
     title={title}
     actions={
-      (actions || badge) ? (
+      actions || badge ? (
         <div className="flex items-center gap-2">
           {badge}
           {actions}

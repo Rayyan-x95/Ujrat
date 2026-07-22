@@ -13,12 +13,16 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   actions,
   meta,
 }) => (
-  <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-8">
-    <div className="space-y-1.5 min-w-0">
-      {meta && <div className="mb-1">{meta}</div>}
-      <h1 className="text-display text-foreground m-0">{title}</h1>
+  <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6">
+    <div className="min-w-0 flex-1">
+      {meta && <div className="mb-1.5">{meta}</div>}
+      <h1 className="text-[22px] font-semibold text-foreground m-0 tracking-tight leading-tight font-display">
+        {title}
+      </h1>
       {description && (
-        <p className="text-small text-muted-foreground m-0 max-w-xl">{description}</p>
+        <p className="text-[13px] text-muted-foreground m-0 mt-1 max-w-xl leading-normal">
+          {description}
+        </p>
       )}
     </div>
     {actions && (

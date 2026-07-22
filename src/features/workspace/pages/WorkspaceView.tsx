@@ -9,14 +9,22 @@ import { ErrorBoundary } from '@/shared/ui/ErrorBoundary';
 import { ProjectService } from '@/features/projects/services/ProjectService';
 import { InvoiceService } from '@/features/invoices/services/InvoiceService';
 
-// Lazy-loaded Templates
-const DashboardTemplate = React.lazy(() => import('@/features/dashboard/components/DashboardTemplate').then(m => ({ default: m.DashboardTemplate })));
-const ClientsTemplate = React.lazy(() => import('@/features/clients/components/ClientsTemplate').then(m => ({ default: m.ClientsTemplate })));
-const ProjectsTemplate = React.lazy(() => import('@/features/projects/components/ProjectsTemplate').then(m => ({ default: m.ProjectsTemplate })));
-const ProjectDetailsTemplate = React.lazy(() => import('@/features/projects/components/ProjectDetailsTemplate').then(m => ({ default: m.ProjectDetailsTemplate })));
-const InvoicesTemplate = React.lazy(() => import('@/features/invoices/components/InvoicesTemplate').then(m => ({ default: m.InvoicesTemplate })));
-const SettingsTemplate = React.lazy(() => import('@/features/settings/components/SettingsTemplate').then(m => ({ default: m.SettingsTemplate })));
-const PaymentsTemplate = React.lazy(() => import('@/features/payments/components/PaymentsTemplate').then(m => ({ default: m.PaymentsTemplate })));
+// Lazy-loaded Templates with preloader references
+const loadDashboard = () => import('@/features/dashboard/components/DashboardTemplate').then(m => ({ default: m.DashboardTemplate }));
+const loadClients = () => import('@/features/clients/components/ClientsTemplate').then(m => ({ default: m.ClientsTemplate }));
+const loadProjects = () => import('@/features/projects/components/ProjectsTemplate').then(m => ({ default: m.ProjectsTemplate }));
+const loadProjectDetails = () => import('@/features/projects/components/ProjectDetailsTemplate').then(m => ({ default: m.ProjectDetailsTemplate }));
+const loadInvoices = () => import('@/features/invoices/components/InvoicesTemplate').then(m => ({ default: m.InvoicesTemplate }));
+const loadSettings = () => import('@/features/settings/components/SettingsTemplate').then(m => ({ default: m.SettingsTemplate }));
+const loadPayments = () => import('@/features/payments/components/PaymentsTemplate').then(m => ({ default: m.PaymentsTemplate }));
+
+const DashboardTemplate = React.lazy(loadDashboard);
+const ClientsTemplate = React.lazy(loadClients);
+const ProjectsTemplate = React.lazy(loadProjects);
+const ProjectDetailsTemplate = React.lazy(loadProjectDetails);
+const InvoicesTemplate = React.lazy(loadInvoices);
+const SettingsTemplate = React.lazy(loadSettings);
+const PaymentsTemplate = React.lazy(loadPayments);
 
 export interface WorkspaceViewProps {
   view: 'dashboard' | 'clients' | 'projects' | 'project-details' | 'invoices' | 'payments' | 'settings';
@@ -28,6 +36,23 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ view }) => {
   const addToast = useToastStore((state) => state.addToast);
 
   const { user, workspaceId, profileId, authLoading, signOut: handleSignOut } = useAuth();
+
+  // Preload all workspace component chunks in idle time for instant (0ms) tab switching
+  React.useEffect(() => {
+    const preloadAll = () => {
+      loadDashboard();
+      loadClients();
+      loadProjects();
+      loadInvoices();
+      loadPayments();
+      loadSettings();
+    };
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(preloadAll);
+    } else {
+      setTimeout(preloadAll, 200);
+    }
+  }, []);
 
   // getPortalToken and getInvoiceDetails are called directly via services
   // inside event handlers rather than pre-loading full collections via hooks,

@@ -44,15 +44,27 @@ const NavButton = memo(({ item, isActive, expanded, mobile = false, onViewChange
   return (
     <button
       onClick={() => { onViewChange(item.id); if (mobile && onMobileClose) onMobileClose(); }}
-      title={item.name}
-      className={`group relative flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-all duration-150 cursor-pointer ${
-        isActive ? 'bg-primary-muted text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-surface/60'
+      title={expanded ? undefined : item.name}
+      aria-current={isActive ? 'page' : undefined}
+      className={`group relative flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium transition-colors duration-120 cursor-pointer ${
+        isActive
+          ? 'bg-primary/6 text-primary'
+          : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
       }`}
     >
-      <Icon className={`h-4 w-4 shrink-0 transition-transform ${isActive ? 'text-primary' : 'group-hover:scale-105'}`} strokeWidth={2} />
-      {(expanded || mobile) && <span className="truncate">{item.name}</span>}
-      {isActive && !expanded && !mobile && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-primary rounded-full" aria-hidden="true" />
+      {/* Active left indicator */}
+      {isActive && (
+        <span
+          className="absolute left-0 inset-y-1.5 w-0.75 bg-primary rounded-r-full"
+          aria-hidden="true"
+        />
+      )}
+      <Icon
+        className={`h-4 w-4 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}
+        strokeWidth={isActive ? 2.2 : 1.9}
+      />
+      {(expanded || mobile) && (
+        <span className={`truncate ${isActive ? 'font-semibold' : ''}`}>{item.name}</span>
       )}
     </button>
   );
@@ -136,15 +148,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {/* Desktop Sidebar */}
       <aside
         className={`hidden md:flex flex-col fixed inset-y-0 left-0 z-30 bg-surface border-r border-border transition-all duration-200 ease-out select-none ${
-          expanded ? 'w-[220px]' : 'w-[60px]'
+          expanded ? 'w-55' : 'w-15'
         }`}
       >
         {/* Sidebar Header */}
-        <div className="flex h-14 items-center justify-between px-3.5 shrink-0 border-b border-border-subtle">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <UjratLogo size={28} />
+        <div className="flex h-13 items-center justify-between px-3 shrink-0 border-b border-border-subtle">
+          <div className="flex items-center gap-2 min-w-0">
+            <UjratLogo size={20} />
             {expanded && (
-              <span className="font-display font-semibold text-[14px] text-foreground tracking-tight truncate animate-fade-in">
+              <span className="font-display font-semibold text-[13px] text-foreground tracking-tight truncate animate-fade-in">
                 Ujrat
               </span>
             )}
@@ -152,8 +164,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           {expanded && (
             <button
               onClick={handleCollapseSidebar}
-              className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground cursor-pointer"
+              className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground cursor-pointer transition-colors shrink-0"
               title="Collapse sidebar"
+              aria-label="Collapse sidebar"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
             </button>
@@ -164,16 +177,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         <div className="px-2 pt-3 pb-1 shrink-0">
           <button
             onClick={handleOpenCommandPalette}
-            className={`flex items-center gap-2 w-full rounded border border-border bg-card px-2.5 py-1.5 text-left text-[11px] text-muted-foreground/60 hover:border-muted-foreground/35 hover:text-muted-foreground cursor-pointer transition-all duration-150 ${
+            className={`flex items-center gap-2 w-full rounded-md border border-border bg-card hover:bg-surface px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:border-border hover:text-foreground cursor-pointer transition-colors ${
               expanded ? 'justify-between' : 'justify-center'
             }`}
           >
             <div className="flex items-center gap-2">
-              <Search className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
+              <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={2} />
               {expanded && <span className="truncate">Search workspace</span>}
             </div>
             {expanded && (
-              <span className="text-[9px] font-bold border border-border px-1 py-0.5 rounded bg-surface font-mono shrink-0 uppercase tracking-widest leading-none">
+              <span className="kbd-badge shrink-0">
                 ⌘K
               </span>
             )}
@@ -181,7 +194,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         </div>
 
         {/* Sidebar Navigation */}
-        <nav className="flex-1 px-2 py-3.5 space-y-0.5 overflow-hidden">
+        <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-hidden">
           {NAV_ITEMS.map(item => (
             <NavButton key={item.id} item={item} isActive={currentView === item.id} expanded={expanded} onViewChange={onViewChange} />
           ))}
@@ -191,7 +204,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <div className="pt-2 border-t border-border-subtle mt-2 flex justify-center">
               <button
                 onClick={handleExpandSidebar}
-                className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground cursor-pointer"
+                className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
                 title="Expand sidebar"
               >
                 <ChevronRight className="h-4 w-4" />
@@ -201,11 +214,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="px-2 py-3 space-y-1.5 shrink-0 border-t border-border-subtle">
+        <div className="px-2 py-3 space-y-1 shrink-0 border-t border-border-subtle bg-surface">
           <button
             onClick={toggleTheme}
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-muted-foreground hover:text-foreground hover:bg-surface/60 transition-colors cursor-pointer text-[13px] font-medium"
+            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer text-[13px] font-medium"
           >
             {theme === 'dark' ? (
               <Sun className="h-4 w-4 shrink-0 text-warning" strokeWidth={2} />
@@ -215,12 +228,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             {expanded && <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>}
           </button>
 
-          <div className={`flex items-center gap-2 px-2 py-1.5 ${expanded ? '' : 'justify-center border-t border-border-subtle pt-2'}`}>
+          <div className={`flex items-center gap-2.5 px-2 py-1.5 rounded-md ${expanded ? 'hover:bg-secondary' : 'justify-center border-t border-border-subtle pt-2'} transition-colors`}>
             <Avatar name={userName} size="sm" />
             {expanded && (
               <div className="min-w-0 animate-fade-in">
                 <p className="text-[12px] font-semibold text-foreground truncate m-0 leading-tight">{userName}</p>
-                <p className="text-[10px] text-muted-foreground truncate m-0 leading-tight mt-0.5">{userEmail}</p>
+                <p className="text-[10px] text-muted-foreground truncate m-0 leading-tight mt-0.5 font-mono">{userEmail}</p>
               </div>
             )}
           </div>
@@ -228,28 +241,44 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       </aside>
 
       {/* Main content viewport column */}
-      <div className={`flex-1 flex flex-col min-w-0 ${expanded ? 'md:ml-[220px]' : 'md:ml-[60px]'} transition-all duration-200`}>
+      <div className={`flex-1 flex flex-col min-w-0 ${expanded ? 'md:ml-55' : 'md:ml-15'} transition-all duration-200`}>
         {/* Sticky Page Header */}
-        <header className="sticky top-0 z-20 h-14 flex items-center justify-between px-4 md:px-8 bg-background/90 backdrop-blur-md border-b border-border">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="min-w-0">
-              <h1 className="text-[14px] font-display font-semibold text-foreground m-0 truncate select-none">{pageTitle}</h1>
-              {breadcrumbs.length > 1 && (
-                <nav className="hidden sm:flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground/80 mt-0.5" aria-label="Breadcrumb">
-                  {breadcrumbs.slice(0, -1).map((crumb, idx) => (
-                    <React.Fragment key={crumb}>
-                      {idx > 0 && <span aria-hidden="true" className="text-muted-foreground/40">/</span>}
-                      <span className="truncate">{crumb}</span>
-                    </React.Fragment>
-                  ))}
-                </nav>
-              )}
-            </div>
+        <header className="sticky top-0 z-20 h-13 flex items-center justify-between px-5 md:px-8 bg-background border-b border-border-subtle">
+          <div className="flex items-center gap-2 min-w-0">
+            <h1 className="text-[13px] font-semibold text-foreground m-0 truncate select-none tracking-tight">
+              {pageTitle}
+            </h1>
+            {breadcrumbs.length > 1 && (
+              <nav
+                className="hidden sm:flex items-center gap-1 text-[11px] text-muted-foreground/60"
+                aria-label="Breadcrumb"
+              >
+                <span aria-hidden="true">/</span>
+                {breadcrumbs.slice(0, -1).map((crumb, idx) => (
+                  <React.Fragment key={crumb}>
+                    {idx > 0 && <span aria-hidden="true" className="text-muted-foreground/40">/</span>}
+                    <span className="truncate">{crumb}</span>
+                  </React.Fragment>
+                ))}
+              </nav>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleOpenCommandPalette}
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-md border border-border bg-surface text-[11px] text-muted-foreground hover:text-foreground hover:border-border cursor-pointer transition-colors"
+              aria-label="Open command palette"
+            >
+              <Search className="h-3 w-3" />
+              <span>Search</span>
+              <kbd className="kbd-badge">⌘K</kbd>
+            </button>
           </div>
         </header>
 
         {/* Scrollable Main Area */}
-        <main className="flex-1 px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8 overflow-y-auto">
+        <main className="flex-1 px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8 overflow-y-auto bg-background">
           <div className="page-container mx-auto animate-slide-up">
             {children}
           </div>

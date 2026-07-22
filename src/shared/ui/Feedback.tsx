@@ -1,35 +1,51 @@
 import React, { useEffect } from 'react';
 import { useToastStore } from '@/shared/hooks/useToastStore';
 
+/* ── Spinner ─────────────────────────────────────────────────────────────── */
+
 export const Spinner: React.FC<{ size?: 'sm' | 'md' | 'lg'; className?: string }> = ({
-  size = 'md', className = '',
+  size = 'md',
+  className = '',
 }) => {
-  const sizes = { sm: 'h-4 w-4', md: 'h-5 w-5', lg: 'h-8 w-8' };
+  const sizes = { sm: 'h-4 w-4', md: 'h-5 w-5', lg: 'h-7 w-7' };
   return (
-    <svg className={`animate-spin text-primary ${sizes[size]} ${className}`} fill="none" viewBox="0 0 24 24" role="status" aria-label="Loading">
-      <circle className="opacity-15" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-      <path className="opacity-85" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    <svg
+      className={`animate-spin text-primary ${sizes[size]} ${className}`}
+      fill="none"
+      viewBox="0 0 24 24"
+      role="status"
+      aria-label="Loading"
+    >
+      <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+      <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
   );
 };
 
+/* ── Skeleton ────────────────────────────────────────────────────────────── */
+
 export const Skeleton: React.FC<{ className?: string }> = ({ className = '' }) => (
-  <div className={`animate-pulse rounded-md bg-secondary ${className}`} aria-hidden="true" />
+  <div
+    className={`animate-pulse rounded-md bg-secondary ${className}`}
+    aria-hidden="true"
+  />
 );
 
 export const SkeletonCard: React.FC = () => (
-  <div className="bg-card border border-border rounded-lg p-5 space-y-4 shadow-sm">
+  <div className="bg-card border border-border rounded-lg p-5 space-y-3">
     <div className="flex items-center gap-3">
-      <Skeleton className="h-8.5 w-8.5 rounded-full" />
+      <Skeleton className="h-8 w-8 rounded-md" />
       <div className="flex-1 space-y-2">
-        <Skeleton className="h-3 w-1/3" />
-        <Skeleton className="h-2 w-1/2" />
+        <Skeleton className="h-3 w-2/5" />
+        <Skeleton className="h-2.5 w-1/3" />
       </div>
     </div>
-    <Skeleton className="h-3.5 w-full" />
-    <Skeleton className="h-3.5 w-4/5" />
+    <Skeleton className="h-3 w-full" />
+    <Skeleton className="h-3 w-3/4" />
   </div>
 );
+
+/* ── ProgressBar ─────────────────────────────────────────────────────────── */
 
 export const ProgressBar: React.FC<{
   value: number;
@@ -43,15 +59,16 @@ export const ProgressBar: React.FC<{
     default: 'bg-primary',
     success: 'bg-success',
     warning: 'bg-warning',
-    danger: 'bg-destructive',
+    danger:  'bg-destructive',
   };
-
   return (
     <div className="space-y-1.5 w-full">
       {(label || showPercent) && (
-        <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground">
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
           {label && <span className="truncate">{label}</span>}
-          {showPercent && <span className="font-semibold text-foreground text-mono">{Math.round(percent)}%</span>}
+          {showPercent && (
+            <span className="font-mono font-medium text-foreground">{Math.round(percent)}%</span>
+          )}
         </div>
       )}
       <div
@@ -63,7 +80,7 @@ export const ProgressBar: React.FC<{
         aria-label={label || 'Progress'}
       >
         <div
-          className={`h-full rounded-full transition-all duration-300 ease-out ${trackColors[variant]}`}
+          className={`h-full rounded-full transition-all duration-500 ease-out ${trackColors[variant]}`}
           style={{ width: `${percent}%` }}
         />
       </div>
@@ -71,28 +88,33 @@ export const ProgressBar: React.FC<{
   );
 };
 
+/* ── AlertBanner ─────────────────────────────────────────────────────────── */
+
 type AlertVariant = 'info' | 'success' | 'warning' | 'error';
 
-const alertStyles: Record<AlertVariant, { wrapper: string; icon: string; iconPath: string }> = {
+const alertConfig: Record<
+  AlertVariant,
+  { wrapper: string; icon: string; path: string }
+> = {
   info: {
-    wrapper: 'bg-primary-muted/20 text-foreground border border-primary/20',
-    icon: 'text-primary',
-    iconPath: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+    wrapper: 'bg-primary/5 border border-primary/15 text-foreground',
+    icon:    'text-primary',
+    path:    'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
   },
   success: {
-    wrapper: 'bg-success/5 text-foreground border border-success/20',
-    icon: 'text-success',
-    iconPath: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+    wrapper: 'bg-success/6 border border-success/15 text-foreground',
+    icon:    'text-success',
+    path:    'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
   },
   warning: {
-    wrapper: 'bg-warning/5 text-foreground border border-warning/25',
-    icon: 'text-warning',
-    iconPath: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
+    wrapper: 'bg-warning/7 border border-warning/20 text-foreground',
+    icon:    'text-warning',
+    path:    'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
   },
   error: {
-    wrapper: 'bg-destructive/5 text-foreground border border-destructive/20',
-    icon: 'text-destructive',
-    iconPath: 'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z',
+    wrapper: 'bg-destructive/5 border border-destructive/15 text-foreground',
+    icon:    'text-destructive',
+    path:    'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z',
   },
 };
 
@@ -102,19 +124,32 @@ export const AlertBanner: React.FC<{
   message?: string;
   onDismiss?: () => void;
 }> = ({ variant = 'info', title, message, onDismiss }) => {
-  const s = alertStyles[variant];
+  const c = alertConfig[variant];
   return (
-    <div className={`flex gap-3 rounded-lg p-4 text-small shadow-sm ${s.wrapper}`} role="alert">
-      <svg className={`h-4.5 w-4.5 shrink-0 mt-0.5 ${s.icon}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
-        <path strokeLinecap="round" strokeLinejoin="round" d={s.iconPath} />
+    <div className={`flex gap-3 rounded-lg p-3.5 text-[13px] ${c.wrapper}`} role="alert">
+      <svg
+        className={`h-4 w-4 shrink-0 mt-0.5 ${c.icon}`}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d={c.path} />
       </svg>
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-foreground m-0">{title}</p>
-        {message && <p className="mt-1 text-muted-foreground m-0 text-small leading-normal">{message}</p>}
+        <p className="font-medium text-foreground m-0">{title}</p>
+        {message && (
+          <p className="mt-0.5 text-[12px] text-muted-foreground m-0 leading-normal">{message}</p>
+        )}
       </div>
       {onDismiss && (
-        <button onClick={onDismiss} className="shrink-0 p-0.5 opacity-40 hover:opacity-100 transition-opacity cursor-pointer" aria-label="Dismiss">
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+        <button
+          onClick={onDismiss}
+          className="shrink-0 p-0.5 opacity-40 hover:opacity-80 transition-opacity cursor-pointer"
+          aria-label="Dismiss"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
@@ -122,6 +157,8 @@ export const AlertBanner: React.FC<{
     </div>
   );
 };
+
+/* ── EmptyState ──────────────────────────────────────────────────────────── */
 
 export const EmptyState: React.FC<{
   icon?: React.ReactNode;
@@ -131,27 +168,29 @@ export const EmptyState: React.FC<{
   secondaryGuidance?: string;
   tips?: string[];
 }> = ({ icon, title, description, action, secondaryGuidance, tips }) => (
-  <div className="flex flex-col items-center justify-center py-12 px-6 text-center max-w-md mx-auto space-y-4 animate-fade-in">
-    <div className="h-14 w-14 rounded-full bg-surface border border-border flex items-center justify-center text-primary/80 shadow-sm shrink-0">
-      {icon ? icon : (
-        <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+  <div className="flex flex-col items-center justify-center py-14 px-6 text-center max-w-sm mx-auto space-y-3 animate-fade-in">
+    <div className="h-11 w-11 rounded-lg bg-surface border border-border flex items-center justify-center text-muted-foreground shrink-0">
+      {icon ?? (
+        <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
         </svg>
       )}
     </div>
-    <div className="space-y-1.5">
-      <h3 className="text-title font-semibold text-foreground m-0">{title}</h3>
-      {description && <p className="text-small text-muted-foreground max-w-sm m-0 leading-normal">{description}</p>}
+    <div className="space-y-1">
+      <h3 className="text-[14px] font-semibold text-foreground m-0">{title}</h3>
+      {description && (
+        <p className="text-[12px] text-muted-foreground m-0 leading-normal">{description}</p>
+      )}
     </div>
-    {action && <div className="pt-1">{action}</div>}
+    {action && <div>{action}</div>}
     {secondaryGuidance && (
-      <p className="text-[11px] text-muted-foreground/75 m-0 italic">
-        {secondaryGuidance}
-      </p>
+      <p className="text-[11px] text-muted-foreground/65 m-0">{secondaryGuidance}</p>
     )}
     {tips && tips.length > 0 && (
-      <div className="text-left w-full bg-surface border border-border rounded-md p-3.5 space-y-1.5 max-w-sm">
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider m-0">Helpful Tips:</p>
+      <div className="text-left w-full bg-surface rounded-md p-3 space-y-1.5">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider m-0">
+          Tips
+        </p>
         <ul className="list-disc pl-4 text-[11px] text-muted-foreground space-y-1 m-0">
           {tips.map((tip, idx) => <li key={idx}>{tip}</li>)}
         </ul>
@@ -160,100 +199,130 @@ export const EmptyState: React.FC<{
   </div>
 );
 
+/* ── DashboardSkeleton ───────────────────────────────────────────────────── */
+
 export const DashboardSkeleton: React.FC = () => (
-  <div className="space-y-8 animate-pulse">
-    <header className="space-y-2">
-      <Skeleton className="h-3 w-28" />
-      <Skeleton className="h-8 w-60" />
-      <Skeleton className="h-4 w-80" />
-    </header>
-    <div className="space-y-3">
-      <Skeleton className="h-4.5 w-36" />
-      <div className="border border-border rounded-lg bg-card divide-y divide-border-subtle shadow-sm">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="flex justify-between items-center p-4">
-            <div className="space-y-1.5 flex-1">
-              <Skeleton className="h-3.5 w-1/3" />
-              <Skeleton className="h-2.5 w-1/2" />
-            </div>
-            <Skeleton className="h-5 w-16 rounded-full" />
-          </div>
-        ))}
-      </div>
+  <div className="space-y-7 animate-pulse">
+    {/* Header */}
+    <div className="space-y-2 pb-1">
+      <Skeleton className="h-2.5 w-32" />
+      <Skeleton className="h-7 w-56" />
+      <Skeleton className="h-3.5 w-72" />
     </div>
-    <div className="space-y-3">
-      <Skeleton className="h-4.5 w-24" />
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="space-y-2 border border-border bg-card rounded-lg p-4 shadow-sm">
-            <Skeleton className="h-2.5 w-14" />
-            <Skeleton className="h-6 w-20" />
-            <Skeleton className="h-2.5 w-16" />
+    {/* KPI row */}
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="border border-border bg-card rounded-lg p-5 space-y-3">
+          <Skeleton className="h-9 w-9 rounded-lg" />
+          <div className="space-y-1.5">
+            <Skeleton className="h-5 w-16" />
+            <Skeleton className="h-2.5 w-24" />
           </div>
-        ))}
+          <Skeleton className="h-2.5 w-full" />
+        </div>
+      ))}
+    </div>
+    {/* Chart + side */}
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="xl:col-span-2 space-y-4">
+        <div className="border border-border bg-card rounded-lg p-6 space-y-4">
+          <div className="flex justify-between">
+            <div className="space-y-1.5">
+              <Skeleton className="h-2.5 w-24" />
+              <Skeleton className="h-7 w-36" />
+            </div>
+            <Skeleton className="h-7 w-28 rounded-lg" />
+          </div>
+          <Skeleton className="h-44 w-full rounded-md" />
+        </div>
+        <div className="border border-border bg-card rounded-lg p-5 space-y-3">
+          <Skeleton className="h-4 w-32" />
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 py-2">
+              <Skeleton className="h-8 w-8 rounded-lg" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-3 w-1/2" />
+                <Skeleton className="h-2.5 w-2/3" />
+              </div>
+              <Skeleton className="h-5 w-12 rounded-sm" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-4">
+        <div className="border border-border bg-card rounded-lg p-5 space-y-3">
+          <Skeleton className="h-2.5 w-20" />
+          <Skeleton className="h-7 w-28" />
+          <Skeleton className="h-1.5 w-full rounded-full" />
+        </div>
+        <div className="border border-border bg-card rounded-lg overflow-hidden">
+          <div className="px-5 py-4 border-b border-border-subtle">
+            <Skeleton className="h-2.5 w-24" />
+          </div>
+          <div className="divide-y divide-border-subtle">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="px-4 py-3 flex items-center gap-3">
+                <Skeleton className="h-1.5 w-1.5 rounded-full" />
+                <Skeleton className="h-2.5 flex-1" />
+                <Skeleton className="h-2 w-10" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   </div>
 );
+
+/* ── SettingsSkeleton ────────────────────────────────────────────────────── */
 
 export const SettingsSkeleton: React.FC = () => (
   <div className="space-y-8 animate-pulse">
-    <header className="space-y-2">
-      <Skeleton className="h-7 w-40" />
-      <Skeleton className="h-4 w-72" />
-    </header>
-    <div className="flex gap-2 border-b border-border pb-1">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <Skeleton key={i} className="h-8 w-20 rounded" />
-      ))}
+    <div className="space-y-2">
+      <Skeleton className="h-6 w-36" />
+      <Skeleton className="h-3.5 w-64" />
     </div>
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <Skeleton className="h-3 w-20" />
-        <Skeleton className="h-9 w-full" />
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Skeleton className="h-3 w-20" />
+    <div className="space-y-5">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="space-y-1.5">
+          <Skeleton className="h-2.5 w-20" />
           <Skeleton className="h-9 w-full" />
         </div>
-        <div className="space-y-2">
-          <Skeleton className="h-3 w-20" />
-          <Skeleton className="h-9 w-full" />
-        </div>
-      </div>
+      ))}
     </div>
   </div>
 );
 
+/* ── ClientPortalSkeleton ────────────────────────────────────────────────── */
+
 export const ClientPortalSkeleton: React.FC = () => (
   <div className="space-y-8 max-w-3xl mx-auto animate-pulse">
-    <header className="space-y-3">
-      <Skeleton className="h-4.5 w-32 rounded-full" />
-      <Skeleton className="h-8 w-2/3" />
-      <Skeleton className="h-4 w-1/4" />
-    </header>
+    <div className="space-y-3">
+      <Skeleton className="h-5 w-28 rounded-sm" />
+      <Skeleton className="h-7 w-2/3" />
+      <Skeleton className="h-3.5 w-1/4" />
+    </div>
     <div className="flex gap-2 border-b border-border pb-1">
       {Array.from({ length: 5 }).map((_, i) => (
-        <Skeleton key={i} className="h-8 w-20 rounded" />
+        <Skeleton key={i} className="h-8 w-20 rounded-md" />
       ))}
     </div>
-    <div className="bg-card border border-border rounded-lg p-6 space-y-6 shadow-sm">
-      <Skeleton className="h-4.5 w-40" />
-      <div className="space-y-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="flex gap-4">
-            <Skeleton className="h-5.5 w-5.5 rounded-full shrink-0" />
-            <div className="space-y-2 flex-1 pt-0.5">
-              <Skeleton className="h-3 w-1/4" />
-              <Skeleton className="h-2 w-1/2" />
-            </div>
+    <div className="bg-card border border-border rounded-lg p-6 space-y-5">
+      <Skeleton className="h-4 w-36" />
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="flex gap-4">
+          <Skeleton className="h-5 w-5 rounded-full shrink-0" />
+          <div className="flex-1 space-y-2 pt-0.5">
+            <Skeleton className="h-2.5 w-1/4" />
+            <Skeleton className="h-2 w-1/2" />
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
   </div>
 );
+
+/* ── Toast System ────────────────────────────────────────────────────────── */
 
 export interface Toast {
   id: string;
@@ -268,50 +337,59 @@ interface ToastItemProps {
   onDismiss: (id: string) => void;
 }
 
+const toastIconPaths: Record<AlertVariant, string> = {
+  info:    'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+  success: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+  warning: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
+  error:   'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z',
+};
+
+const toastIconColor: Record<AlertVariant, string> = {
+  info:    'text-primary',
+  success: 'text-success',
+  warning: 'text-warning',
+  error:   'text-destructive',
+};
+
+const toastBorder: Record<AlertVariant, string> = {
+  info:    'border-primary/20',
+  success: 'border-success/25',
+  warning: 'border-warning/25',
+  error:   'border-destructive/25',
+};
+
 const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss }) => {
-  const { id, message, description, type = 'info', duration = 4000 } = toast;
-  
-  const iconPaths: Record<AlertVariant, string> = {
-    info: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-    success: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
-    warning: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
-    error: 'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z',
-  };
-
-  const borderColors: Record<AlertVariant, string> = {
-    info: 'border-primary/20',
-    success: 'border-success/35',
-    warning: 'border-warning/35',
-    error: 'border-destructive/35',
-  };
-
-  const iconColors: Record<AlertVariant, string> = {
-    info: 'text-primary',
-    success: 'text-success',
-    warning: 'text-warning',
-    error: 'text-destructive',
-  };
+  const { id, message, description, type = 'info', duration = 4500 } = toast;
 
   useEffect(() => {
-    const timer = setTimeout(() => onDismiss(id), duration);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => onDismiss(id), duration);
+    return () => clearTimeout(t);
   }, [id, duration, onDismiss]);
 
   return (
-    <div 
-      className={`flex gap-3 items-start rounded-lg p-4 shadow-lg text-small bg-card max-w-sm w-[320px] pointer-events-auto border ${borderColors[type]} animate-slide-up`} 
+    <div
+      className={`flex gap-3 items-start rounded-lg p-4 shadow-md bg-card w-85 pointer-events-auto border ${toastBorder[type]} animate-slide-up`}
       role="alert"
     >
-      <svg className={`h-4.5 w-4.5 shrink-0 mt-0.5 ${iconColors[type]}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d={iconPaths[type]} />
+      <svg
+        className={`h-4 w-4 shrink-0 mt-0.5 ${toastIconColor[type]}`}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d={toastIconPaths[type]} />
       </svg>
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-foreground m-0">{message}</p>
-        {description && <p className="text-[11px] text-muted-foreground mt-1 m-0 leading-normal">{description}</p>}
+        <p className="text-[13px] font-medium text-foreground m-0">{message}</p>
+        {description && (
+          <p className="text-[11px] text-muted-foreground mt-0.5 m-0 leading-normal">{description}</p>
+        )}
       </div>
-      <button 
-        onClick={() => onDismiss(id)} 
-        className="shrink-0 p-0.5 opacity-40 hover:opacity-100 transition-opacity cursor-pointer" 
+      <button
+        onClick={() => onDismiss(id)}
+        className="shrink-0 p-0.5 opacity-35 hover:opacity-70 transition-opacity cursor-pointer"
         aria-label="Dismiss toast"
       >
         <svg className="h-3.5 w-3.5 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -323,12 +401,13 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss }) => {
 };
 
 export const ToastContainer: React.FC = () => {
-  const toasts = useToastStore((state) => state.toasts);
-  const dismiss = useToastStore((state) => state.dismissToast);
+  const toasts = useToastStore(state => state.toasts);
+  const dismiss = useToastStore(state => state.dismissToast);
 
   return (
-    <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-2 pointer-events-none">
+    <div className="fixed bottom-5 right-5 z-100 flex flex-col gap-2 pointer-events-none">
       {toasts.map(t => (
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         <ToastItem key={t.id} toast={t as any} onDismiss={dismiss} />
       ))}
     </div>
