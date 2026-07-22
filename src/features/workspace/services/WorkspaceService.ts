@@ -26,7 +26,29 @@ export class WorkspaceService {
         .select()
         .single();
 
-      if (error) return { success: false, error: new Error(error.message) };
+      if (error) {
+        // Handle 409 Conflict / Unique constraint (23505) gracefully by retrieving existing workspace
+        if (
+          error.code === '23505' ||
+          (error as any).status === 409 ||
+          error.message?.includes('409') ||
+          error.message?.toLowerCase().includes('duplicate') ||
+          error.message?.toLowerCase().includes('conflict')
+        ) {
+          const existing = await supabase
+            .from('workspaces')
+            .select('*')
+            .eq('profile_id', profileId)
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+
+          if (existing.data) {
+            return { success: true, data: existing.data };
+          }
+        }
+        return { success: false, error: new Error(error.message) };
+      }
       return { success: true, data };
     } catch (e: any) {
       return { success: false, error: e };

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthService } from '@/features/auth';
 import { WorkspaceService } from '@/features/workspace';
@@ -11,8 +11,38 @@ export function useAuth() {
   const [workspaceId, setWorkspaceId] = useState<string>('');
   const [profileId, setProfileId] = useState<string>('');
   const [authLoading, setAuthLoading] = useState(true);
+  const activeWorkspaceInitRef = useRef<Map<string, Promise<string>>>(new Map());
 
   const navigate = useNavigate();
+
+  const ensureWorkspace = useCallback(async (userId: string): Promise<string> => {
+    if (!userId) return '';
+    if (activeWorkspaceInitRef.current.has(userId)) {
+      return activeWorkspaceInitRef.current.get(userId)!;
+    }
+
+    const promise = (async () => {
+      try {
+        const workspacesRes = await WorkspaceService.getWorkspaces(userId);
+        if (workspacesRes.success && workspacesRes.data.length > 0) {
+          return workspacesRes.data[0]?.id || '';
+        } else if (workspacesRes.success && workspacesRes.data.length === 0) {
+          const createRes = await WorkspaceService.createWorkspace(userId, 'My Workspace');
+          if (createRes.success && createRes.data) {
+            return createRes.data.id;
+          }
+        }
+        return '';
+      } catch {
+        return '';
+      } finally {
+        activeWorkspaceInitRef.current.delete(userId);
+      }
+    })();
+
+    activeWorkspaceInitRef.current.set(userId, promise);
+    return promise;
+  }, []);
 
   const fetchSession = useCallback(async () => {
     try {
@@ -21,16 +51,8 @@ export function useAuth() {
       if (res.success && res.data) {
         setUser(res.data);
         setProfileId(res.data.id);
-        
-        let workspacesRes = await WorkspaceService.getWorkspaces(res.data.id);
-        if (workspacesRes.success && workspacesRes.data.length > 0) {
-          setWorkspaceId(workspacesRes.data[0]?.id || '');
-        } else if (workspacesRes.success && workspacesRes.data.length === 0) {
-          const createRes = await WorkspaceService.createWorkspace(res.data.id, 'My Workspace');
-          if (createRes.success && createRes.data) {
-            setWorkspaceId(createRes.data.id);
-          }
-        }
+        const wsId = await ensureWorkspace(res.data.id);
+        setWorkspaceId(wsId);
       } else {
         setUser(null);
       }
@@ -39,7 +61,7 @@ export function useAuth() {
     } finally {
       setAuthLoading(false);
     }
-  }, []);
+  }, [ensureWorkspace]);
 
   useEffect(() => {
     // Run initial session check
@@ -65,20 +87,9 @@ export function useAuth() {
         setUser(typedSession.user);
         setProfileId(typedSession.user.id);
         try {
-          const workspacesRes = await WorkspaceService.getWorkspaces(typedSession.user.id);
+          const wsId = await ensureWorkspace(typedSession.user.id);
           if (isMounted) {
-            if (workspacesRes.success && workspacesRes.data.length > 0) {
-              setWorkspaceId(workspacesRes.data[0]?.id || '');
-            } else if (workspacesRes.success && workspacesRes.data.length === 0) {
-              const createRes = await WorkspaceService.createWorkspace(typedSession.user.id, 'My Workspace');
-              if (createRes.success && createRes.data) {
-                setWorkspaceId(createRes.data.id);
-              } else {
-                setWorkspaceId('');
-              }
-            } else {
-              setWorkspaceId('');
-            }
+            setWorkspaceId(wsId);
           }
         } catch {
           if (isMounted) setWorkspaceId('');
@@ -96,7 +107,7 @@ export function useAuth() {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [fetchSession, navigate, addToast]);
+  }, [fetchSession, navigate, addToast, ensureWorkspace]);
 
   const signOut = useCallback(async () => {
     await AuthService.signOut();
