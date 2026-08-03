@@ -77,11 +77,18 @@ export const BriefSchema = z.object({
   })).default([]),
 });
 
+export const ProposalDeliverableItemSchema = z.object({
+  id: z.string().optional(),
+  title: z.string().min(1, 'Deliverable title is required'),
+  description: z.string().optional().nullable(),
+  amount: z.coerce.number().nonnegative().optional().nullable(),
+});
+
 // Proposal and sections validation
 export const ProposalSchema = z.object({
   introduction: z.string().optional().nullable(),
   scope: z.string().optional().nullable(),
-  deliverables: z.array(z.any()).default([]),
+  deliverables: z.array(ProposalDeliverableItemSchema).default([]),
   timeline: z.string().optional().nullable(),
   pricing: z.coerce.number().nonnegative('Pricing cannot be negative'),
   revision_policy: z.string().optional().nullable(),
@@ -121,8 +128,8 @@ export const InvoiceItemSchema = z.object({
 export const InvoiceSchema = z.object({
   project_id: z.string().uuid('Select a project'),
   invoice_number: z.string().min(1, 'Invoice number is required'),
-  invoice_date: z.string(),
-  due_date: z.string(),
+  invoice_date: z.string().min(1, 'Invoice date is required'),
+  due_date: z.string().min(1, 'Due date is required'),
   notes: z.string().optional().nullable(),
   gstin: z.string().optional().nullable(),
   prefix: z.string().optional().nullable(),

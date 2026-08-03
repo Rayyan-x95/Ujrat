@@ -1,8 +1,11 @@
 import { supabase } from '@/shared/lib/supabaseClient';
 import type { QueryOptions, PaginatedResult } from '@/shared/types';
+import type { Database } from '@/shared/types/database.types';
+
+type TableName = keyof Database['public']['Tables'];
 
 export interface RepositoryConfig {
-  table: string;
+  table: TableName;
   selectColumns?: string;
   allowedFilters?: string[];
   allowedSearches?: string[];
@@ -11,11 +14,18 @@ export interface RepositoryConfig {
 }
 
 /**
- * Shared query builders to eliminate duplication across repositories.
- * Uses `any` for table name to work with Supabase's typed client,
- * but maintains type safety for everything else.
+ * Sanitizes input text to prevent PostgREST query injection
+ * when constructing raw filter expressions (.or(), .ilike(), etc).
  */
+export function sanitizePostgrestSearch(input: string): string {
+  if (!input) return '';
+  // Strip PostgREST control characters: commas, parentheses, quotes, backslashes, percent signs
+  return input.replace(/[(),."%\\]/g, '').trim();
+}
 
+/**
+ * Shared query builders to eliminate duplication across repositories.
+ */
 export async function buildPaginatedQuery<T>(
   workspaceId: string,
   options: QueryOptions = {},
@@ -26,14 +36,15 @@ export async function buildPaginatedQuery<T>(
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  let query = (supabase.from(config.table as any) as any)
+  let query = (supabase.from(config.table) as any)
     .select(config.selectColumns || '*', { count: 'exact' })
     .eq('workspace_id', workspaceId)
     .is('deleted_at', null);
 
-  if (options.search && config.allowedSearches?.length) {
+  const cleanSearch = options.search ? sanitizePostgrestSearch(options.search) : '';
+  if (cleanSearch && config.allowedSearches?.length) {
     const searchClauses = config.allowedSearches
-      .map(col => `${col}.ilike.%${options.search}%`)
+      .map(col => `${col}.ilike.%${cleanSearch}%`)
       .join(',');
     query = query.or(searchClauses);
   }
@@ -67,9 +78,9 @@ export async function buildPaginatedQuery<T>(
 export async function buildGetByIdQuery<T>(
   workspaceId: string,
   id: string,
-  table: string
+  table: TableName
 ): Promise<T | null> {
-  const result = await (supabase.from(table as any) as any)
+  const result = await (supabase.from(table) as any)
     .select('*')
     .eq('id', id)
     .eq('workspace_id', workspaceId)
@@ -83,9 +94,9 @@ export async function buildGetByIdQuery<T>(
 export async function buildGetByProjectIdQuery<T>(
   workspaceId: string,
   projectId: string,
-  table: string
+  table: TableName
 ): Promise<T[]> {
-  const result = await (supabase.from(table as any) as any)
+  const result = await (supabase.from(table) as any)
     .select('*')
     .eq('project_id', projectId)
     .eq('workspace_id', workspaceId)
@@ -98,9 +109,9 @@ export async function buildGetByProjectIdQuery<T>(
 export async function buildCreateQuery<TInsert, TRow>(
   workspaceId: string,
   data: TInsert,
-  table: string
+  table: TableName
 ): Promise<TRow> {
-  const result = await (supabase.from(table as any) as any)
+  const result = await (supabase.from(table) as any)
     .insert({
       ...data,
       workspace_id: workspaceId,
@@ -116,9 +127,9 @@ export async function buildUpdateQuery<TUpdate, TRow>(
   workspaceId: string,
   id: string,
   data: TUpdate,
-  table: string
+  table: TableName
 ): Promise<TRow> {
-  const result = await (supabase.from(table as any) as any)
+  const result = await (supabase.from(table) as any)
     .update(data)
     .eq('id', id)
     .eq('workspace_id', workspaceId)
@@ -132,9 +143,9 @@ export async function buildUpdateQuery<TUpdate, TRow>(
 export async function buildSoftDeleteQuery(
   workspaceId: string,
   id: string,
-  table: string
+  table: TableName
 ): Promise<void> {
-  const result = await (supabase.from(table as any) as any)
+  const result = await (supabase.from(table) as any)
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
     .eq('workspace_id', workspaceId);

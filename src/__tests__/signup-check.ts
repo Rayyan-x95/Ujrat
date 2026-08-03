@@ -1,14 +1,11 @@
+import { describe, it, expect } from 'vitest';
 import { AuthService } from '@/features/auth';
 
-async function run() {
-  const email = `test-${Date.now()}@example.com`;
-  console.log('Signing up:', email);
-  const signupRes = await AuthService.signUp(email, 'password123', 'Test User');
-  console.log('Signup Result:', signupRes);
-  if (signupRes.success) {
-    const user = signupRes.data;
-    console.log('User signed up. Email confirmed?', user?.email_confirmed_at);
-  }
-}
+describe('Auth Signup Verification', () => {
+  it('should attempt sign up without top-level side effects', async () => {
+    const email = `test-${Date.now()}@example.com`;
+    const signupRes = await AuthService.signUp(email, 'password123', 'Test User');
+    expect(signupRes).toBeDefined();
+  });
+});
 
-run().catch(console.error);

@@ -74,7 +74,8 @@ export function calculateGST(
     };
   }
 
-  const gstAmount = Math.round((subtotal * (gstRate / 100)) * 100) / 100;
+  const totalGstPaise = Math.round(subtotal * (gstRate / 100) * 100);
+  const gstAmount = totalGstPaise / 100;
 
   if (isInterstate) {
     return {
@@ -85,13 +86,16 @@ export function calculateGST(
       total: Math.round((subtotal + gstAmount) * 100) / 100,
     };
   } else {
-    const splitGst = Math.round((gstAmount / 2) * 100) / 100;
+    const cgstPaise = Math.floor(totalGstPaise / 2);
+    const sgstPaise = totalGstPaise - cgstPaise;
+    const cgst = cgstPaise / 100;
+    const sgst = sgstPaise / 100;
     return {
       subtotal,
-      cgst: splitGst,
-      sgst: splitGst,
+      cgst,
+      sgst,
       igst: 0,
-      total: Math.round((subtotal + (splitGst * 2)) * 100) / 100,
+      total: Math.round((subtotal + gstAmount) * 100) / 100,
     };
   }
 }

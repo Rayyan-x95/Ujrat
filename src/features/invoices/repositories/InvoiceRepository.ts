@@ -1,10 +1,10 @@
 import { supabase } from '@/shared/lib/supabaseClient';
 import type { Invoice, InvoiceWithItems, InvoiceInsert, InvoiceUpdate, InvoiceItemInsert, QueryOptions, PaginatedResult } from '@/shared/types';
-import { buildPaginatedQuery, buildGetByIdQuery, buildGetByProjectIdQuery, buildUpdateQuery, buildSoftDeleteQuery } from '@/shared/lib/queryBuilder';
+import { buildPaginatedQuery, buildGetByProjectIdQuery, buildUpdateQuery, buildSoftDeleteQuery } from '@/shared/lib/queryBuilder';
 
 export class InvoiceRepository {
   private static readonly config = {
-    table: 'invoices',
+    table: 'invoices' as const,
     selectColumns: '*, projects(portal_token)',
     allowedFilters: ['status', 'project_id'],
     allowedSearches: ['invoice_number'],
@@ -20,19 +20,15 @@ export class InvoiceRepository {
   }
 
   static async getById(workspaceId: string, id: string): Promise<InvoiceWithItems | null> {
-    const invoice = await buildGetByIdQuery<Invoice>(workspaceId, id, this.config.table);
-    if (!invoice) return null;
+    const { data, error } = await (supabase.from('invoices') as any)
+      .select('*, invoice_items(*)')
+      .eq('id', id)
+      .eq('workspace_id', workspaceId)
+      .is('deleted_at', null)
+      .single();
 
-    const { data: items } = await supabase
-      .from('invoice_items')
-      .select('*')
-      .eq('invoice_id', invoice.id)
-      .eq('workspace_id', workspaceId);
-
-    return {
-      ...invoice,
-      invoice_items: items || [],
-    };
+    if (error || !data) return null;
+    return data as InvoiceWithItems;
   }
 
   static async getByProjectId(workspaceId: string, projectId: string): Promise<InvoiceWithItems[]> {
@@ -45,6 +41,27 @@ export class InvoiceRepository {
     invoiceData: InvoiceInsert,
     items: InvoiceItemInsert[]
   ): Promise<InvoiceWithItems> {
+    // Attempt database-level atomic transaction via RPC first
+    try {
+      const { data, error } = await (supabase.rpc as any)('create_invoice_transactional', {
+        p_workspace_id: workspaceId,
+        p_invoice_data: {
+          ...invoiceData,
+          outstanding_balance: invoiceData.outstanding_balance ?? invoiceData.total,
+        },
+        p_invoice_items: items,
+      });
+
+      if (!error && data?.invoice) {
+        return {
+          ...data.invoice,
+          invoice_items: data.invoice_items || [],
+        } as InvoiceWithItems;
+      }
+    } catch {
+      // Fallback if RPC function is not yet present on backend
+    }
+
     const invoiceId = (invoiceData as any).id || crypto.randomUUID();
 
     const { data: invoice, error: invErr } = await (supabase.from('invoices') as any)

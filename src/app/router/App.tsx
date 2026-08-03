@@ -18,6 +18,21 @@ const WorkspaceView = lazy(() => import('@/features/workspace/pages/WorkspaceVie
 const PortalView = lazy(() => import('@/features/portal/pages/PortalView').then(m => ({ default: m.PortalView })));
 const InvoicePrintView = lazy(() => import('@/features/invoices/components/InvoicePrintView').then(m => ({ default: m.InvoicePrintView })));
 
+// Lazy-loaded Public Pages
+const PrivacyPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.PrivacyPage })));
+const TermsPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.TermsPage })));
+const SecurityPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.SecurityPage })));
+const PricingPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.PricingPage })));
+const FeaturesPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.FeaturesPage })));
+const GSTPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.GSTPage })));
+const UPIPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.UPIPage })));
+const ContractsPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.ContractsPage })));
+const DocsPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.DocsPage })));
+const ContactPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.ContactPage })));
+const StatusPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.StatusPage })));
+const FAQPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.FAQPage })));
+const NotFoundPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.NotFoundPage })));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -79,8 +94,22 @@ function UjratApp() {
     <Suspense fallback={<RouteLoader />}>
       <RoutingRedirects />
       <Routes>
-        {/* Public Marketing Landing Page — renders immediately, no auth wait for new users */}
+        {/* Public Marketing Landing Page */}
         <Route path="/" element={renderLandingPage()} />
+
+        {/* Public Legal, Marketing & Docs Pages */}
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/security" element={<SecurityPage />} />
+        <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/features" element={<FeaturesPage />} />
+        <Route path="/gst" element={<GSTPage />} />
+        <Route path="/upi" element={<UPIPage />} />
+        <Route path="/contracts" element={<ContractsPage />} />
+        <Route path="/docs" element={<DocsPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="/status" element={<StatusPage />} />
+        <Route path="/faq" element={<FAQPage />} />
 
         {/* Public Client Portal */}
         <Route path="/portal/:portalToken" element={<PortalView />} />
@@ -102,9 +131,8 @@ function UjratApp() {
         <Route path="/settings" element={authGate(<ErrorBoundary><WorkspaceView view="settings" /></ErrorBoundary>)} />
         <Route path="/settings/:tab" element={authGate(<ErrorBoundary><WorkspaceView view="settings" /></ErrorBoundary>)} />
 
-
-        {/* Catch-all Redirect */}
-        <Route path="*" element={authLoading ? <RouteLoader /> : <Navigate to={user ? "/dashboard" : "/login"} replace />} />
+        {/* Dedicated 404 Route */}
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
       <ToastContainer />
     </Suspense>

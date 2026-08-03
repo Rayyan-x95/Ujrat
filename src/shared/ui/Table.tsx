@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useDeferredValue } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { EmptyState } from './Feedback';
 
@@ -48,6 +48,7 @@ function Table<T extends object>({
   const [sortKey, setSortKey]     = useState<string | null>(null);
   const [sortDir, setSortDir]     = useState<SortDir>(null);
   const [search, setSearch]       = useState('');
+  const deferredSearch            = useDeferredValue(search);
   const parentRef                 = useRef<HTMLDivElement>(null);
 
   const handleSort = (key: string) => {
@@ -64,12 +65,13 @@ function Table<T extends object>({
   const getValue = (row: T, key: string): unknown => (row as any)[key];
 
   const sorted = useMemo(() => {
+    const cleanQuery = deferredSearch.trim().toLowerCase();
     const filtered =
-      searchable && search.trim()
+      searchable && cleanQuery
         ? data.filter(row =>
             columns.some(col => {
               const val = getValue(row, String(col.key));
-              return typeof val === 'string' && val.toLowerCase().includes(search.toLowerCase());
+              return typeof val === 'string' && val.toLowerCase().includes(cleanQuery);
             })
           )
         : data;
@@ -87,7 +89,7 @@ function Table<T extends object>({
           return 0;
         })
       : filtered;
-  }, [data, searchable, search, columns, sortKey, sortDir]);
+  }, [data, searchable, deferredSearch, columns, sortKey, sortDir]);
 
   const rowVirtualizer = useVirtualizer({
     count:           sorted.length,

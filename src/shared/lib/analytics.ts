@@ -46,7 +46,7 @@ export const analytics = {
   /**
    * Track a custom user interaction/event
    */
-  event: (name: string, properties?: Record<string, any>) => {
+  event: (name: string, properties?: Record<string, unknown>) => {
     // 1. PostHog
     trackPostHogEvent(name, properties);
 

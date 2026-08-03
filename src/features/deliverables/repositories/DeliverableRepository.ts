@@ -3,7 +3,7 @@ import { buildPaginatedQuery, buildGetByProjectIdQuery, buildCreateQuery, buildU
 
 export class DeliverableRepository {
   private static readonly config = {
-    table: 'deliverables',
+    table: 'deliverables' as const,
     selectColumns: '*',
     allowedFilters: ['project_id'],
     allowedSearches: ['name'],

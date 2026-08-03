@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/features/auth';
 import { SEOMeta } from '@/shared/ui/SEOMeta';
 import { JSONLD, getOrganizationSchema, getWebsiteSchema, getSoftwareApplicationSchema } from '@/shared/ui/JSONLD';
@@ -323,7 +323,7 @@ export const LandingPage: React.FC = () => {
                     size="lg" 
                     className="w-full sm:w-auto font-semibold px-6 shrink-0 h-10 text-[13px] rounded-full"
                   >
-                    Join waitlist
+                    Start Free Workspace
                   </Button>
                 </form>
                 <a 
@@ -1087,9 +1087,10 @@ export const LandingPage: React.FC = () => {
           <div>
             <h4 className="font-semibold text-foreground text-small uppercase tracking-wider mb-4">Product</h4>
             <ul className="space-y-2.5">
-              <li><a href="#workflow" className="hover:text-foreground transition-colors">Workflow</a></li>
-              <li><a href="#features" className="hover:text-foreground transition-colors">Features</a></li>
-              <li><a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a></li>
+              <li><Link to="/features" className="hover:text-foreground transition-colors">Features</Link></li>
+              <li><Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link></li>
+              <li><Link to="/gst" className="hover:text-foreground transition-colors">GST Engine</Link></li>
+              <li><Link to="/upi" className="hover:text-foreground transition-colors">UPI Payouts</Link></li>
             </ul>
           </div>
 
@@ -1097,17 +1098,18 @@ export const LandingPage: React.FC = () => {
             <h4 className="font-semibold text-foreground text-small uppercase tracking-wider mb-4">Resources</h4>
             <ul className="space-y-2.5">
               <li><a href="https://github.com/ujrat" className="hover:text-foreground transition-colors inline-flex items-center gap-1">GitHub <ExternalLink className="h-3 w-3" /></a></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">Documentation</a></li>
-              <li><a href="#faq" className="hover:text-foreground transition-colors">FAQs</a></li>
+              <li><Link to="/docs" className="hover:text-foreground transition-colors">Documentation</Link></li>
+              <li><Link to="/faq" className="hover:text-foreground transition-colors">FAQs</Link></li>
+              <li><Link to="/status" className="hover:text-foreground transition-colors">Status</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="font-semibold text-foreground text-small uppercase tracking-wider mb-4">Legal</h4>
             <ul className="space-y-2.5">
-              <li><a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">Terms of Service</a></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">Security Rules</a></li>
+              <li><Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link></li>
+              <li><Link to="/security" className="hover:text-foreground transition-colors">Security Rules</Link></li>
             </ul>
           </div>
         </div>

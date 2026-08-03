@@ -1915,6 +1915,14 @@ CREATE INDEX IF NOT EXISTS idx_workspaces_profile_deleted
 ON public.workspaces(profile_id) 
 WHERE deleted_at IS NULL;
 
+CREATE INDEX IF NOT EXISTS idx_payments_workspace_deleted
+ON public.payments(workspace_id)
+WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_deliverables_workspace_deleted
+ON public.deliverables(workspace_id)
+WHERE deleted_at IS NULL;
+
 -- 7. Get Consolidated Dashboard Data RPC
 CREATE OR REPLACE FUNCTION public.get_dashboard_data(p_workspace_id UUID, p_profile_id UUID)
 RETURNS JSON
