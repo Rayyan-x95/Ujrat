@@ -4,46 +4,12 @@ import { Badge, ProjectStatusBadge } from '@/shared/ui/Badge';
 import { Card } from '@/shared/ui/Card';
 import { Input, Textarea } from '@/shared/ui/Input';
 import { AlertBanner, ClientPortalSkeleton } from '@/shared/ui/Feedback';
-import { QRCodeSVG } from 'qrcode.react';
 import { useClientPortal } from '@/features/portal';
 import type { Invoice } from '@/shared/types';
 import { useToastStore } from '@/shared/hooks/useToastStore';
+import { UPIPaymentCard } from '@/features/payments/components/UPIPaymentCard';
 
-const QRPreviewContainer: React.FC<{
-  value: string;
-  label?: string;
-  sublabel?: string;
-}> = ({ value, label, sublabel }) => {
-  const downloadQR = () => {
-    const svg = document.getElementById('upi-qr-svg');
-    if (!svg) return;
-    const svgXml = new XMLSerializer().serializeToString(svg);
-    const svgBlob = new Blob([svgXml], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
-    const trigger = document.createElement('a');
-    trigger.href = url;
-    trigger.download = 'upi-qr.svg';
-    document.body.appendChild(trigger);
-    trigger.click();
-    document.body.removeChild(trigger);
-  };
 
-  return (
-    <div className="flex flex-col items-center gap-3 bg-surface rounded-lg p-6">
-      <div className="h-40 w-40 rounded-md overflow-hidden bg-white flex items-center justify-center ring-1 ring-inset ring-border-subtle p-2">
-        <QRCodeSVG id="upi-qr-svg" value={value} size={144} className="h-full w-full object-contain" />
-      </div>
-      {label && <p className="text-body font-medium text-foreground m-0">{label}</p>}
-      {sublabel && <p className="text-small text-muted-foreground m-0">{sublabel}</p>}
-      <button
-        onClick={downloadQR}
-        className="text-small font-medium text-primary hover:underline"
-      >
-        Download QR Code
-      </button>
-    </div>
-  );
-};
 import { 
   Lock, 
   CheckCircle, 
@@ -68,7 +34,6 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
     portalData,
     isLoading,
     signContract: executeSignContract,
-    submitPayment: executeSubmitPayment,
     submitFeedback: executeSubmitFeedback,
     approveProposal: executeApproveProposal,
     generateVerificationCode,
@@ -83,8 +48,6 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
   const [signatureName, setSignatureName] = useState('');
   const [signing, setSigning] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
-  const [utr, setUtr] = useState('');
-  const [submittingPayment, setSubmittingPayment] = useState(false);
   const [feedback, setFeedback] = useState('');
 
   // OTP Verification States
@@ -179,25 +142,7 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
     }
   };
 
-  const handleSubmitPaymentReceipt = async () => {
-    if (!selectedInvoice || !utr.trim()) return;
-    try {
-      setSubmittingPayment(true);
-      await executeSubmitPayment({
-        invoiceId: selectedInvoice.id,
-        amount: selectedInvoice.total,
-        method: 'upi',
-        reference: utr,
-      });
-      addToast('success', 'Receipt Submitted', 'Freelancer will verify your transaction reference.');
-      setUtr('');
-      setSelectedInvoice(null);
-    } catch (e: any) {
-      addToast('error', 'Error submitting receipt', e.message);
-    } finally {
-      setSubmittingPayment(false);
-    }
-  };
+
 
   const handleDownloadDeliverable = async (name: string, fileUrl?: string | null) => {
     if (fileUrl) {
@@ -241,9 +186,6 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
     );
   }
 
-  const upiUrl = selectedInvoice && settings?.upi_id
-    ? `upi://pay?pa=${settings.upi_id}&pn=${encodeURIComponent(settings.company_name || 'Freelancer')}&am=${selectedInvoice.total}&cu=INR&tr=${selectedInvoice.invoice_number}`
-    : '';
 
   return (
     <div className="space-y-6.5 max-w-3xl mx-auto animate-slide-up">
@@ -603,37 +545,19 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
                 </div>
 
                 {selectedInvoice.status !== 'paid' && settings?.upi_id ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <QRPreviewContainer
-                      value={upiUrl}
-                      label="Dynamic UPI QR Code"
-                      sublabel="Scan with GPay, PhonePe, BHIM, or Paytm app"
-                    />
-                    <div className="space-y-4 flex flex-col justify-between">
-                      <div className="bg-card border border-border p-3.5 rounded-lg select-all">
-                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider m-0">UPI ID / VPA Address</p>
-                        <p className="text-xs font-bold text-foreground mt-0.5 m-0 font-mono">{settings.upi_id}</p>
-                      </div>
-                      
-                      <div className="space-y-3">
-                        <Input
-                          label="Enter Transaction UTR Reference Number"
-                          placeholder="12-digit UPI reference number"
-                          value={utr}
-                          onChange={e => setUtr(e.target.value.replace(/\D/g, '').slice(0, 12))}
-                        />
-                        <Button 
-                          variant="primary" 
-                          className="w-full" 
-                          onClick={handleSubmitPaymentReceipt} 
-                          loading={submittingPayment} 
-                          disabled={utr.length < 6}
-                        >
-                          Verify Receipt
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+                  <UPIPaymentCard
+                    workspaceId={project?.workspace_id || ''}
+                    invoiceId={selectedInvoice.id}
+                    invoiceNumber={selectedInvoice.invoice_number}
+                    amount={selectedInvoice.total}
+                    payeeVpa={settings.upi_id}
+                    payeeName={settings?.company_name || 'Freelancer'}
+                    onPaymentSubmitted={() => {
+                      addToast('success', 'Payment Submitted', 'Transaction UTR submitted for verification.');
+                      setSelectedInvoice(null);
+                    }}
+                    addToast={addToast}
+                  />
                 ) : selectedInvoice.status === 'paid' ? (
                   <AlertBanner variant="success" title="Milestone Settled" message="This invoice reference has been verified and marked as fully paid." />
                 ) : (

@@ -41,15 +41,43 @@ export class InvoiceRepository {
     invoiceData: InvoiceInsert,
     items: InvoiceItemInsert[]
   ): Promise<InvoiceWithItems> {
+    const invoiceId = (invoiceData as any).id || crypto.randomUUID();
+
+    const itemsToInsert = items.map(item => {
+      const discount = (item as any).discount_amount ?? 0;
+      const preTaxTaxable = (item as any).taxable_amount ?? Math.max(0, (item.rate * item.quantity) - discount);
+      return {
+        workspace_id: workspaceId,
+        invoice_id: invoiceId,
+        description: item.description,
+        quantity: item.quantity,
+        rate: item.rate,
+        gst_rate: item.gst_rate,
+        hsn_code: item.hsn_code ?? null,
+        sac_code: (item as any).sac_code ?? item.hsn_code ?? null,
+        unit: (item as any).unit ?? 'NOS',
+        discount_amount: discount,
+        taxable_amount: preTaxTaxable,
+        cess_rate: (item as any).cess_rate ?? 0,
+        cess_amount: (item as any).cess_amount ?? 0,
+        cgst_amount: (item as any).cgst_amount ?? (item as any).cgst ?? 0,
+        sgst_amount: (item as any).sgst_amount ?? (item as any).sgst ?? 0,
+        igst_amount: (item as any).igst_amount ?? (item as any).igst ?? 0,
+        line_total: (item as any).line_total ?? item.amount,
+        amount: item.amount,
+      };
+    });
+
     // Attempt database-level atomic transaction via RPC first
     try {
       const { data, error } = await (supabase.rpc as any)('create_invoice_transactional', {
         p_workspace_id: workspaceId,
         p_invoice_data: {
           ...invoiceData,
+          id: invoiceId,
           outstanding_balance: invoiceData.outstanding_balance ?? invoiceData.total,
         },
-        p_invoice_items: items,
+        p_invoice_items: itemsToInsert,
       });
 
       if (!error && data?.invoice) {
@@ -61,8 +89,6 @@ export class InvoiceRepository {
     } catch {
       // Fallback if RPC function is not yet present on backend
     }
-
-    const invoiceId = (invoiceData as any).id || crypto.randomUUID();
 
     const { data: invoice, error: invErr } = await (supabase.from('invoices') as any)
       .insert({
@@ -77,17 +103,6 @@ export class InvoiceRepository {
     if (invErr || !invoice) {
       throw new Error(invErr?.message || 'Failed to create invoice header');
     }
-
-    const itemsToInsert = items.map(item => ({
-      workspace_id: workspaceId,
-      invoice_id: invoiceId,
-      description: item.description,
-      quantity: item.quantity,
-      rate: item.rate,
-      gst_rate: item.gst_rate,
-      hsn_code: item.hsn_code ?? null,
-      amount: item.amount,
-    }));
 
     let insertedItems: any[] = [];
     if (itemsToInsert.length > 0) {

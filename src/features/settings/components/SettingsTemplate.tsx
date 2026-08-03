@@ -51,6 +51,7 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
   const [bankIfsc, setBankIfsc] = useState('');
   const [upiVpa, setUpiVpa] = useState('');
   const [address, setAddress] = useState('');
+  const [lutNumber, setLutNumber] = useState('');
 
   useEffect(() => {
     if (profile) {
@@ -69,7 +70,9 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
       setUpiVpa(settings.upi_id || '');
       setAddress(settings.address || '');
       setProfilePhone(settings.phone || '');
-      setGstType(settings.is_gst_registered ? 'regular' : 'unregistered');
+      setLutNumber(settings.lut_number || '');
+      const scheme = settings.tax_scheme || (settings.is_gst_registered ? 'regular' : 'non_gst');
+      setGstType(scheme === 'non_gst' ? 'unregistered' : scheme);
     }
   }, [settings]);
 
@@ -123,11 +126,14 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
     try {
       setSaving(true);
       
+      const taxScheme = gstType === 'composition' ? 'composition' : gstType === 'unregistered' ? 'non_gst' : 'regular';
       const validated = WorkspaceSettingsSchema.parse({
         gstin: gstin || null,
         address: address || null,
         phone: profilePhone || null,
         is_gst_registered: gstType !== 'unregistered',
+        tax_scheme: taxScheme,
+        lut_number: lutNumber || null,
       });
       
       await updateSettings({
@@ -135,6 +141,8 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
         address: validated.address ?? null,
         phone: validated.phone ?? null,
         is_gst_registered: validated.is_gst_registered ?? false,
+        tax_scheme: validated.tax_scheme,
+        lut_number: validated.lut_number ?? null,
       });
       addToast('success', 'Branding & GST Info Saved');
     } catch (e: any) {
@@ -233,15 +241,16 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
         )}
 
         {activeTab === 'branding' && (
-          <Section title="Branding & GST Payouts" description="Registered tax identification parameters embedded on PDF downloads.">
+          <Section title="Branding & GST Payouts" description="Registered tax identification, LUT declarations, and TDS parameters embedded on PDF invoices.">
             <div className="space-y-5 pt-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input label="GSTIN (Tax Identification Number)" placeholder="22AAAAA0000A1Z5" value={gstin} onChange={e => setGstin(e.target.value)} />
-                <Select label="GST Registration Type" options={[
-                  { value: 'regular', label: 'Regular Scheme' },
-                  { value: 'composition', label: 'Composition Scheme' },
-                  { value: 'unregistered', label: 'Unregistered Freelancer' },
+                <Input label="GSTIN (Tax Identification Number)" placeholder="29AAAAA1111A1Z1" value={gstin} onChange={e => setGstin(e.target.value)} />
+                <Select label="GST Tax Scheme" options={[
+                  { value: 'regular', label: 'Regular Scheme (18% / 12% / 5%)' },
+                  { value: 'composition', label: 'Composition Scheme (Section 10)' },
+                  { value: 'unregistered', label: 'Non-GST Registered Freelancer' },
                 ]} value={gstType} onChange={e => setGstType(e.target.value)} />
+                <Input label="LUT Number (For Zero-Rated Exports)" placeholder="e.g. AD290324000123L" value={lutNumber} onChange={e => setLutNumber(e.target.value)} hint="Required for zero-rated foreign export invoices" />
                 <Input label="Office Phone Number" placeholder="e.g. 9876543210" value={profilePhone} onChange={e => setProfilePhone(e.target.value)} />
               </div>
               <Textarea label="Registered Office Address" placeholder="Street name, landmark, City, State, PIN code" value={address} onChange={e => setAddress(e.target.value)} />

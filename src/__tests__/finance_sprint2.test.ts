@@ -40,11 +40,11 @@ describe('Sprint 2: Financial System Hardening Test Suite', () => {
   });
 
   describe('TaxEngine GST Determination', () => {
-    it('should determine zero-rated if freelancer is not GST registered', () => {
+    it('should determine suppressesGst if freelancer is not GST registered', () => {
       const freelancer = { is_gst_registered: false, state: 'Karnataka', gstin: '' };
       const client = { state: 'Karnataka', gstin: '29AAAAA1111A1Z1' };
       const result = determineGSTType(freelancer, client);
-      expect(result.isZeroRated).toBe(true);
+      expect(result.suppressesGst).toBe(true);
       expect(result.isInterstate).toBe(false);
     });
 
@@ -100,11 +100,11 @@ describe('Sprint 2: Financial System Hardening Test Suite', () => {
       expect(tax.total).toBe(11800);
     });
 
-    it('should compute zero GST if zero-rated', () => {
+    it('should compute zero GST if zero-rated or suppressed', () => {
       const freelancer = { is_gst_registered: false, state: 'Karnataka', gstin: '' };
       const client = { state: 'Karnataka', gstin: '29BBBBB2222B1Z2' };
       const type = determineGSTType(freelancer, client);
-      const tax = calculateGST(10000, 18, type.isInterstate, type.isZeroRated);
+      const tax = calculateGST(10000, 18, type.isInterstate, type.isZeroRated, type.suppressesGst);
 
       expect(tax.subtotal).toBe(10000);
       expect(tax.cgst).toBe(0);

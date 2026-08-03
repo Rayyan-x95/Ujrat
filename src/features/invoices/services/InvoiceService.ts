@@ -100,6 +100,10 @@ export class InvoiceService {
         return {
           ...item,
           hsn_code: item.hsn_code ?? null,
+          sac_code: item.sac_code ?? item.hsn_code ?? null,
+          unit: item.unit ?? 'NOS',
+          cess_rate: item.cess_rate ?? 0,
+          discount_amount: item.discount_amount ?? 0,
           cgst,
           sgst,
           igst,

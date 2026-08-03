@@ -1,4 +1,11 @@
 import { z } from 'zod';
+import { SUPPORTED_CURRENCIES, TDS_SECTIONS } from '@/features/invoices/tax/TaxConstants';
+
+const currencyKeys = Object.keys(SUPPORTED_CURRENCIES) as [string, ...string[]];
+const tdsSectionKeys = Object.keys(TDS_SECTIONS) as [string, ...string[]];
+
+export const CurrencyEnum = z.enum(currencyKeys);
+export const TDSSectionEnum = z.enum(tdsSectionKeys);
 
 // Profile & Workspace validations
 export const ProfileSchema = z.object({
@@ -19,6 +26,11 @@ export const WorkspaceSettingsSchema = z.object({
   logo_url: z.string().url().optional().nullable().or(z.string().length(0)),
   state: z.string().optional().nullable(),
   is_gst_registered: z.boolean().default(false),
+  tax_scheme: z.enum(['regular', 'composition', 'non_gst']).default('regular'),
+  lut_number: z.string().optional().nullable(),
+  lut_expiry_date: z.string().optional().nullable(),
+  default_tds_section: TDSSectionEnum.optional().nullable(),
+  preferred_currency: CurrencyEnum.default('INR'),
 });
 
 // Client schema
@@ -123,9 +135,13 @@ export const InvoiceItemSchema = z.object({
   rate: z.coerce.number().nonnegative('Rate cannot be negative'),
   gst_rate: z.coerce.number().nonnegative('GST rate cannot be negative'),
   hsn_code: z.string().optional().nullable(),
+  sac_code: z.string().optional().nullable(),
+  unit: z.string().default('NOS'),
+  cess_rate: z.coerce.number().nonnegative().default(0),
+  discount_amount: z.coerce.number().nonnegative().default(0),
 });
 
-export const InvoiceSchema = z.object({
+export const InvoiceBaseSchema = z.object({
   project_id: z.string().uuid('Select a project'),
   invoice_number: z.string().min(1, 'Invoice number is required'),
   invoice_date: z.string().min(1, 'Invoice date is required'),
@@ -138,6 +154,26 @@ export const InvoiceSchema = z.object({
   client_gstin: z.string().optional().nullable(),
   freelancer_state: z.string().optional().nullable(),
   client_state: z.string().optional().nullable(),
+  tds_section: TDSSectionEnum.optional().nullable(),
+  tds_rate: z.coerce.number().nonnegative().default(0),
+  currency: CurrencyEnum.default('INR'),
+  exchange_rate: z.coerce.number().positive().default(1.0),
+  supply_type: z.string().optional().nullable(),
+  tax_scheme: z.string().optional().nullable(),
+  lut_number: z.string().optional().nullable(),
+  discount_type: z.enum(['percentage', 'fixed']).default('fixed'),
+  discount_scope: z.enum(['before_tax', 'after_tax']).default('before_tax'),
+  discount_amount: z.coerce.number().nonnegative().default(0),
+});
+
+export const InvoiceSchema = InvoiceBaseSchema.superRefine((data, ctx) => {
+  if (data.discount_type === 'percentage' && data.discount_amount > 100) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Percentage discount cannot exceed 100%',
+      path: ['discount_amount'],
+    });
+  }
 });
 
 // Payment/UTR verification schema

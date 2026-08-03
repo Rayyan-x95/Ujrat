@@ -2,10 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { PortalData } from '@/features/portal/services/PortalService';
 import { PortalService } from '@/features/portal/services/PortalService';
-import { formatINR, numberToIndianWords } from '@/shared/utils/currency';
 import { Spinner } from '@/shared/ui/Feedback';
 import { Button } from '@/shared/ui/Button';
 import { QRCodeSVG } from 'qrcode.react';
+import {
+  calculateInvoiceTax,
+  generateStatutoryDeclarations,
+  formatAmountInWords,
+  formatCurrencyAmount,
+  TDS_SECTIONS,
+} from '@/features/invoices/utils/TaxEngine';
 
 export const InvoicePrintView: React.FC = () => {
   const { portalToken, invoiceId } = useParams<{ portalToken: string; invoiceId: string }>();
@@ -59,23 +65,60 @@ export const InvoicePrintView: React.FC = () => {
   const settings = data.settings;
   const client = data.client;
 
+  // Run pure TaxEngine calculation for complete fidelity
+  const taxResult = calculateInvoiceTax({
+    freelancer: {
+      is_gst_registered: settings?.is_gst_registered ?? false,
+      gstin: settings?.gstin || invoice.freelancer_gstin,
+      state: settings?.state || invoice.freelancer_state,
+      tax_scheme: (settings?.tax_scheme as any) || invoice.tax_scheme || 'regular',
+      lut_number: settings?.lut_number || invoice.lut_number,
+    },
+    client: {
+      gstin: client?.gstin || invoice.client_gstin,
+      state: client?.state || invoice.client_state,
+    },
+    items: (invoice.invoice_items || []).map((item: any) => ({
+      description: item.description,
+      quantity: Number(item.quantity || 1),
+      rate: Number(item.rate || 0),
+      gst_rate: Number(item.gst_rate || 0),
+      cess_rate: Number(item.cess_rate || 0),
+      hsn_code: item.hsn_code,
+      sac_code: item.sac_code,
+      unit: item.unit || 'NOS',
+      discount_amount: Number(item.discount_amount || 0),
+    })),
+    invoiceDiscount: {
+      type: (invoice.discount_type as any) || 'fixed',
+      value: Number(invoice.discount_amount || 0),
+      scope: (invoice.discount_scope as any) || 'before_tax',
+    },
+    tds: {
+      section: invoice.tds_section || 'NONE',
+      rate: Number(invoice.tds_rate || 0),
+    },
+    isReverseCharge: Boolean(invoice.is_reverse_charge),
+    currency: (invoice.currency as any) || 'INR',
+    exchangeRate: Number(invoice.exchange_rate || 1.0),
+    lutNumber: invoice.lut_number || settings?.lut_number,
+  });
+
+  const currency = taxResult.currency;
   const upiId = settings?.upi_id || '';
   const merchantName = settings?.company_name || 'Freelancer';
-  const amount = Number(invoice.total);
-  const note = `Invoice ${invoice.invoice_number}`;
+  const upiAmount = Number(taxResult.net_receivable || taxResult.grand_total);
   const upiParams = new URLSearchParams({
     pa: upiId,
     pn: merchantName,
-    am: amount.toFixed(2),
+    am: upiAmount.toFixed(2),
     cu: 'INR',
     tr: invoice.id,
-    tn: note,
+    tn: `Invoice ${invoice.invoice_number}`,
   }).toString();
-
   const upiUrl = `upi://pay?${upiParams}`;
 
-  const roundedTotal = Math.round(invoice.total);
-  const roundingDiff = roundedTotal - invoice.total;
+  const declarations = generateStatutoryDeclarations(taxResult);
 
   const handlePrint = () => {
     window.print();
@@ -105,11 +148,12 @@ export const InvoicePrintView: React.FC = () => {
             )}
             <p className="text-neutral-500 max-w-xs whitespace-pre-wrap">{settings?.address || ''}</p>
             {settings?.phone && <p className="text-neutral-500 mt-0.5">Phone: {settings.phone}</p>}
-            {settings?.gstin && (
+            {(settings?.gstin || invoice.freelancer_gstin) && (
               <p className="text-neutral-700 font-semibold mt-1">
-                GSTIN: <span className="font-mono">{settings.gstin}</span>
+                GSTIN: <span className="font-mono">{settings?.gstin || invoice.freelancer_gstin}</span>
               </p>
             )}
+            {settings?.state && <p className="text-neutral-500">State: {settings.state}</p>}
           </div>
           <div className="text-right">
             <h1 className="text-xl font-bold uppercase tracking-wide text-neutral-900 mb-2">TAX INVOICE</h1>
@@ -123,20 +167,20 @@ export const InvoicePrintView: React.FC = () => {
               <span className="font-medium text-neutral-500">Due Date:</span>
               <span className="text-neutral-900">{new Date(invoice.due_date).toLocaleDateString('en-IN')}</span>
 
-              {invoice.year && (
+              {taxResult.place_of_supply && (
                 <>
-                  <span className="font-medium text-neutral-500">Financial Year:</span>
-                  <span className="text-neutral-900 font-mono">FY{invoice.year}</span>
+                  <span className="font-medium text-neutral-500">Place of Supply:</span>
+                  <span className="text-neutral-900 uppercase font-semibold">{taxResult.place_of_supply.replace('_', ' ')}</span>
                 </>
               )}
-              
+
               <span className="font-medium text-neutral-500">Status:</span>
               <span className="uppercase font-bold text-primary">{invoice.status}</span>
             </div>
           </div>
         </div>
 
-        {/* Bill To & Details */}
+        {/* Bill To & Project Reference */}
         <div className="grid grid-cols-2 gap-8 mb-8 border-b border-neutral-100 pb-6">
           <div>
             <h2 className="text-neutral-400 font-bold uppercase text-[10px] tracking-wider mb-2">BILL TO</h2>
@@ -144,16 +188,17 @@ export const InvoicePrintView: React.FC = () => {
             {client?.company && <div className="text-neutral-700">{client.company}</div>}
             <p className="text-neutral-500 mt-1 max-w-xs whitespace-pre-wrap">{client?.address || ''}</p>
             {client?.phone && <div className="text-neutral-500 mt-0.5">Phone: {client.phone}</div>}
-            {client?.gstin && (
+            {(client?.gstin || invoice.client_gstin) && (
               <div className="text-neutral-700 font-semibold mt-1">
-                GSTIN: <span className="font-mono">{client.gstin}</span>
+                GSTIN: <span className="font-mono">{client?.gstin || invoice.client_gstin}</span>
               </div>
             )}
+            {client?.state && <div className="text-neutral-500">State: {client.state}</div>}
           </div>
           <div className="text-right">
             <h2 className="text-neutral-400 font-bold uppercase text-[10px] tracking-wider mb-2">PROJECT REFERENCE</h2>
             <div className="text-neutral-900 font-semibold">{data.project.name}</div>
-            <div className="text-neutral-500 mt-1">Budget: {formatINR(data.project.budget)}</div>
+            <div className="text-neutral-500 mt-1">Currency: {currency}</div>
           </div>
         </div>
 
@@ -166,24 +211,26 @@ export const InvoicePrintView: React.FC = () => {
               <th className="py-2 text-right">Qty</th>
               <th className="py-2 text-right">Rate</th>
               <th className="py-2 text-right">GST %</th>
+              <th className="py-2 pr-1 text-right">Taxable</th>
               <th className="py-2 pr-1 text-right">Amount</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100">
-            {invoice.invoice_items?.map((item: any) => (
-              <tr key={item.id} className="text-neutral-900">
+            {taxResult.line_items.map((item, idx) => (
+              <tr key={idx} className="text-neutral-900">
                 <td className="py-3 pl-1 font-medium">{item.description}</td>
-                <td className="py-3 text-center font-mono">{item.hsn_code || '9983'}</td>
-                <td className="py-3 text-right">{Number(item.quantity).toFixed(1)}</td>
-                <td className="py-3 text-right">{formatINR(item.rate)}</td>
+                <td className="py-3 text-center font-mono">{item.sac_code || item.hsn_code || '9983'}</td>
+                <td className="py-3 text-right">{item.quantity} {item.unit}</td>
+                <td className="py-3 text-right">{formatCurrencyAmount(item.rate, currency)}</td>
                 <td className="py-3 text-right">{item.gst_rate}%</td>
-                <td className="py-3 pr-1 text-right font-semibold">{formatINR(item.amount)}</td>
+                <td className="py-3 pr-1 text-right">{formatCurrencyAmount(item.taxable_amount, currency)}</td>
+                <td className="py-3 pr-1 text-right font-semibold">{formatCurrencyAmount(item.line_total, currency)}</td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        {/* Financial Breakdown & UPI Instructions */}
+        {/* Financial Breakdown & Banking Details */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
           {/* UPI and Banking Details */}
           <div className="border border-neutral-200 rounded-xl p-4 bg-neutral-50/50 flex gap-4 print:border-neutral-200">
@@ -220,63 +267,104 @@ export const InvoicePrintView: React.FC = () => {
           <div className="text-right space-y-1.5 text-neutral-600">
             <div className="flex justify-between">
               <span className="text-neutral-500">Subtotal:</span>
-              <span className="font-semibold text-neutral-900">{formatINR(invoice.subtotal)}</span>
+              <span className="font-semibold text-neutral-900">{formatCurrencyAmount(taxResult.subtotal, currency)}</span>
             </div>
 
-            {Number(invoice.cgst) > 0 && (
-              <div className="flex justify-between text-neutral-500">
-                <span>CGST:</span>
-                <span className="font-semibold text-neutral-900">{formatINR(invoice.cgst)}</span>
-              </div>
-            )}
-            {Number(invoice.sgst) > 0 && (
-              <div className="flex justify-between text-neutral-500">
-                <span>SGST:</span>
-                <span className="font-semibold text-neutral-900">{formatINR(invoice.sgst)}</span>
-              </div>
-            )}
-            {Number(invoice.igst) > 0 && (
-              <div className="flex justify-between text-neutral-500">
-                <span>IGST:</span>
-                <span className="font-semibold text-neutral-900">{formatINR(invoice.igst)}</span>
+            {taxResult.discount_amount > 0 && (
+              <div className="flex justify-between text-emerald-600">
+                <span>Discount ({taxResult.discount_scope === 'before_tax' ? 'Pre-Tax' : 'Post-Tax'}):</span>
+                <span>-{formatCurrencyAmount(taxResult.discount_amount, currency)}</span>
               </div>
             )}
 
-            {roundingDiff !== 0 && (
+            <div className="flex justify-between text-neutral-700 font-medium">
+              <span>Taxable Value:</span>
+              <span>{formatCurrencyAmount(taxResult.taxable_amount, currency)}</span>
+            </div>
+
+            {taxResult.cgst > 0 && (
+              <div className="flex justify-between text-neutral-500">
+                <span>CGST:</span>
+                <span className="font-semibold text-neutral-900">{formatCurrencyAmount(taxResult.cgst, currency)}</span>
+              </div>
+            )}
+            {taxResult.sgst > 0 && (
+              <div className="flex justify-between text-neutral-500">
+                <span>SGST:</span>
+                <span className="font-semibold text-neutral-900">{formatCurrencyAmount(taxResult.sgst, currency)}</span>
+              </div>
+            )}
+            {taxResult.igst > 0 && (
+              <div className="flex justify-between text-neutral-500">
+                <span>IGST:</span>
+                <span className="font-semibold text-neutral-900">{formatCurrencyAmount(taxResult.igst, currency)}</span>
+              </div>
+            )}
+            {taxResult.cess > 0 && (
+              <div className="flex justify-between text-neutral-500">
+                <span>CESS:</span>
+                <span className="font-semibold text-neutral-900">{formatCurrencyAmount(taxResult.cess, currency)}</span>
+              </div>
+            )}
+
+            {taxResult.round_off !== 0 && (
               <div className="flex justify-between text-neutral-500 text-[11px]">
-                <span>Rounding:</span>
-                <span className="font-mono">{roundingDiff > 0 ? '+' : ''}{roundingDiff.toFixed(2)}</span>
+                <span>Round Off:</span>
+                <span className="font-mono">{taxResult.round_off > 0 ? '+' : ''}{taxResult.round_off.toFixed(2)}</span>
               </div>
             )}
 
             <div className="flex justify-between border-t border-neutral-200 pt-2 font-bold text-neutral-900 text-sm">
               <span>Grand Total:</span>
-              <span>{formatINR(roundedTotal)}</span>
+              <span>{formatCurrencyAmount(taxResult.grand_total, currency)}</span>
             </div>
+
+            {taxResult.tds_amount > 0 && (
+              <div className="flex justify-between text-amber-700 text-[11px] pt-1">
+                <span>TDS Withheld ({TDS_SECTIONS[taxResult.tds_section || '']?.name || taxResult.tds_section} @ {taxResult.tds_rate}%):</span>
+                <span className="font-mono">-{formatCurrencyAmount(taxResult.tds_amount, currency)}</span>
+              </div>
+            )}
+
+            {taxResult.tds_amount > 0 && (
+              <div className="flex justify-between border-t border-neutral-200 pt-1.5 font-extrabold text-emerald-700 text-sm">
+                <span>Net Receivable:</span>
+                <span>{formatCurrencyAmount(taxResult.net_receivable, currency)}</span>
+              </div>
+            )}
 
             <div className="text-[11px] text-neutral-500 mt-2 italic capitalize">
-              Amount in words: {numberToIndianWords(roundedTotal)}
+              Amount in words: {formatAmountInWords(taxResult.net_receivable || taxResult.grand_total, currency)}
             </div>
 
-            {invoice.outstanding_balance !== undefined && (
-              <div className="flex justify-between border-t border-neutral-100 pt-2 font-bold text-primary text-xs">
-                <span>Outstanding Balance:</span>
-                <span>{formatINR(invoice.outstanding_balance)}</span>
+            {currency !== 'INR' && (
+              <div className="text-[10px] text-neutral-400 mt-1 font-mono">
+                Exchange Rate: 1 {currency} = {taxResult.exchange_rate} INR (INR Total: ₹{taxResult.inr_grand_total.toLocaleString('en-IN')})
               </div>
             )}
           </div>
         </div>
 
+        {/* Statutory Declarations Section */}
+        {declarations.length > 0 && (
+          <div className="border border-neutral-200 rounded-lg p-3 bg-neutral-50 text-[10px] text-neutral-700 mb-6 space-y-1">
+            <span className="font-bold text-neutral-900 uppercase block tracking-wider mb-1">STATUTORY DECLARATIONS:</span>
+            {declarations.map((decl, i) => (
+              <p key={i} className="font-mono">• {decl}</p>
+            ))}
+          </div>
+        )}
+
         {/* Footer Notes & Terms */}
-        <div className="border-t border-neutral-200 pt-6 mt-12 text-[10px] text-neutral-500 space-y-2">
+        <div className="border-t border-neutral-200 pt-6 mt-6 text-[10px] text-neutral-500 space-y-2">
           {invoice.notes && (
             <div>
               <span className="font-bold text-neutral-700 uppercase tracking-wider block mb-1">Notes / Terms:</span>
               <p className="whitespace-pre-line">{invoice.notes}</p>
             </div>
           )}
-          <div className="text-center pt-6 text-neutral-400">
-            Thank you for your business. This is a computer-generated document. No signature is required.
+          <div className="text-center pt-4 text-neutral-400">
+            Thank you for your business. This is a computer-generated tax invoice.
           </div>
         </div>
       </div>

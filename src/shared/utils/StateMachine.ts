@@ -149,6 +149,52 @@ export class PaymentStateMachine {
   }
 }
 
+export type PaymentRequestLifecycleStatus =
+  | 'pending'
+  | 'viewed'
+  | 'initiated'
+  | 'awaiting_verification'
+  | 'verified'
+  | 'paid'
+  | 'cancelled'
+  | 'expired';
+
+export class PaymentRequestStateMachine {
+  private static allowed: Record<PaymentRequestLifecycleStatus, PaymentRequestLifecycleStatus[]> = {
+    'pending': ['viewed', 'initiated', 'cancelled', 'expired'],
+    'viewed': ['initiated', 'awaiting_verification', 'cancelled', 'expired'],
+    'initiated': ['awaiting_verification', 'cancelled', 'expired'],
+    'awaiting_verification': ['verified', 'paid', 'cancelled'],
+    'verified': ['paid'],
+    'paid': [],
+    'cancelled': [],
+    'expired': [],
+  };
+
+  static validate(current: PaymentRequestLifecycleStatus, next: PaymentRequestLifecycleStatus): boolean {
+    if (current === next) return true;
+    const targets = this.allowed[current] || [];
+    return targets.includes(next);
+  }
+
+  static transition(
+    current: PaymentRequestLifecycleStatus,
+    next: PaymentRequestLifecycleStatus,
+    details: { requestId: string }
+  ): TransitionDescriptor<PaymentRequestLifecycleStatus> {
+    if (!this.validate(current, next)) {
+      throw new Error(`Invalid payment request transition from '${current}' to '${next}'`);
+    }
+    return {
+      next,
+      activityLog: {
+        action: 'Payment Request Lifecycle Updated',
+        details: { requestId: details.requestId, from: current, to: next },
+      },
+    };
+  }
+}
+
 export class ContractStateMachine {
   private static allowed: Record<ContractStatus, ContractStatus[]> = {
     'draft': ['sent', 'void'],

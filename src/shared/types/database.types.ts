@@ -32,6 +32,11 @@ export type WorkspaceSettingsRow = {
   updated_at: string;
   state: string | null;
   is_gst_registered: boolean;
+  tax_scheme?: 'regular' | 'composition' | 'non_gst';
+  lut_number?: string | null;
+  lut_expiry_date?: string | null;
+  default_tds_section?: string | null;
+  preferred_currency?: string;
 };
 
 export type ClientsRow = {
@@ -158,10 +163,28 @@ export type InvoicesRow = {
   notes: string | null;
   gstin: string | null;
   subtotal: number;
+  taxable_amount?: number;
+  discount_amount?: number;
+  discount_type?: 'percentage' | 'fixed';
+  discount_scope?: 'before_tax' | 'after_tax';
   cgst: number;
   sgst: number;
   igst: number;
+  cess_amount?: number;
   total: number;
+  tds_section?: string | null;
+  tds_rate?: number;
+  tds_amount?: number;
+  net_receivable?: number;
+  round_off?: number;
+  currency?: string;
+  exchange_rate?: number;
+  exchange_rate_date?: string | null;
+  inr_total?: number;
+  supply_type?: string;
+  tax_scheme?: string;
+  lut_number?: string | null;
+  lut_date?: string | null;
   status: string;
   pdf_url: string | null;
   freelancer_gstin: string | null;
@@ -190,6 +213,16 @@ export type InvoiceItemsRow = {
   rate: number;
   gst_rate: number;
   hsn_code: string | null;
+  sac_code?: string | null;
+  unit?: string;
+  discount_amount?: number;
+  taxable_amount?: number;
+  cess_rate?: number;
+  cess_amount?: number;
+  cgst_amount?: number;
+  sgst_amount?: number;
+  igst_amount?: number;
+  line_total?: number;
   amount: number;
 };
 

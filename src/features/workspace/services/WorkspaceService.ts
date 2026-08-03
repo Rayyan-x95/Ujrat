@@ -75,14 +75,59 @@ export class WorkspaceService {
       // Validate settings data using Zod
       const validated = WorkspaceSettingsSchema.partial().parse(settingsData);
 
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('workspace_settings')
         .update(validated as any)
         .eq('workspace_id', workspaceId)
         .select()
         .single();
 
-      if (error) return { success: false, error: new Error(error.message) };
+      let fallbackErr: any = null;
+      if (error && error.message?.includes('schema cache')) {
+        const hasTaxFields =
+          validated.preferred_currency !== undefined ||
+          validated.tax_scheme !== undefined ||
+          validated.lut_number !== undefined ||
+          validated.lut_expiry_date !== undefined ||
+          validated.default_tds_section !== undefined;
+
+        if (hasTaxFields) {
+          return {
+            success: false,
+            error: new Error(`Database schema migration required: ${error.message}`),
+          };
+        }
+
+        // Fallback for unmigrated database instances: omit new tax/currency schema columns
+        const fallbackData = { ...validated };
+        delete (fallbackData as any).preferred_currency;
+        delete (fallbackData as any).tax_scheme;
+        delete (fallbackData as any).lut_number;
+        delete (fallbackData as any).lut_expiry_date;
+        delete (fallbackData as any).default_tds_section;
+
+        const fallbackResult = await supabase
+          .from('workspace_settings')
+          .update(fallbackData as any)
+          .eq('workspace_id', workspaceId)
+          .select()
+          .single();
+
+        if (!fallbackResult.error && fallbackResult.data) {
+          return { success: true, data: fallbackResult.data };
+        }
+        if (fallbackResult.error) {
+          fallbackErr = fallbackResult.error;
+        }
+      }
+
+      const finalError = fallbackErr || error;
+      if (finalError || !data) {
+        return {
+          success: false,
+          error: finalError instanceof Error ? finalError : new Error(finalError?.message || 'Settings update failed'),
+        };
+      }
       return { success: true, data };
     } catch (e: any) {
       return { success: false, error: e };
