@@ -350,7 +350,7 @@ export const LandingPage: React.FC = () => {
             </div>
 
             {/* Floating Mockup Dashboard Card */}
-            <div className="w-full rounded-xl border border-border bg-card shadow-2xl overflow-hidden animate-scale-in text-left">
+            <div className="w-full rounded-2xl border border-border bg-card shadow-2xl overflow-hidden animate-scale-in text-left">
               {/* Window Chrome bar */}
               <div className="h-11 bg-surface border-b border-border flex items-center px-4 justify-between select-none">
                 <div className="flex gap-1.5">
@@ -467,7 +467,7 @@ export const LandingPage: React.FC = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                       
                       {/* Left side chart area */}
-                      <div className="lg:col-span-2 border border-border bg-card rounded-lg p-4 space-y-4">
+                      <div className="lg:col-span-2 border border-border bg-card rounded-xl p-5 space-y-4 shadow-xs">
                         <div className="flex justify-between items-start select-none">
                           <div className="space-y-0.5">
                             <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Monthly Revenue</span>
@@ -551,7 +551,7 @@ export const LandingPage: React.FC = () => {
                           { label: 'Yearly Revenue Target', val: '86%' },
                           { label: 'Active Clients', val: '13' }
                         ].map((stat, i) => (
-                          <div key={i} className="p-2.5 border border-border bg-card rounded-lg flex flex-col justify-center">
+                          <div key={i} className="p-3 border border-border bg-card rounded-lg flex flex-col justify-center shadow-2xs hover:border-border/80 transition-colors">
                             <span className="text-[8px] font-bold text-muted-foreground uppercase">{stat.label}</span>
                             <span className="font-display text-sm font-bold text-foreground mt-0.5">{stat.val}</span>
                           </div>
@@ -561,7 +561,7 @@ export const LandingPage: React.FC = () => {
                     </div>
 
                     {/* Bottom Invoices table */}
-                    <div className="border border-border bg-card rounded-lg p-4 space-y-3 select-none">
+                    <div className="border border-border bg-card rounded-xl p-5 space-y-3.5 select-none shadow-xs">
                       <span className="text-[10px] font-bold text-foreground">Open Invoices</span>
                       <div className="overflow-x-auto">
                         <table className="w-full text-[11px] text-left text-muted-foreground">
@@ -620,7 +620,7 @@ export const LandingPage: React.FC = () => {
 
           <div className="mt-14 grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             {/* The Old Way */}
-            <div className="p-6 border border-destructive/20 bg-destructive/2 rounded-lg space-y-4">
+            <div className="p-6 sm:p-7 border border-destructive/20 bg-destructive/5 dark:bg-destructive/10 rounded-xl space-y-4 shadow-xs">
               <h3 className="text-title font-semibold text-destructive flex items-center gap-2">
                 ✕ The Fragmented Way
               </h3>
@@ -645,7 +645,7 @@ export const LandingPage: React.FC = () => {
             </div>
 
             {/* The Ujrat Way */}
-            <div className="p-6 border border-primary/20 bg-primary/2 rounded-lg space-y-4">
+            <div className="p-6 sm:p-7 border border-primary/20 bg-primary/5 dark:bg-primary/10 rounded-xl space-y-4 shadow-xs">
               <h3 className="text-title font-semibold text-primary flex items-center gap-2">
                 ✓ The Ujrat Workflow
               </h3>
@@ -708,7 +708,7 @@ export const LandingPage: React.FC = () => {
             </div>
 
             {/* Right details display */}
-            <div className="lg:col-span-2 p-8 border border-border bg-card rounded-lg flex flex-col justify-between shadow-sm animate-scale-in">
+            <div className="lg:col-span-2 p-6 sm:p-8 border border-border bg-card rounded-xl flex flex-col justify-between shadow-xs animate-scale-in">
               {(() => {
                 const currentStep = workflowSteps[activeStep];
                 if (!currentStep) return null;
@@ -779,7 +779,7 @@ export const LandingPage: React.FC = () => {
             {features.map((feat, idx) => (
               <div 
                 key={idx} 
-                className="p-5 border border-border bg-card rounded-lg flex flex-col justify-between hover:border-muted-foreground/20 hover:shadow-sm transition-all duration-200"
+                className="p-6 border border-border bg-card rounded-xl flex flex-col justify-between hover:border-primary/30 hover:shadow-md transition-all duration-200 shadow-xs"
               >
                 <div className="space-y-3">
                   <div className="p-2 bg-primary/5 border border-primary/10 rounded-md w-max">
@@ -817,7 +817,7 @@ export const LandingPage: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {/* Use Case 1 */}
-            <div className="p-6 border border-border bg-card rounded-lg flex flex-col justify-between shadow-sm">
+            <div className="p-6 sm:p-7 border border-border bg-card rounded-xl flex flex-col justify-between shadow-xs hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <div className="space-y-4">
                 <div className="h-9 w-9 rounded-md bg-primary/5 border border-primary/10 flex items-center justify-center text-primary">
                   <Workflow className="h-5 w-5" />
@@ -830,7 +830,7 @@ export const LandingPage: React.FC = () => {
             </div>
 
             {/* Use Case 2 */}
-            <div className="p-6 border border-border bg-card rounded-lg flex flex-col justify-between shadow-sm">
+            <div className="p-6 sm:p-7 border border-border bg-card rounded-xl flex flex-col justify-between shadow-xs hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <div className="space-y-4">
                 <div className="h-9 w-9 rounded-md bg-primary/5 border border-primary/10 flex items-center justify-center text-primary">
                   <FileText className="h-5 w-5" />
@@ -843,7 +843,7 @@ export const LandingPage: React.FC = () => {
             </div>
 
             {/* Use Case 3 */}
-            <div className="p-6 border border-border bg-card rounded-lg flex flex-col justify-between shadow-sm">
+            <div className="p-6 sm:p-7 border border-border bg-card rounded-xl flex flex-col justify-between shadow-xs hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <div className="space-y-4">
                 <div className="h-9 w-9 rounded-md bg-primary/5 border border-primary/10 flex items-center justify-center text-primary">
                   <Users className="h-5 w-5" />
@@ -877,7 +877,7 @@ export const LandingPage: React.FC = () => {
               { step: '02', title: 'Draft Proposal & Scope', desc: 'Create a project, build a client profile, and draft an online proposal detailing milestones.' },
               { step: '03', title: 'Invite Client & Get Paid', desc: 'Share the portal link. Your client approves, signs the contract, pays via UPI QR, and unlocks files.' }
             ].map((item, i) => (
-              <div key={i} className="relative flex flex-col justify-between p-6 border border-border bg-card rounded-lg shadow-sm">
+              <div key={i} className="relative flex flex-col justify-between p-6 sm:p-7 border border-border bg-card rounded-xl shadow-xs hover:border-primary/20 hover:shadow-md transition-all duration-200">
                 <div>
                   <span className="font-mono text-4xl font-extrabold text-primary/15">{item.step}</span>
                   <h3 className="text-title font-semibold text-foreground mt-3">{item.title}</h3>
@@ -903,7 +903,7 @@ export const LandingPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            <div className="p-6 border border-border bg-card rounded-lg flex flex-col justify-between">
+            <div className="p-6 sm:p-7 border border-border bg-card rounded-xl flex flex-col justify-between shadow-xs hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <div>
                 <div className="p-2 bg-primary/5 border border-primary/10 rounded-md w-max text-primary">
                   <ShieldCheck className="h-5 w-5" />
@@ -915,7 +915,7 @@ export const LandingPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-6 border border-border bg-card rounded-lg flex flex-col justify-between">
+            <div className="p-6 sm:p-7 border border-border bg-card rounded-xl flex flex-col justify-between shadow-xs hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <div>
                 <div className="p-2 bg-primary/5 border border-primary/10 rounded-md w-max text-primary">
                   <Lock className="h-5 w-5" />
@@ -927,7 +927,7 @@ export const LandingPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-6 border border-border bg-card rounded-lg flex flex-col justify-between">
+            <div className="p-6 sm:p-7 border border-border bg-card rounded-xl flex flex-col justify-between shadow-xs hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <div>
                 <div className="p-2 bg-primary/5 border border-primary/10 rounded-md w-max text-primary">
                   <FileSignature className="h-5 w-5" />
@@ -957,7 +957,7 @@ export const LandingPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="max-w-3xl mx-auto border border-primary bg-card rounded-lg p-8 md:p-10 shadow-md relative overflow-hidden flex flex-col md:flex-row items-center gap-8 justify-between">
+          <div className="max-w-3xl mx-auto border border-primary/40 bg-card rounded-2xl p-8 md:p-10 shadow-lg relative overflow-hidden flex flex-col md:flex-row items-center gap-8 justify-between">
             <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-[10px] font-bold tracking-wider px-3 py-1 rounded-bl-lg uppercase">
               MIT Licensed
             </div>

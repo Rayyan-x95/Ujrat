@@ -17,11 +17,11 @@ export const Card: React.FC<CardProps> = ({
   variant = 'default',
   ...props
 }) => {
-  const paddings = { none: '', sm: 'p-4', md: 'p-5', lg: 'p-6' };
+  const paddings = { none: '', sm: 'p-4', md: 'p-5 sm:p-6', lg: 'p-6 sm:p-8' };
   const variants = {
-    default:  'border border-border bg-card rounded-lg',
-    ghost:    'bg-surface/60 rounded-lg',
-    elevated: 'bg-card rounded-lg border border-border shadow-sm',
+    default:  'border border-border bg-card rounded-xl shadow-xs transition-all duration-200',
+    ghost:    'bg-surface/60 rounded-xl border border-transparent',
+    elevated: 'bg-card rounded-xl border border-border shadow-sm hover:shadow-md transition-all duration-200',
   };
   return (
     <div className={`${variants[variant]} ${paddings[padding]} ${className}`} {...props}>

@@ -22,7 +22,7 @@ export class AuthService {
         .select('*')
         .eq('id', profileId)
         .is('deleted_at', null)
-        .single();
+        .maybeSingle();
 
       if (error) return { success: false, error: new Error(error.message) };
       return { success: true, data };
@@ -33,18 +33,48 @@ export class AuthService {
 
   static async updateProfile(profileId: string, profileData: Partial<Profile>): Promise<Result<Profile>> {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: profileData.full_name ?? null,
-          avatar_url: profileData.avatar_url ?? null,
-        } as any)
+      const payload: Record<string, any> = {};
+      if (profileData.full_name !== undefined) payload.full_name = profileData.full_name ?? null;
+      if (profileData.avatar_url !== undefined) payload.avatar_url = profileData.avatar_url ?? null;
+      payload.updated_at = new Date().toISOString();
+
+      const { data, error } = await (supabase
+        .from('profiles') as any)
+        .update(payload)
         .eq('id', profileId)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) return { success: false, error: new Error(error.message) };
-      return { success: true, data: data };
+
+      if (!data) {
+        // If 0 rows were updated (profile record did not exist in profiles table yet), perform an upsert fallback
+        const { data: authUserData } = await supabase.auth.getUser();
+        const userEmail = authUserData?.user?.email || profileData.email || '';
+
+        const upsertPayload = {
+          id: profileId,
+          email: userEmail,
+          full_name: profileData.full_name ?? null,
+          avatar_url: profileData.avatar_url ?? null,
+          updated_at: new Date().toISOString(),
+        };
+
+        const { data: upsertData, error: upsertError } = await (supabase
+          .from('profiles') as any)
+          .upsert(upsertPayload, { onConflict: 'id' })
+          .select()
+          .maybeSingle();
+
+        if (upsertError) return { success: false, error: new Error(upsertError.message) };
+
+        return {
+          success: true,
+          data: upsertData || (upsertPayload as Profile),
+        };
+      }
+
+      return { success: true, data: data as Profile };
     } catch (e) {
       return { success: false, error: e as Error };
     }

@@ -61,7 +61,7 @@ export class WorkspaceService {
         .from('workspace_settings')
         .select('*')
         .eq('workspace_id', workspaceId)
-        .single();
+        .maybeSingle();
 
       if (error) return { success: false, error: new Error(error.message) };
       return { success: true, data };
@@ -75,12 +75,27 @@ export class WorkspaceService {
       // Validate settings data using Zod
       const validated = WorkspaceSettingsSchema.partial().parse(settingsData);
 
-      let { data, error } = await supabase
-        .from('workspace_settings')
-        .update(validated as any)
+      let { data, error } = await (supabase
+        .from('workspace_settings') as any)
+        .update(validated)
         .eq('workspace_id', workspaceId)
         .select()
-        .single();
+        .maybeSingle();
+
+      if (!error && !data) {
+        // Fallback to upsert if workspace_settings row did not exist yet
+        const upsertRes = await (supabase
+          .from('workspace_settings') as any)
+          .upsert({
+            workspace_id: workspaceId,
+            ...validated,
+          }, { onConflict: 'workspace_id' })
+          .select()
+          .maybeSingle();
+
+        data = upsertRes.data;
+        error = upsertRes.error;
+      }
 
       let fallbackErr: any = null;
       if (error && error.message?.includes('schema cache')) {
@@ -106,12 +121,12 @@ export class WorkspaceService {
         delete (fallbackData as any).lut_expiry_date;
         delete (fallbackData as any).default_tds_section;
 
-        const fallbackResult = await supabase
-          .from('workspace_settings')
-          .update(fallbackData as any)
+        const fallbackResult = await (supabase
+          .from('workspace_settings') as any)
+          .update(fallbackData)
           .eq('workspace_id', workspaceId)
           .select()
-          .single();
+          .maybeSingle();
 
         if (!fallbackResult.error && fallbackResult.data) {
           return { success: true, data: fallbackResult.data };
