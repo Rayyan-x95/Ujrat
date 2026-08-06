@@ -99,7 +99,7 @@ CREATE TABLE public.project_briefs (
     goals TEXT,
     deadline DATE,
     budget NUMERIC(12, 2),
-    references TEXT,
+    "references" TEXT,
     attachments JSONB DEFAULT '[]'::jsonb,
     submitted_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -371,13 +371,21 @@ ALTER TABLE public.portal_verifications ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: Users can only access their own profile
 CREATE POLICY "Select profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "Update profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Update profile" ON public.profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
 -- Workspaces: Users can only access their own workspaces
-CREATE POLICY "All workspaces" ON public.workspaces FOR ALL USING (auth.uid() = profile_id);
+CREATE POLICY "All workspaces" ON public.workspaces FOR ALL USING (auth.uid() = profile_id) WITH CHECK (auth.uid() = profile_id);
 
 -- Workspace Settings: Access via workspace ownership
-CREATE POLICY "All workspace settings" ON public.workspace_settings FOR ALL USING (
+CREATE POLICY "All workspace settings" ON public.workspace_settings FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM public.workspaces 
+        WHERE id = workspace_settings.workspace_id 
+        AND profile_id = auth.uid()
+    )
+)
+WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.workspaces 
         WHERE id = workspace_settings.workspace_id 
@@ -386,7 +394,14 @@ CREATE POLICY "All workspace settings" ON public.workspace_settings FOR ALL USIN
 );
 
 -- Clients: Workspace-scoped access
-CREATE POLICY "Owner access to clients" ON public.clients FOR ALL USING (
+CREATE POLICY "Owner access to clients" ON public.clients FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM public.workspaces 
+        WHERE id = clients.workspace_id AND profile_id = auth.uid()
+    )
+)
+WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.workspaces 
         WHERE id = clients.workspace_id AND profile_id = auth.uid()
@@ -394,134 +409,134 @@ CREATE POLICY "Owner access to clients" ON public.clients FOR ALL USING (
 );
 
 -- Projects: Workspace-scoped access
-CREATE POLICY "Owner access to projects" ON public.projects FOR ALL USING (
+CREATE POLICY "Owner access to projects" ON public.projects FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM public.workspaces 
+        WHERE id = projects.workspace_id AND profile_id = auth.uid()
+    )
+)
+WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.workspaces 
         WHERE id = projects.workspace_id AND profile_id = auth.uid()
     )
 );
 
--- Project Briefs: Workspace-scoped + portal access
-CREATE POLICY "Owner access to briefs" ON public.project_briefs FOR ALL USING (
+-- Project Briefs: Workspace-scoped (portal access via SECURITY DEFINER RPCs)
+CREATE POLICY "Owner access to briefs" ON public.project_briefs FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM public.workspaces 
+        WHERE id = project_briefs.workspace_id AND profile_id = auth.uid()
+    )
+)
+WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.workspaces 
         WHERE id = project_briefs.workspace_id AND profile_id = auth.uid()
     )
 );
-CREATE POLICY "Portal access to briefs" ON public.project_briefs FOR SELECT USING (
-    EXISTS (
-        SELECT 1 FROM public.projects 
-        WHERE id = project_briefs.project_id AND portal_token IS NOT NULL
-    )
-);
-CREATE POLICY "Portal update to briefs" ON public.project_briefs FOR UPDATE USING (
-    EXISTS (
-        SELECT 1 FROM public.projects 
-        WHERE id = project_briefs.project_id AND portal_token IS NOT NULL
-    )
-);
 
--- Proposals: Workspace-scoped + portal access
-CREATE POLICY "Owner access to proposals" ON public.proposals FOR ALL USING (
+-- Proposals: Workspace-scoped (portal access via SECURITY DEFINER RPCs)
+CREATE POLICY "Owner access to proposals" ON public.proposals FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM public.workspaces 
+        WHERE id = proposals.workspace_id AND profile_id = auth.uid()
+    )
+)
+WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.workspaces 
         WHERE id = proposals.workspace_id AND profile_id = auth.uid()
     )
 );
-CREATE POLICY "Portal access to proposals" ON public.proposals FOR SELECT USING (
-    EXISTS (
-        SELECT 1 FROM public.projects 
-        WHERE id = proposals.project_id AND portal_token IS NOT NULL
-    )
-);
-CREATE POLICY "Portal approve proposals" ON public.proposals FOR UPDATE USING (
-    EXISTS (
-        SELECT 1 FROM public.projects 
-        WHERE id = proposals.project_id AND portal_token IS NOT NULL
-    )
-);
 
 -- Proposal Sections
-CREATE POLICY "Owner access to proposal sections" ON public.proposal_sections FOR ALL USING (
+CREATE POLICY "Owner access to proposal sections" ON public.proposal_sections FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM public.workspaces 
+        WHERE id = proposal_sections.workspace_id AND profile_id = auth.uid()
+    )
+)
+WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.workspaces 
         WHERE id = proposal_sections.workspace_id AND profile_id = auth.uid()
     )
 );
-CREATE POLICY "Portal access to proposal sections" ON public.proposal_sections FOR SELECT USING (
-    EXISTS (
-        SELECT 1 FROM public.proposals p
-        JOIN public.projects proj ON proj.id = p.project_id
-        WHERE p.id = proposal_sections.proposal_id AND proj.portal_token IS NOT NULL
-    )
-);
 
 -- Contracts
-CREATE POLICY "Owner access to contracts" ON public.contracts FOR ALL USING (
+CREATE POLICY "Owner access to contracts" ON public.contracts FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM public.workspaces 
+        WHERE id = contracts.workspace_id AND profile_id = auth.uid()
+    )
+)
+WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.workspaces 
         WHERE id = contracts.workspace_id AND profile_id = auth.uid()
     )
 );
-CREATE POLICY "Portal access to contracts" ON public.contracts FOR SELECT USING (
-    EXISTS (
-        SELECT 1 FROM public.projects 
-        WHERE id = contracts.project_id AND portal_token IS NOT NULL
-    )
-);
-CREATE POLICY "Portal update/sign contracts" ON public.contracts FOR UPDATE USING (
-    EXISTS (
-        SELECT 1 FROM public.projects 
-        WHERE id = contracts.project_id AND portal_token IS NOT NULL
-    )
-);
 
 -- Contract Signatures
-CREATE POLICY "Owner access to contract signatures" ON public.contract_signatures FOR ALL USING (
+CREATE POLICY "Owner access to contract signatures" ON public.contract_signatures FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM public.workspaces 
+        WHERE id = contract_signatures.workspace_id AND profile_id = auth.uid()
+    )
+)
+WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.workspaces 
         WHERE id = contract_signatures.workspace_id AND profile_id = auth.uid()
     )
 );
-CREATE POLICY "Portal sign contract signatures" ON public.contract_signatures FOR ALL USING (
-    EXISTS (
-        SELECT 1 FROM public.contracts c
-        JOIN public.projects proj ON proj.id = c.project_id
-        WHERE c.id = contract_signatures.contract_id AND proj.portal_token IS NOT NULL
-    )
-);
 
 -- Invoices
-CREATE POLICY "Owner access to invoices" ON public.invoices FOR ALL USING (
+CREATE POLICY "Owner access to invoices" ON public.invoices FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM public.workspaces 
+        WHERE id = invoices.workspace_id AND profile_id = auth.uid()
+    )
+)
+WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.workspaces 
         WHERE id = invoices.workspace_id AND profile_id = auth.uid()
     )
 );
-CREATE POLICY "Portal access to invoices" ON public.invoices FOR SELECT USING (
-    EXISTS (
-        SELECT 1 FROM public.projects 
-        WHERE id = invoices.project_id AND portal_token IS NOT NULL
-    )
-);
 
 -- Invoice Items
-CREATE POLICY "Owner access to invoice items" ON public.invoice_items FOR ALL USING (
+CREATE POLICY "Owner access to invoice items" ON public.invoice_items FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM public.workspaces 
+        WHERE id = invoice_items.workspace_id AND profile_id = auth.uid()
+    )
+)
+WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.workspaces 
         WHERE id = invoice_items.workspace_id AND profile_id = auth.uid()
     )
 );
-CREATE POLICY "Portal access to invoice items" ON public.invoice_items FOR SELECT USING (
-    EXISTS (
-        SELECT 1 FROM public.invoices inv
-        JOIN public.projects proj ON proj.id = inv.project_id
-        WHERE inv.id = invoice_items.invoice_id AND proj.portal_token IS NOT NULL
-    )
-);
 
 -- Invoice Versions
-CREATE POLICY "Owner access to invoice versions" ON public.invoice_versions FOR ALL USING (
+CREATE POLICY "Owner access to invoice versions" ON public.invoice_versions FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM public.workspaces w 
+        WHERE w.id = invoice_versions.workspace_id AND w.profile_id = auth.uid()
+    )
+)
+WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.workspaces w 
         WHERE w.id = invoice_versions.workspace_id AND w.profile_id = auth.uid()
@@ -529,43 +544,44 @@ CREATE POLICY "Owner access to invoice versions" ON public.invoice_versions FOR 
 );
 
 -- Payments
-CREATE POLICY "Owner access to payments" ON public.payments FOR ALL USING (
+CREATE POLICY "Owner access to payments" ON public.payments FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM public.workspaces 
+        WHERE id = payments.workspace_id AND profile_id = auth.uid()
+    )
+)
+WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.workspaces 
         WHERE id = payments.workspace_id AND profile_id = auth.uid()
     )
 );
-CREATE POLICY "Portal access to payments" ON public.payments FOR SELECT USING (
-    EXISTS (
-        SELECT 1 FROM public.invoices inv
-        JOIN public.projects proj ON proj.id = inv.project_id
-        WHERE inv.id = payments.invoice_id AND proj.portal_token IS NOT NULL
-    )
-);
-CREATE POLICY "Portal submit payments" ON public.payments FOR INSERT WITH CHECK (
-    EXISTS (
-        SELECT 1 FROM public.invoices inv
-        JOIN public.projects proj ON proj.id = inv.project_id
-        WHERE inv.id = payments.invoice_id AND proj.portal_token IS NOT NULL
-    )
-);
 
 -- Deliverables
-CREATE POLICY "Owner access to deliverables" ON public.deliverables FOR ALL USING (
+CREATE POLICY "Owner access to deliverables" ON public.deliverables FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM public.workspaces 
+        WHERE id = deliverables.workspace_id AND profile_id = auth.uid()
+    )
+)
+WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.workspaces 
         WHERE id = deliverables.workspace_id AND profile_id = auth.uid()
     )
 );
-CREATE POLICY "Portal access to deliverables" ON public.deliverables FOR SELECT USING (
-    EXISTS (
-        SELECT 1 FROM public.projects 
-        WHERE id = deliverables.project_id AND portal_token IS NOT NULL
-    )
-);
 
 -- File Uploads
-CREATE POLICY "Owner access to file uploads" ON public.file_uploads FOR ALL USING (
+CREATE POLICY "Owner access to file uploads" ON public.file_uploads FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM public.workspaces 
+        WHERE id = file_uploads.workspace_id AND profile_id = auth.uid()
+    )
+)
+WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.workspaces 
         WHERE id = file_uploads.workspace_id AND profile_id = auth.uid()
@@ -573,7 +589,14 @@ CREATE POLICY "Owner access to file uploads" ON public.file_uploads FOR ALL USIN
 );
 
 -- Activity Logs
-CREATE POLICY "Owner access to activity logs" ON public.activity_logs FOR ALL USING (
+CREATE POLICY "Owner access to activity logs" ON public.activity_logs FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM public.workspaces 
+        WHERE id = activity_logs.workspace_id AND profile_id = auth.uid()
+    )
+)
+WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.workspaces 
         WHERE id = activity_logs.workspace_id AND profile_id = auth.uid()
@@ -581,7 +604,14 @@ CREATE POLICY "Owner access to activity logs" ON public.activity_logs FOR ALL US
 );
 
 -- Email Logs
-CREATE POLICY "Owner access to email logs" ON public.email_logs FOR ALL USING (
+CREATE POLICY "Owner access to email logs" ON public.email_logs FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM public.workspaces 
+        WHERE id = email_logs.workspace_id AND profile_id = auth.uid()
+    )
+)
+WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.workspaces 
         WHERE id = email_logs.workspace_id AND profile_id = auth.uid()
@@ -589,7 +619,14 @@ CREATE POLICY "Owner access to email logs" ON public.email_logs FOR ALL USING (
 );
 
 -- Financial Audit Trail
-CREATE POLICY "Owner access to financial audit trail" ON public.financial_audit_trail FOR ALL USING (
+CREATE POLICY "Owner access to financial audit trail" ON public.financial_audit_trail FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM public.workspaces 
+        WHERE id = financial_audit_trail.workspace_id AND profile_id = auth.uid()
+    )
+)
+WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.workspaces 
         WHERE id = financial_audit_trail.workspace_id AND profile_id = auth.uid()
@@ -853,6 +890,143 @@ CREATE TRIGGER enforce_payment_workspace_alignment
   BEFORE INSERT OR UPDATE OF invoice_id, workspace_id ON public.payments
   FOR EACH ROW EXECUTE FUNCTION public.check_payment_workspace_alignment();
 
+-- Enforce Invoice and Project Workspace Alignment
+CREATE OR REPLACE FUNCTION public.check_invoice_workspace_alignment()
+RETURNS trigger AS $$
+DECLARE
+  v_project_workspace_id UUID;
+BEGIN
+  SELECT workspace_id INTO v_project_workspace_id FROM public.projects WHERE id = NEW.project_id;
+  IF v_project_workspace_id IS DISTINCT FROM NEW.workspace_id THEN
+    RAISE EXCEPTION 'Invoice workspace must match project workspace';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS enforce_invoice_workspace_alignment ON public.invoices;
+CREATE TRIGGER enforce_invoice_workspace_alignment
+  BEFORE INSERT OR UPDATE OF project_id, workspace_id ON public.invoices
+  FOR EACH ROW EXECUTE FUNCTION public.check_invoice_workspace_alignment();
+
+-- Enforce Contract and Project Workspace Alignment
+CREATE OR REPLACE FUNCTION public.check_contract_workspace_alignment()
+RETURNS trigger AS $$
+DECLARE
+  v_project_workspace_id UUID;
+BEGIN
+  SELECT workspace_id INTO v_project_workspace_id FROM public.projects WHERE id = NEW.project_id;
+  IF v_project_workspace_id IS DISTINCT FROM NEW.workspace_id THEN
+    RAISE EXCEPTION 'Contract workspace must match project workspace';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS enforce_contract_workspace_alignment ON public.contracts;
+CREATE TRIGGER enforce_contract_workspace_alignment
+  BEFORE INSERT OR UPDATE OF project_id, workspace_id ON public.contracts
+  FOR EACH ROW EXECUTE FUNCTION public.check_contract_workspace_alignment();
+
+-- Enforce Proposal and Project Workspace Alignment
+CREATE OR REPLACE FUNCTION public.check_proposal_workspace_alignment()
+RETURNS trigger AS $$
+DECLARE
+  v_project_workspace_id UUID;
+BEGIN
+  SELECT workspace_id INTO v_project_workspace_id FROM public.projects WHERE id = NEW.project_id;
+  IF v_project_workspace_id IS DISTINCT FROM NEW.workspace_id THEN
+    RAISE EXCEPTION 'Proposal workspace must match project workspace';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS enforce_proposal_workspace_alignment ON public.proposals;
+CREATE TRIGGER enforce_proposal_workspace_alignment
+  BEFORE INSERT OR UPDATE OF project_id, workspace_id ON public.proposals
+  FOR EACH ROW EXECUTE FUNCTION public.check_proposal_workspace_alignment();
+
+-- Enforce Deliverable and Project Workspace Alignment
+CREATE OR REPLACE FUNCTION public.check_deliverable_workspace_alignment()
+RETURNS trigger AS $$
+DECLARE
+  v_project_workspace_id UUID;
+BEGIN
+  SELECT workspace_id INTO v_project_workspace_id FROM public.projects WHERE id = NEW.project_id;
+  IF v_project_workspace_id IS DISTINCT FROM NEW.workspace_id THEN
+    RAISE EXCEPTION 'Deliverable workspace must match project workspace';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS enforce_deliverable_workspace_alignment ON public.deliverables;
+CREATE TRIGGER enforce_deliverable_workspace_alignment
+  BEFORE INSERT OR UPDATE OF project_id, workspace_id ON public.deliverables
+  FOR EACH ROW EXECUTE FUNCTION public.check_deliverable_workspace_alignment();
+
+-- Enforce Project Brief and Project Workspace Alignment
+CREATE OR REPLACE FUNCTION public.check_brief_workspace_alignment()
+RETURNS trigger AS $$
+DECLARE
+  v_project_workspace_id UUID;
+BEGIN
+  SELECT workspace_id INTO v_project_workspace_id FROM public.projects WHERE id = NEW.project_id;
+  IF v_project_workspace_id IS DISTINCT FROM NEW.workspace_id THEN
+    RAISE EXCEPTION 'Project brief workspace must match project workspace';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS enforce_brief_workspace_alignment ON public.project_briefs;
+CREATE TRIGGER enforce_brief_workspace_alignment
+  BEFORE INSERT OR UPDATE OF project_id, workspace_id ON public.project_briefs
+  FOR EACH ROW EXECUTE FUNCTION public.check_brief_workspace_alignment();
+
+-- Invoice Status Transition & Payment Settlement Invariant Validation Trigger
+CREATE OR REPLACE FUNCTION public.validate_invoice_status_transition()
+RETURNS trigger AS $$
+DECLARE
+  v_completed_sum NUMERIC;
+BEGIN
+  -- If status is not changing, allow it
+  IF OLD.status = NEW.status THEN
+    RETURN NEW;
+  END IF;
+
+  -- Disallow arbitrary status changes on settled invoices
+  IF OLD.status = 'paid' AND NEW.status <> 'paid' THEN
+    RAISE EXCEPTION 'Settled invoices cannot be transitioned back to %', NEW.status;
+  END IF;
+
+  IF OLD.status = 'cancelled' AND NEW.status = 'paid' THEN
+    RAISE EXCEPTION 'Cancelled invoices cannot be transitioned directly to paid';
+  END IF;
+
+  -- When transitioning to paid, enforce at DB boundary that completed payments >= total
+  IF NEW.status = 'paid' THEN
+    SELECT COALESCE(SUM(amount), 0) INTO v_completed_sum
+    FROM public.payments
+    WHERE invoice_id = NEW.id 
+      AND status = 'completed' 
+      AND deleted_at IS NULL;
+
+    IF v_completed_sum < NEW.total THEN
+      RAISE EXCEPTION 'Cannot mark invoice paid: completed payments (%) do not cover invoice total (%)', v_completed_sum, NEW.total;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS invoices_status_transition_trigger ON public.invoices;
+CREATE TRIGGER invoices_status_transition_trigger
+  BEFORE UPDATE OF status ON public.invoices
+  FOR EACH ROW EXECUTE FUNCTION public.validate_invoice_status_transition();
+
 -- ============================================================
 -- SECURITY DEFINER PORTAL RPC FUNCTIONS
 -- ============================================================
@@ -1021,10 +1195,31 @@ BEGIN
   VALUES (
     v_project_id, 
     v_client_email, 
-    md5(v_code || 'ujrat_salt'), 
+    crypt(v_code, gen_salt('bf', 8)), 
     0, 
     5, 
     now() + interval '15 minutes', 
+    now()
+  );
+
+  -- Insert pending email log for notification / edge function dispatch (sanitized, zero-knowledge)
+  INSERT INTO public.email_logs (
+    id,
+    workspace_id,
+    project_id,
+    recipient,
+    subject,
+    body,
+    status,
+    created_at
+  ) VALUES (
+    gen_random_uuid(),
+    v_workspace_id,
+    v_project_id,
+    v_client_email,
+    'Verification Code for Ujrat Contract Signature',
+    '<p>A secure verification code has been dispatched to your email address.</p>',
+    'pending',
     now()
   );
 
@@ -1045,7 +1240,6 @@ DECLARE
   v_attempts INT;
   v_max_attempts INT;
   v_code_hash TEXT;
-  v_computed_hash TEXT;
 BEGIN
   -- Validate portal token
   SELECT p.id, cl.email INTO v_project_id, v_client_email
@@ -1087,9 +1281,8 @@ BEGIN
   SET attempts = attempts + 1
   WHERE id = v_verify_id;
 
-  -- Timing-safe comparison using pgcrypto
-  v_computed_hash := md5(input_code || 'ujrat_salt');
-  IF timing_safe_equal(v_code_hash, v_computed_hash) THEN
+  -- Timing-safe bcrypt comparison using pgcrypto
+  IF v_code_hash = crypt(input_code, v_code_hash) THEN
     UPDATE public.portal_verifications
     SET verified = true
     WHERE id = v_verify_id;
@@ -1182,6 +1375,8 @@ DECLARE
   v_workspace_id UUID;
   v_invoice_exists BOOLEAN;
   v_invoice_status TEXT;
+  v_invoice_total NUMERIC;
+  v_outstanding_balance NUMERIC;
 BEGIN
   SELECT id, workspace_id INTO v_project_id, v_workspace_id 
   FROM public.projects 
@@ -1193,17 +1388,27 @@ BEGIN
     RAISE EXCEPTION 'Invalid portal token';
   END IF;
 
-  SELECT status, EXISTS(
+  -- Lock invoice row FOR UPDATE to prevent race conditions during submission
+  SELECT total, COALESCE(outstanding_balance, total), status, EXISTS(
     SELECT 1 FROM public.invoices 
     WHERE id = invoice_id_val 
       AND project_id = v_project_id 
       AND deleted_at IS NULL
-  ) INTO v_invoice_status, v_invoice_exists
+  ) INTO v_invoice_total, v_outstanding_balance, v_invoice_status, v_invoice_exists
   FROM public.invoices
-  WHERE id = invoice_id_val;
+  WHERE id = invoice_id_val
+  FOR UPDATE;
  
   IF NOT v_invoice_exists THEN
     RAISE EXCEPTION 'Invoice does not belong to the verified project';
+  END IF;
+
+  IF amt <= 0 THEN
+    RAISE EXCEPTION 'Payment amount must be greater than zero';
+  END IF;
+
+  IF amt > v_outstanding_balance THEN
+    RAISE EXCEPTION 'Payment amount (%) exceeds outstanding balance (%)', amt, v_outstanding_balance;
   END IF;
 
   IF v_invoice_status = 'paid' THEN
@@ -1212,12 +1417,17 @@ BEGIN
     RAISE EXCEPTION 'Invoice is cancelled';
   END IF;
 
-  IF EXISTS(SELECT 1 FROM public.payments WHERE transaction_reference = tx_ref) THEN
+  IF EXISTS(SELECT 1 FROM public.payments WHERE transaction_reference = tx_ref) OR
+     EXISTS(SELECT 1 FROM public.payment_attempts WHERE utr_number = tx_ref) THEN
     RAISE EXCEPTION 'Duplicate transaction reference (UTR) already used';
   END IF;
 
   INSERT INTO public.payments (id, workspace_id, invoice_id, amount, payment_method, transaction_reference, status, payment_date)
   VALUES (gen_random_uuid(), v_workspace_id, invoice_id_val, amt, pay_method, tx_ref, 'pending', now());
+
+  INSERT INTO public.payment_attempts (id, workspace_id, invoice_id, utr_number, amount, status, attempted_at)
+  VALUES (gen_random_uuid(), v_workspace_id, invoice_id_val, tx_ref, amt, 'pending_verification', now())
+  ON CONFLICT (utr_number) DO NOTHING;
 
   UPDATE public.invoices
   SET status = 'pending_verification', updated_at = now()
@@ -1310,20 +1520,34 @@ BEGIN
 END;
 $$;
 
--- Grant execute permissions on portal functions to anon and authenticated
-GRANT EXECUTE ON FUNCTION public.get_portal_project(text) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_portal_client(text) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_portal_settings(text) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_portal_proposal(text) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_portal_contract(text) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_portal_invoices(text) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_portal_deliverables(text) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.generate_portal_verification(text) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.verify_portal_code(text, text) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.submit_portal_signature(text, text, text, boolean) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.submit_portal_payment(text, UUID, NUMERIC, text, text) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.submit_portal_brief_feedback(text, text) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.approve_portal_proposal(text) TO anon, authenticated;
+-- Revoke default PUBLIC execution and grant explicitly to anon, authenticated, service_role
+REVOKE EXECUTE ON FUNCTION public.get_portal_project(text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.get_portal_client(text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.get_portal_settings(text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.get_portal_proposal(text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.get_portal_contract(text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.get_portal_invoices(text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.get_portal_deliverables(text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.generate_portal_verification(text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.verify_portal_code(text, text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.submit_portal_signature(text, text, text, boolean) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.submit_portal_payment(text, UUID, NUMERIC, text, text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.submit_portal_brief_feedback(text, text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.approve_portal_proposal(text) FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION public.get_portal_project(text) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_portal_client(text) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_portal_settings(text) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_portal_proposal(text) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_portal_contract(text) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_portal_invoices(text) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_portal_deliverables(text) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.generate_portal_verification(text) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.verify_portal_code(text, text) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.submit_portal_signature(text, text, text, boolean) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.submit_portal_payment(text, UUID, NUMERIC, text, text) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.submit_portal_brief_feedback(text, text) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.approve_portal_proposal(text) TO anon, authenticated, service_role;
 
 -- Atomically consume a request from a fixed time window. The function is
 -- intentionally service-role-only so public callers cannot manipulate counters.
@@ -1406,6 +1630,14 @@ DECLARE
   v_inserted_invoice jsonb;
   v_inserted_items jsonb;
 BEGIN
+  -- Verify caller owns the workspace
+  IF NOT EXISTS (
+    SELECT 1 FROM public.workspaces 
+    WHERE id = p_workspace_id AND profile_id = auth.uid()
+  ) THEN
+    RAISE EXCEPTION 'Unauthorized workspace access';
+  END IF;
+
   -- Generate uuid if not provided
   v_invoice_id := COALESCE((p_invoice_data->>'id')::uuid, gen_random_uuid());
 
@@ -1516,27 +1748,53 @@ AS $$
 DECLARE
   v_payment jsonb;
   v_invoice jsonb;
+  v_completed_sum NUMERIC;
+  v_invoice_total NUMERIC;
 BEGIN
-  -- Get the payment info for this invoice
-  SELECT jsonb_agg(to_jsonb(p.*)) INTO v_payment
+  -- Verify caller owns the workspace
+  IF NOT EXISTS (
+    SELECT 1 FROM public.workspaces 
+    WHERE id = p_workspace_id AND profile_id = auth.uid()
+  ) THEN
+    RAISE EXCEPTION 'Unauthorized workspace access';
+  END IF;
+
+  -- Verify invoice belongs to workspace
+  SELECT total INTO v_invoice_total
+  FROM public.invoices
+  WHERE id = p_invoice_id AND workspace_id = p_workspace_id AND deleted_at IS NULL;
+
+  IF v_invoice_total IS NULL THEN
+    RAISE EXCEPTION 'Invoice not found in workspace';
+  END IF;
+
+  -- Get total completed payments for this invoice
+  SELECT COALESCE(SUM(amount), 0), jsonb_agg(to_jsonb(p.*)) INTO v_completed_sum, v_payment
   FROM public.payments p
   WHERE p.invoice_id = p_invoice_id AND p.workspace_id = p_workspace_id AND p.status = 'completed';
 
+  -- Enforce that completed payments satisfy the invoice balance
+  IF v_completed_sum < v_invoice_total THEN
+    RAISE EXCEPTION 'Cannot mark invoice paid: completed payments (%) are less than invoice total (%)', v_completed_sum, v_invoice_total;
+  END IF;
+
   -- Update invoice status
   UPDATE public.invoices
-  SET status = 'paid', updated_at = now()
+  SET status = 'paid', outstanding_balance = 0, updated_at = now()
   WHERE id = p_invoice_id AND workspace_id = p_workspace_id
   RETURNING to_jsonb(public.invoices.*) INTO v_invoice;
 
   RETURN jsonb_build_object(
     'success', true,
     'invoice', v_invoice,
-    'payments', v_payment
+    'payments', COALESCE(v_payment, '[]'::jsonb)
   );
 END;
 $$;
 
 -- Grant execute on transactional functions
+REVOKE EXECUTE ON FUNCTION public.create_invoice_transactional(uuid, jsonb, jsonb) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.mark_invoice_paid_transactional(uuid, uuid, uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.create_invoice_transactional(uuid, jsonb, jsonb) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.mark_invoice_paid_transactional(uuid, uuid, uuid) TO authenticated, service_role;
 
@@ -1999,3 +2257,609 @@ BEGIN
         GRANT EXECUTE ON FUNCTION public.get_dashboard_data(uuid, uuid) TO authenticated, service_role;
     END IF;
 END $$;
+
+
+-- ============================================================
+-- MIGRATION 026: TAX ENGINE 2.0 SCHEMA ENHANCEMENTS
+-- ============================================================
+
+-- 1. Enhance workspace_settings
+ALTER TABLE public.workspace_settings 
+ADD COLUMN IF NOT EXISTS tax_scheme TEXT DEFAULT 'regular' CHECK (tax_scheme IN ('regular', 'composition', 'non_gst')),
+ADD COLUMN IF NOT EXISTS lut_number TEXT,
+ADD COLUMN IF NOT EXISTS lut_expiry_date DATE,
+ADD COLUMN IF NOT EXISTS default_tds_section TEXT,
+ADD COLUMN IF NOT EXISTS preferred_currency TEXT DEFAULT 'INR';
+
+-- 2. Enhance invoices table
+ALTER TABLE public.invoices 
+ADD COLUMN IF NOT EXISTS taxable_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+ADD COLUMN IF NOT EXISTS discount_type TEXT DEFAULT 'fixed' CHECK (discount_type IN ('percentage', 'fixed')),
+ADD COLUMN IF NOT EXISTS discount_scope TEXT DEFAULT 'before_tax' CHECK (discount_scope IN ('before_tax', 'after_tax')),
+ADD COLUMN IF NOT EXISTS cess_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+ADD COLUMN IF NOT EXISTS tds_section TEXT,
+ADD COLUMN IF NOT EXISTS tds_rate NUMERIC(5, 2) DEFAULT 0.00,
+ADD COLUMN IF NOT EXISTS tds_amount NUMERIC(12, 2) DEFAULT 0.00,
+ADD COLUMN IF NOT EXISTS net_receivable NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+ADD COLUMN IF NOT EXISTS round_off NUMERIC(6, 2) DEFAULT 0.00,
+ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'INR',
+ADD COLUMN IF NOT EXISTS exchange_rate NUMERIC(12, 6) DEFAULT 1.000000,
+ADD COLUMN IF NOT EXISTS exchange_rate_date DATE,
+ADD COLUMN IF NOT EXISTS inr_total NUMERIC(12, 2) DEFAULT 0.00,
+ADD COLUMN IF NOT EXISTS supply_type TEXT DEFAULT 'taxable' CHECK (supply_type IN ('taxable', 'exempt', 'nil_rated', 'zero_rated_lut', 'zero_rated_non_lut', 'sez_with_tax', 'sez_without_tax')),
+ADD COLUMN IF NOT EXISTS tax_scheme TEXT DEFAULT 'regular' CHECK (tax_scheme IN ('regular', 'composition', 'non_gst')),
+ADD COLUMN IF NOT EXISTS lut_number TEXT,
+ADD COLUMN IF NOT EXISTS lut_date DATE;
+
+-- 3. Enhance invoice_items table
+ALTER TABLE public.invoice_items
+ADD COLUMN IF NOT EXISTS unit TEXT DEFAULT 'NOS',
+ADD COLUMN IF NOT EXISTS sac_code TEXT,
+ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(12, 2) DEFAULT 0.00,
+ADD COLUMN IF NOT EXISTS taxable_amount NUMERIC(12, 2) DEFAULT 0.00,
+ADD COLUMN IF NOT EXISTS cess_rate NUMERIC(5, 2) DEFAULT 0.00,
+ADD COLUMN IF NOT EXISTS cess_amount NUMERIC(12, 2) DEFAULT 0.00,
+ADD COLUMN IF NOT EXISTS cgst_amount NUMERIC(12, 2) DEFAULT 0.00,
+ADD COLUMN IF NOT EXISTS sgst_amount NUMERIC(12, 2) DEFAULT 0.00,
+ADD COLUMN IF NOT EXISTS igst_amount NUMERIC(12, 2) DEFAULT 0.00,
+ADD COLUMN IF NOT EXISTS line_total NUMERIC(12, 2) DEFAULT 0.00;
+
+-- 4. Reference table for standard HSN/SAC codes
+CREATE TABLE IF NOT EXISTS public.hsn_sac_codes (
+    code TEXT PRIMARY KEY,
+    description TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('HSN', 'SAC')),
+    default_gst_rate NUMERIC(5, 2) NOT NULL DEFAULT 18.00,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Seed standard service SAC codes
+INSERT INTO public.hsn_sac_codes (code, description, type, default_gst_rate)
+VALUES 
+    ('998311', 'IT Consulting and Support Services', 'SAC', 18.00),
+    ('998313', 'Information Technology Design and Development', 'SAC', 18.00),
+    ('998314', 'Web Design and Development Services', 'SAC', 18.00),
+    ('998315', 'Software Development and Maintenance Services', 'SAC', 18.00),
+    ('998399', 'Other Professional Technical & Business Services', 'SAC', 18.00),
+    ('998413', 'Advertising & Marketing Services', 'SAC', 18.00),
+    ('9983', 'General IT & Technical Services', 'SAC', 18.00)
+ON CONFLICT (code) DO NOTHING;
+
+-- 5. TDS Certificates tracking table
+CREATE TABLE IF NOT EXISTS public.tds_certificates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
+    invoice_id UUID REFERENCES public.invoices(id) ON DELETE CASCADE NOT NULL,
+    financial_year TEXT NOT NULL,
+    quarter TEXT NOT NULL CHECK (quarter IN ('Q1', 'Q2', 'Q3', 'Q4')),
+    certificate_number TEXT,
+    deducted_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    deposit_date DATE,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'received', 'verified')),
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 6. Tax Audit Logs table
+CREATE TABLE IF NOT EXISTS public.tax_audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
+    invoice_id UUID REFERENCES public.invoices(id) ON DELETE CASCADE,
+    event_type TEXT NOT NULL,
+    payload JSONB NOT NULL,
+    performed_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 7. Currency Exchange Rate Snapshots
+CREATE TABLE IF NOT EXISTS public.exchange_rate_snapshots (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    from_currency TEXT NOT NULL DEFAULT 'USD',
+    to_currency TEXT NOT NULL DEFAULT 'INR',
+    rate NUMERIC(12, 6) NOT NULL,
+    effective_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    source TEXT DEFAULT 'RBI_MANUAL',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT exchange_rate_snapshots_from_to_date_key UNIQUE(from_currency, to_currency, effective_date)
+);
+
+-- RLS Security Policies for new tables
+ALTER TABLE public.hsn_sac_codes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tds_certificates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tax_audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.exchange_rate_snapshots ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public readable HSN/SAC codes" ON public.hsn_sac_codes;
+CREATE POLICY "Public readable HSN/SAC codes" ON public.hsn_sac_codes FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Workspace isolated TDS certificates" ON public.tds_certificates;
+CREATE POLICY "Workspace isolated TDS certificates" ON public.tds_certificates FOR ALL USING (workspace_id IN (SELECT id FROM public.workspaces WHERE profile_id = (SELECT auth.uid())));
+
+DROP POLICY IF EXISTS "Workspace isolated Tax Audit Logs" ON public.tax_audit_logs;
+DROP POLICY IF EXISTS "Workspace isolated Tax Audit Logs Select" ON public.tax_audit_logs;
+DROP POLICY IF EXISTS "Workspace isolated Tax Audit Logs Insert" ON public.tax_audit_logs;
+CREATE POLICY "Workspace isolated Tax Audit Logs Select" ON public.tax_audit_logs FOR SELECT USING (workspace_id IN (SELECT id FROM public.workspaces WHERE profile_id = (SELECT auth.uid())));
+CREATE POLICY "Workspace isolated Tax Audit Logs Insert" ON public.tax_audit_logs FOR INSERT WITH CHECK (workspace_id IN (SELECT id FROM public.workspaces WHERE profile_id = (SELECT auth.uid())) AND (performed_by IS NULL OR performed_by = (SELECT auth.uid())));
+
+DROP POLICY IF EXISTS "Public readable Exchange Rates" ON public.exchange_rate_snapshots;
+CREATE POLICY "Public readable Exchange Rates" ON public.exchange_rate_snapshots FOR SELECT USING (true);
+
+
+-- ============================================================
+-- MIGRATION 027: UPI DEEP LINK PAYMENT SYSTEM SCHEMA
+-- ============================================================
+
+-- 1. PAYMENT REQUESTS TABLE
+CREATE TABLE IF NOT EXISTS public.payment_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
+    invoice_id UUID REFERENCES public.invoices(id) ON DELETE CASCADE NOT NULL,
+    client_id UUID REFERENCES public.clients(id) ON DELETE SET NULL,
+    provider_id TEXT NOT NULL DEFAULT 'upi_direct',
+    upi_id TEXT NOT NULL,
+    payee_name TEXT NOT NULL,
+    amount NUMERIC(12, 2) NOT NULL CONSTRAINT payment_requests_amount_positive CHECK (amount > 0),
+    currency TEXT NOT NULL DEFAULT 'INR',
+    deep_link_uri TEXT NOT NULL,
+    transaction_note TEXT,
+    reference_number TEXT NOT NULL,
+    qr_hash TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'viewed', 'initiated', 'awaiting_verification', 'verified', 'paid', 'cancelled', 'expired')),
+    expires_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 2. PAYMENT ATTEMPTS TABLE (Client UTR Submissions)
+CREATE TABLE IF NOT EXISTS public.payment_attempts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    payment_request_id UUID REFERENCES public.payment_requests(id) ON DELETE CASCADE,
+    workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
+    invoice_id UUID REFERENCES public.invoices(id) ON DELETE CASCADE NOT NULL,
+    utr_number TEXT NOT NULL UNIQUE,
+    amount NUMERIC(12, 2) NOT NULL,
+    screenshot_url TEXT,
+    notes TEXT,
+    app_name TEXT DEFAULT 'UPI_GENERIC',
+    ip_address TEXT,
+    user_agent TEXT,
+    status TEXT NOT NULL DEFAULT 'pending_verification' CHECK (status IN ('pending_verification', 'verified', 'rejected')),
+    attempted_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 3. PAYMENT VERIFICATIONS TABLE (Freelancer Manual Approvals)
+CREATE TABLE IF NOT EXISTS public.payment_verifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    payment_attempt_id UUID REFERENCES public.payment_attempts(id) ON DELETE CASCADE NOT NULL,
+    payment_request_id UUID REFERENCES public.payment_requests(id) ON DELETE CASCADE,
+    workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
+    invoice_id UUID REFERENCES public.invoices(id) ON DELETE CASCADE NOT NULL,
+    verifier_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    verification_status TEXT NOT NULL CHECK (verification_status IN ('approved', 'rejected')),
+    bank_reference TEXT,
+    notes TEXT,
+    verified_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 4. PAYMENT AUDIT LOGS TABLE
+CREATE TABLE IF NOT EXISTS public.payment_audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
+    invoice_id UUID REFERENCES public.invoices(id) ON DELETE CASCADE,
+    payment_request_id UUID REFERENCES public.payment_requests(id) ON DELETE SET NULL,
+    event_type TEXT NOT NULL,
+    payload JSONB NOT NULL,
+    performed_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 5. PAYMENT RECEIPTS TABLE
+CREATE TABLE IF NOT EXISTS public.payment_receipts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
+    invoice_id UUID REFERENCES public.invoices(id) ON DELETE CASCADE NOT NULL,
+    payment_verification_id UUID REFERENCES public.payment_verifications(id) ON DELETE SET NULL,
+    receipt_number TEXT UNIQUE NOT NULL,
+    amount NUMERIC(12, 2) NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'INR',
+    payment_method TEXT NOT NULL DEFAULT 'UPI',
+    utr_number TEXT NOT NULL,
+    client_name TEXT NOT NULL,
+    issued_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 6. INDEXES FOR PERFORMANCE OPTIMIZATION
+CREATE INDEX IF NOT EXISTS idx_payment_requests_ws_status ON public.payment_requests(workspace_id, status);
+CREATE INDEX IF NOT EXISTS idx_payment_attempts_ws_status ON public.payment_attempts(workspace_id, status);
+CREATE INDEX IF NOT EXISTS idx_payment_receipts_ws_status ON public.payment_receipts(workspace_id);
+
+-- RLS Security Policies
+ALTER TABLE public.payment_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payment_attempts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payment_verifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payment_audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payment_receipts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Workspace isolated payment requests" ON public.payment_requests;
+CREATE POLICY "Workspace isolated payment requests" ON public.payment_requests FOR ALL USING (workspace_id IN (SELECT id FROM public.workspaces WHERE profile_id = (SELECT auth.uid())));
+
+DROP POLICY IF EXISTS "Workspace isolated payment attempts" ON public.payment_attempts;
+CREATE POLICY "Workspace isolated payment attempts" ON public.payment_attempts FOR ALL USING (workspace_id IN (SELECT id FROM public.workspaces WHERE profile_id = (SELECT auth.uid())));
+
+
+DROP POLICY IF EXISTS "Workspace isolated payment verifications" ON public.payment_verifications;
+CREATE POLICY "Workspace isolated payment verifications" ON public.payment_verifications FOR ALL USING (workspace_id IN (SELECT id FROM public.workspaces WHERE profile_id = (SELECT auth.uid())));
+
+DROP POLICY IF EXISTS "Workspace isolated payment audit logs" ON public.payment_audit_logs;
+CREATE POLICY "Workspace isolated payment audit logs" ON public.payment_audit_logs FOR ALL USING (workspace_id IN (SELECT id FROM public.workspaces WHERE profile_id = (SELECT auth.uid())));
+
+DROP POLICY IF EXISTS "Workspace isolated payment receipts" ON public.payment_receipts;
+CREATE POLICY "Workspace isolated payment receipts" ON public.payment_receipts FOR ALL USING (workspace_id IN (SELECT id FROM public.workspaces WHERE profile_id = (SELECT auth.uid())));
+
+
+-- ============================================================
+-- MIGRATION 028: DATABASE PERFORMANCE OPTIMIZATION & INDEXING
+-- Ujrat High-Performance Indexing & Query Acceleration
+-- ============================================================
+
+-- 1. WORKSPACE MULTI-TENANCY & RLS EVALUATION INDEXES
+-- Critical for speeding up RLS subqueries (SELECT id FROM workspaces WHERE profile_id = auth.uid())
+CREATE INDEX IF NOT EXISTS idx_workspaces_profile_id 
+    ON public.workspaces(profile_id) 
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_workspace_settings_workspace_id 
+    ON public.workspace_settings(workspace_id);
+
+-- 2. CLIENTS TABLE INDEXES
+-- Optimizes CRM listing, status filtering, and sorting
+CREATE INDEX IF NOT EXISTS idx_clients_ws_status_created 
+    ON public.clients(workspace_id, status, created_at DESC) 
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_clients_ws_email 
+    ON public.clients(workspace_id, email) 
+    WHERE deleted_at IS NULL;
+
+-- 3. PROJECTS TABLE INDEXES
+-- Optimizes pipeline state queries, client joins, and portal token lookups
+CREATE INDEX IF NOT EXISTS idx_projects_portal_token 
+    ON public.projects(portal_token) 
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_projects_ws_status_created 
+    ON public.projects(workspace_id, status, created_at DESC) 
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_projects_client_id 
+    ON public.projects(client_id) 
+    WHERE deleted_at IS NULL;
+
+-- 4. INVOICES & LINE ITEMS INDEXES
+-- Optimizes revenue aggregations, milestone invoices, and tax calculations
+CREATE INDEX IF NOT EXISTS idx_invoices_ws_status_created 
+    ON public.invoices(workspace_id, status, created_at DESC) 
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_invoices_project_id 
+    ON public.invoices(project_id) 
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_invoices_due_status 
+    ON public.invoices(status, due_date) 
+    WHERE deleted_at IS NULL AND status NOT IN ('paid', 'cancelled');
+
+CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice_id 
+    ON public.invoice_items(invoice_id);
+
+CREATE INDEX IF NOT EXISTS idx_invoice_versions_invoice_id 
+    ON public.invoice_versions(invoice_id, version DESC);
+
+-- 5. PAYMENTS & RECONCILIATION INDEXES
+-- Optimizes settlement queries, UTR lookups, and invoice associations
+CREATE INDEX IF NOT EXISTS idx_payments_ws_status_date 
+    ON public.payments(workspace_id, status, payment_date DESC) 
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_payments_ws_status_created 
+    ON public.payments(workspace_id, status, created_at DESC) 
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_payments_invoice_id 
+    ON public.payments(invoice_id) 
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_payments_tx_ref 
+    ON public.payments(transaction_reference) 
+    WHERE transaction_reference IS NOT NULL AND deleted_at IS NULL;
+
+-- 6. WORKSPACE SUBSIDIARY TABLES INDEXES (Proposals, Contracts, Briefs, Deliverables)
+CREATE INDEX IF NOT EXISTS idx_project_briefs_project_id 
+    ON public.project_briefs(project_id) 
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_proposals_project_id 
+    ON public.proposals(project_id) 
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_proposal_sections_proposal_id 
+    ON public.proposal_sections(proposal_id) 
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_contracts_project_id 
+    ON public.contracts(project_id) 
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_contract_signatures_contract_id 
+    ON public.contract_signatures(contract_id);
+
+CREATE INDEX IF NOT EXISTS idx_deliverables_project_id 
+    ON public.deliverables(project_id, created_at DESC) 
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_deliverables_ws_proj 
+    ON public.deliverables(workspace_id, project_id);
+
+-- 7. AUDIT LOGS, ACTIVITY LOGS & OTP VERIFICATIONS
+CREATE INDEX IF NOT EXISTS idx_activity_logs_ws_prof_created 
+    ON public.activity_logs(workspace_id, profile_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_activity_logs_project_id 
+    ON public.activity_logs(project_id, created_at DESC) 
+    WHERE project_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_email_logs_project_id 
+    ON public.email_logs(project_id, created_at DESC) 
+    WHERE project_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_email_logs_ws_created 
+    ON public.email_logs(workspace_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_portal_verifications_active 
+    ON public.portal_verifications(project_id, email, verified, expires_at);
+
+CREATE INDEX IF NOT EXISTS idx_financial_audit_ws_created 
+    ON public.financial_audit_trail(workspace_id, created_at DESC);
+
+-- 8. HIGH-PERFORMANCE DASHBOARD AGGREGATION RPC
+-- Consolidates 5 independent network round-trips into a single atomic Postgres function
+CREATE OR REPLACE FUNCTION public.get_dashboard_data(p_workspace_id UUID, p_profile_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_profile_name TEXT;
+    v_total_clients INT;
+    v_projects JSONB;
+    v_invoices JSONB;
+    v_activities JSONB;
+BEGIN
+    -- Verify caller owns the workspace
+    IF NOT EXISTS (
+        SELECT 1 FROM public.workspaces 
+        WHERE id = p_workspace_id AND profile_id = auth.uid()
+    ) THEN
+        RAISE EXCEPTION 'Unauthorized workspace access';
+    END IF;
+
+    -- 1. Profile Name
+    SELECT full_name INTO v_profile_name
+    FROM public.profiles
+    WHERE id = p_profile_id;
+
+    -- 2. Total active clients
+    SELECT COUNT(*) INTO v_total_clients
+    FROM public.clients
+    WHERE workspace_id = p_workspace_id AND deleted_at IS NULL;
+
+    -- 3. Projects with status
+    SELECT COALESCE(jsonb_agg(jsonb_build_object('status', p.status)), '[]'::jsonb) INTO v_projects
+    FROM public.projects p
+    WHERE p.workspace_id = p_workspace_id AND p.deleted_at IS NULL;
+
+    -- 4. Invoices with status, total, created_at
+    SELECT COALESCE(jsonb_agg(
+        jsonb_build_object(
+            'total', i.total,
+            'status', i.status,
+            'created_at', i.created_at
+        )
+    ), '[]'::jsonb) INTO v_invoices
+    FROM public.invoices i
+    WHERE i.workspace_id = p_workspace_id AND i.deleted_at IS NULL;
+
+    -- 5. Latest 5 activity logs
+    SELECT COALESCE(jsonb_agg(
+        jsonb_build_object(
+            'id', a.id,
+            'workspace_id', a.workspace_id,
+            'profile_id', a.profile_id,
+            'project_id', a.project_id,
+            'action', a.action,
+            'details', a.details,
+            'created_at', a.created_at
+        ) ORDER BY a.created_at DESC
+    ), '[]'::jsonb) INTO v_activities
+    FROM (
+        SELECT * FROM public.activity_logs
+        WHERE workspace_id = p_workspace_id AND profile_id = p_profile_id
+        ORDER BY created_at DESC
+        LIMIT 5
+    ) a;
+
+    -- Return consolidated payload
+    RETURN jsonb_build_object(
+        'profile_name', COALESCE(v_profile_name, 'Freelancer'),
+        'total_clients', COALESCE(v_total_clients, 0),
+        'projects', v_projects,
+        'invoices', v_invoices,
+        'activities', v_activities
+    );
+END;
+$$;
+
+-- 9. AUTOMATED GATEWAY PAYMENT RECONCILIATION RPC
+-- Reconciles incoming webhook payments from payment gateways (Razorpay, Cashfree, Stripe)
+CREATE OR REPLACE FUNCTION public.reconcile_gateway_payment(
+    p_invoice_id UUID,
+    p_amount NUMERIC,
+    p_transaction_id TEXT,
+    p_gateway TEXT,
+    p_metadata JSONB DEFAULT '{}'::jsonb
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_invoice RECORD;
+    v_payment_id UUID;
+    v_new_balance NUMERIC;
+    v_new_status TEXT;
+BEGIN
+    -- Idempotency check: check if transaction already reconciled
+    SELECT id INTO v_payment_id 
+    FROM public.payments 
+    WHERE transaction_reference = p_transaction_id;
+
+    IF v_payment_id IS NOT NULL THEN
+        RETURN jsonb_build_object(
+            'success', true,
+            'idempotent', true,
+            'message', 'Transaction already reconciled',
+            'payment_id', v_payment_id
+        );
+    END IF;
+
+    -- Fetch and lock invoice row
+    SELECT * INTO v_invoice 
+    FROM public.invoices 
+    WHERE id = p_invoice_id AND deleted_at IS NULL
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Invoice with ID % not found', p_invoice_id;
+    END IF;
+
+    -- Validate amount
+    IF p_amount <= 0 THEN
+        RAISE EXCEPTION 'Payment amount must be greater than zero';
+    END IF;
+
+    -- Insert reconciled payment record
+    INSERT INTO public.payments (
+        workspace_id,
+        invoice_id,
+        amount,
+        currency,
+        status,
+        payment_method,
+        transaction_reference,
+        notes,
+        created_at,
+        updated_at
+    ) VALUES (
+        v_invoice.workspace_id,
+        v_invoice.id,
+        p_amount,
+        COALESCE(v_invoice.currency, 'INR'),
+        'completed',
+        COALESCE(p_gateway, 'gateway_webhook'),
+        p_transaction_id,
+        'Automated reconciliation via ' || COALESCE(p_gateway, 'webhook'),
+        NOW(),
+        NOW()
+    ) RETURNING id INTO v_payment_id;
+
+    -- Calculate updated balance
+    v_new_balance := GREATEST(0, COALESCE(v_invoice.outstanding_balance, v_invoice.total) - p_amount);
+    v_new_status := CASE WHEN v_new_balance = 0 THEN 'paid' ELSE v_invoice.status END;
+
+    -- Update invoice balance & status atomically
+    UPDATE public.invoices 
+    SET 
+        outstanding_balance = v_new_balance,
+        status = v_new_status,
+        updated_at = NOW()
+    WHERE id = v_invoice.id;
+
+    -- Log financial audit trail
+    INSERT INTO public.financial_audit_trail (
+        workspace_id,
+        invoice_id,
+        payment_id,
+        action,
+        amount,
+        details
+    ) VALUES (
+        v_invoice.workspace_id,
+        v_invoice.id,
+        v_payment_id,
+        'gateway_reconcile',
+        p_amount,
+        jsonb_build_object(
+            'gateway', p_gateway,
+            'transaction_id', p_transaction_id,
+            'new_balance', v_new_balance,
+            'new_status', v_new_status,
+            'metadata', p_metadata
+        )
+    );
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'idempotent', false,
+        'payment_id', v_payment_id,
+        'invoice_id', v_invoice.id,
+        'reconciled_amount', p_amount,
+        'new_balance', v_new_balance,
+        'invoice_status', v_new_status
+    );
+END;
+$$;
+
+-- Restrict execution of reconciliation to service_role (edge function / backend worker only)
+REVOKE EXECUTE ON FUNCTION public.reconcile_gateway_payment(UUID, NUMERIC, TEXT, TEXT, JSONB) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.reconcile_gateway_payment(UUID, NUMERIC, TEXT, TEXT, JSONB) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.reconcile_gateway_payment(UUID, NUMERIC, TEXT, TEXT, JSONB) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.reconcile_gateway_payment(UUID, NUMERIC, TEXT, TEXT, JSONB) TO service_role;
+
+-- ============================================================
+-- WAITLIST TABLE & RLS
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.waitlist (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    service TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS waitlist_email_unique_idx ON public.waitlist (lower(trim(email)));
+
+ALTER TABLE public.waitlist ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public to insert waitlist entry" ON public.waitlist;
+CREATE POLICY "Allow public to insert waitlist entry"
+    ON public.waitlist
+    FOR INSERT
+    TO anon, authenticated
+    WITH CHECK (
+        char_length(trim(name)) >= 2 AND
+        email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$' AND
+        char_length(trim(service)) >= 2
+    );
+
+DROP POLICY IF EXISTS "Allow service role full access to waitlist" ON public.waitlist;
+CREATE POLICY "Allow service role full access to waitlist"
+    ON public.waitlist
+    FOR ALL
+    TO service_role
+    USING (true)
+    WITH CHECK (true);

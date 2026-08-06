@@ -220,49 +220,4 @@ export const FileUploadZone: React.FC<FileUploadProps> = ({
   );
 };
 
-/* ── PDFPreviewContainer ─────────────────────────────────────────────────── */
-
-export const PDFPreviewContainer: React.FC<{
-  src?: string;
-  label?: string;
-  height?: number;
-}> = ({ src, label, height = 500 }) => (
-  <div className="space-y-2">
-    {label && (
-      <span className="block text-[11px] font-medium text-muted-foreground select-none">
-        {label}
-      </span>
-    )}
-    {src ? (
-      <iframe
-        src={src}
-        className="w-full rounded-lg border border-border bg-surface"
-        style={{ height }}
-        title="PDF Preview"
-      />
-    ) : (
-      <div
-        className="flex flex-col items-center justify-center gap-3 rounded-lg bg-surface border border-border"
-        style={{ height }}
-      >
-        <svg
-          className="h-7 w-7 text-muted-foreground"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="1.5"
-            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-          />
-        </svg>
-        <p className="text-[12px] text-muted-foreground m-0">PDF preview will appear here</p>
-      </div>
-    )}
-  </div>
-);
-
 export default Avatar;

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/shared/ui/Button';
 import type { PaymentReceiptData } from '../types/PaymentTypes';
-import { formatCurrencyAmount } from '@/features/invoices/utils/TaxEngine';
+import { formatCurrency } from '@/shared/utils/currency';
 
 interface PaymentReceiptViewProps {
   receipt: PaymentReceiptData;
@@ -36,7 +36,7 @@ export const PaymentReceiptView: React.FC<PaymentReceiptViewProps> = ({ receipt,
           </div>
           <div className="text-right">
             <span className="text-neutral-400 block text-[10px] uppercase">AMOUNT PAID</span>
-            <span className="font-extrabold text-emerald-600 text-lg">{formatCurrencyAmount(receipt.amount, receipt.currency as any)}</span>
+            <span className="font-extrabold text-emerald-600 text-lg">{formatCurrency(receipt.amount, receipt.currency)}</span>
           </div>
         </div>
 

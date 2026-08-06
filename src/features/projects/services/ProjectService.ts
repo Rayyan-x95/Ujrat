@@ -1,124 +1,182 @@
-import { ProjectCoreService } from './ProjectCoreService';
-import { ProposalService } from './ProposalService';
-import { ContractService } from './ContractService';
-import { DeliverableService } from './DeliverableService';
-import { InvoiceGatewayService } from './InvoiceGatewayService';
-import type { Project, ProjectWithClient, Result, QueryOptions, PaginatedResult, Contract, Deliverable, Proposal, EmailLog, ProposalInsert, Invoice } from '@/shared/types';
+import { ProjectRepository } from '../repositories/ProjectRepository';
+import { ClientRepository } from '@/features/clients/repositories/ClientRepository';
+import { EmailLogRepository } from '@/features/auth/repositories/EmailLogRepository';
+import { InvoiceService } from '@/features/invoices/services/InvoiceService';
+import { ProjectSchema } from '@/shared/validation/schemas';
+import { LoggingService } from '@/features/auth/services/LoggingService';
+import { NotificationService } from '@/features/notifications/services/NotificationService';
+import { ProjectStateMachine } from '@/shared/utils/StateMachine';
+import type {
+  Project,
+  ProjectWithClient,
+  Result,
+  QueryOptions,
+  PaginatedResult,
+  EmailLog,
+  Invoice,
+  ProjectStatus,
+  ProjectInsert,
+} from '@/shared/types';
 
 export class ProjectService {
-  static listProjects(
+  static async listProjects(
     workspaceId: string,
     options: QueryOptions = {}
   ): Promise<Result<PaginatedResult<ProjectWithClient>>> {
-    return ProjectCoreService.listProjects(workspaceId, options);
+    try {
+      const data = await ProjectRepository.getAll(workspaceId, options);
+      return { success: true, data };
+    } catch (e) {
+      return { success: false, error: e as Error };
+    }
   }
 
-  static getProjectDetails(workspaceId: string, id: string): Promise<Result<ProjectWithClient | null>> {
-    return ProjectCoreService.getProjectDetails(workspaceId, id);
+  static async getProjectDetails(workspaceId: string, id: string): Promise<Result<ProjectWithClient | null>> {
+    try {
+      const data = await ProjectRepository.getById(workspaceId, id);
+      return { success: true, data };
+    } catch (e) {
+      return { success: false, error: e as Error };
+    }
   }
 
-  static getProjectPortalToken(workspaceId: string, projectId: string): Promise<Result<string | null>> {
-    return ProjectCoreService.getProjectPortalToken(workspaceId, projectId);
+  static async getProjectPortalToken(workspaceId: string, projectId: string): Promise<Result<string | null>> {
+    try {
+      const project = await ProjectRepository.getById(workspaceId, projectId);
+      if (!project) {
+        throw new Error('Project not found');
+      }
+      return { success: true, data: project.portal_token || null };
+    } catch (e) {
+      return { success: false, error: e as Error };
+    }
   }
 
-  static addProject(
+  static async addProject(
     workspaceId: string,
     profileId: string,
     projectData: Omit<Project, 'id' | 'workspace_id' | 'portal_token' | 'created_at' | 'updated_at' | 'deleted_at'>
   ): Promise<Result<Project>> {
-    return ProjectCoreService.addProject(workspaceId, profileId, projectData);
+    try {
+      const validated = ProjectSchema.parse(projectData);
+
+      const client = await ClientRepository.getById(workspaceId, validated.client_id);
+      if (!client) {
+        throw new Error('Unauthorized: Client does not belong to your workspace');
+      }
+
+      const project = await ProjectRepository.create(workspaceId, validated as ProjectInsert);
+
+      await LoggingService.logActivity({
+        workspaceId,
+        profileId,
+        projectId: project.id,
+        action: 'Project Created',
+        details: { name: project.name },
+      });
+
+      return { success: true, data: project };
+    } catch (e) {
+      return { success: false, error: e as Error };
+    }
   }
 
-  static updateProjectStatus(
+  static async updateProjectStatus(
     workspaceId: string,
     profileId: string,
     id: string,
     status: Project['status']
   ): Promise<Result<Project>> {
-    return ProjectCoreService.updateProjectStatus(workspaceId, profileId, id, status);
-  }
+    try {
+      const currentProject = await ProjectRepository.getById(workspaceId, id);
+      if (!currentProject) {
+        throw new Error('Project not found');
+      }
 
-  static getProposal(workspaceId: string, projectId: string): Promise<Result<Proposal | null>> {
-    return ProposalService.getProposal(workspaceId, projectId);
-  }
+      const currentStatus = currentProject.status;
+      if (currentStatus !== status) {
+        const client = await ClientRepository.getById(workspaceId, currentProject.client_id);
 
-  static saveProposal(
-    workspaceId: string,
-    profileId: string,
-    projectId: string,
-    proposalId: string | undefined,
-    proposalData: ProposalInsert,
-    status: 'draft' | 'sent'
-  ): Promise<Result<Proposal>> {
-    return ProposalService.saveProposal(workspaceId, profileId, projectId, proposalId, proposalData, status);
-  }
+        const transition = ProjectStateMachine.transition(currentStatus as ProjectStatus, status as ProjectStatus, {
+          projectName: currentProject.name,
+        });
 
-  static getContract(workspaceId: string, projectId: string): Promise<Result<Contract | null>> {
-    return ContractService.getContract(workspaceId, projectId);
-  }
+        await LoggingService.logActivity({
+          workspaceId,
+          profileId,
+          projectId: id,
+          action: transition.activityLog.action,
+          details: transition.activityLog.details,
+        });
 
-  static saveContract(
-    workspaceId: string,
-    profileId: string,
-    projectId: string,
-    contractId: string | undefined,
-    content: string,
-    status: 'draft' | 'sent'
-  ): Promise<Result<Contract>> {
-    return ContractService.saveContract(workspaceId, profileId, projectId, contractId, content, status);
-  }
+        if (client?.email && transition.emailNotification) {
+          NotificationService.sendEmail(
+            workspaceId,
+            profileId,
+            client.email,
+            transition.emailNotification.subject,
+            transition.emailNotification.body
+          ).catch((err) => {
+            console.error('Failed to send status update email:', err);
+          });
+        }
+      }
 
-  static signContract(
-    workspaceId: string,
-    profileId: string,
-    projectId: string,
-    contractId: string,
-    signatureData: {
-      signature_name: string;
-      ip_address?: string;
+      const project = await ProjectRepository.update(workspaceId, id, { status });
+      return { success: true, data: project };
+    } catch (e) {
+      return { success: false, error: e as Error };
     }
-  ): Promise<Result<Contract>> {
-    return ContractService.signContract(workspaceId, profileId, projectId, contractId, signatureData);
   }
 
-  static getDeliverables(workspaceId: string, projectId: string): Promise<Result<Deliverable[]>> {
-    return DeliverableService.getDeliverables(workspaceId, projectId);
-  }
-
-  static addDeliverable(
-    workspaceId: string,
-    profileId: string,
-    projectId: string,
-    deliverableData: {
-      name: string;
-      file_url: string;
-      file_type: string;
-      file_size: number;
+  static async getEmailLogs(workspaceId: string, projectId: string): Promise<Result<EmailLog[]>> {
+    try {
+      const data = await EmailLogRepository.getByProjectId(workspaceId, projectId);
+      return { success: true, data };
+    } catch (e) {
+      return { success: false, error: e as Error };
     }
-  ): Promise<Result<Deliverable>> {
-    return DeliverableService.addDeliverable(workspaceId, profileId, projectId, deliverableData);
   }
 
-  static addDeliverableLink(
-    workspaceId: string,
-    profileId: string,
-    projectId: string,
-    name: string,
-    linkUrl: string
-  ): Promise<Result<Deliverable>> {
-    return DeliverableService.addDeliverableLink(workspaceId, profileId, projectId, name, linkUrl);
-  }
-
-  static getEmailLogs(workspaceId: string, projectId: string): Promise<Result<EmailLog[]>> {
-    return InvoiceGatewayService.getEmailLogs(workspaceId, projectId);
-  }
-
-  static generateInvoice(
+  static async generateInvoice(
     workspaceId: string,
     profileId: string,
     projectId: string,
     invoiceData: { invoice_number: string; amount: number; note: string }
   ): Promise<Result<Invoice>> {
-    return InvoiceGatewayService.generateInvoice(workspaceId, profileId, projectId, invoiceData);
+    try {
+      const project = await ProjectRepository.getById(workspaceId, projectId);
+      if (!project) throw new Error('Unauthorized project workspace access');
+
+      const invoice = await InvoiceService.createInvoice(workspaceId, profileId, projectId, {
+        invoice_number: invoiceData.invoice_number,
+        invoice_date: new Date().toISOString().split('T')[0] || '',
+        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] || '',
+        notes: invoiceData.note || '',
+        items: [{
+          description: invoiceData.note || 'Project milestone',
+          quantity: 1,
+          rate: invoiceData.amount,
+          gst_rate: 18,
+          hsn_code: '998314',
+        }],
+      });
+
+      if (!invoice.success) {
+        throw invoice.error || new Error('Failed to generate invoice');
+      }
+
+      await LoggingService.logActivity({
+        workspaceId,
+        profileId,
+        projectId,
+        action: 'Invoice Generated',
+        details: { invoiceId: invoice.data.id, invoiceNumber: invoice.data.invoice_number, amount: invoiceData.amount },
+      });
+
+      return { success: true, data: invoice.data };
+    } catch (e) {
+      return { success: false, error: e as Error };
+    }
   }
 }

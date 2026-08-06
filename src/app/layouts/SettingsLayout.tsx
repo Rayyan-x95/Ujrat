@@ -16,6 +16,7 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
     { id: 'banking',   name: 'Banking & UPI' },
     { id: 'branding',  name: 'Branding & GST' },
     { id: 'security',  name: 'Security & Keys' },
+    { id: 'data',      name: 'Data & Backup' },
   ];
 
   return (

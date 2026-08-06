@@ -10,6 +10,7 @@ export interface GSTCalculationResult {
   lineItems: CalculatedLineItem[];
   subtotal: number;
   lineDiscountsTotal: number;
+  allocatedInvoiceDiscount: number;
   taxableSubtotal: number;
   cgstTotal: number;
   sgstTotal: number;
@@ -70,7 +71,7 @@ export function calculateGSTBreakdown(
     (isZeroRated && supplyType !== 'zero_rated_non_lut' && supplyType !== 'sez_with_tax');
 
   const lineItems: CalculatedLineItem[] = prepItems.map((prep, index) => {
-    // Pro-rata allocate invoice-level pre-tax discount with residual allocated to final line (Item 11)
+    // Pro-rata allocate invoice-level pre-tax discount with residual allocated to final line
     let itemInvoiceDiscountPaise = 0;
     if (invoiceDiscountBeforeTaxPaise > 0 && grossTaxablePaise > 0) {
       if (index === prepItems.length - 1) {
@@ -107,14 +108,8 @@ export function calculateGSTBreakdown(
       } else {
         cgstRate = gstRate / 2;
         sgstRate = gstRate / 2;
-        // Alternating CGST/SGST odd-paise split across line items (Item 10)
-        if (index % 2 === 0) {
-          cgstPaise = Math.floor(totalGstLinePaise / 2);
-          sgstPaise = totalGstLinePaise - cgstPaise;
-        } else {
-          sgstPaise = Math.floor(totalGstLinePaise / 2);
-          cgstPaise = totalGstLinePaise - sgstPaise;
-        }
+        cgstPaise = Math.floor(totalGstLinePaise / 2);
+        sgstPaise = totalGstLinePaise - cgstPaise;
       }
     }
 
@@ -148,7 +143,7 @@ export function calculateGSTBreakdown(
       cess_amount: fromPaise(cessPaise),
       line_total: fromPaise(lineTotalPaise),
       hsn_code: prep.item.hsn_code || '9983',
-      sac_code: prep.item.sac_code || prep.item.hsn_code || '9983',
+      sac_code: prep.item.sac_code || '9983',
       unit: prep.item.unit || 'NOS',
     };
   });
@@ -157,6 +152,7 @@ export function calculateGSTBreakdown(
     lineItems,
     subtotal: fromPaise(subtotalPaise),
     lineDiscountsTotal: fromPaise(lineDiscountsPaise),
+    allocatedInvoiceDiscount: fromPaise(allocatedDiscountTotalPaise),
     taxableSubtotal: fromPaise(netTaxableTotalPaise),
     cgstTotal: fromPaise(cgstTotalPaise),
     sgstTotal: fromPaise(sgstTotalPaise),

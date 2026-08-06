@@ -1,15 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../providers/ThemeProvider';
-import * as Sentry from '@sentry/react';
 import { useEffect, lazy, Suspense } from 'react';
 
 // UI Components
 import { Spinner, ToastContainer } from '@/shared/ui/Feedback';
 import { ErrorBoundary } from '@/shared/ui/ErrorBoundary';
-import { useAuth } from '@/features/auth';
+import { useAuth, AuthProvider } from '@/features/auth';
 import { RoutingRedirects } from './RoutingRedirects';
-import { analytics } from '@/shared/lib/analytics';
 
 // Lazy-loaded route components — each route only downloads its chunk on first visit
 const LandingPage = lazy(() => import('@/features/landing/pages/LandingPage').then(m => ({ default: m.LandingPage })));
@@ -31,6 +29,7 @@ const DocsPage = lazy(() => import('@/features/public/pages/PublicPages').then(m
 const ContactPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.ContactPage })));
 const StatusPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.StatusPage })));
 const FAQPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.FAQPage })));
+const WaitlistPage = lazy(() => import('@/features/waitlist/pages/WaitlistPage').then(m => ({ default: m.WaitlistPage })));
 const NotFoundPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.NotFoundPage })));
 
 const queryClient = new QueryClient({
@@ -49,7 +48,11 @@ function PageTracker() {
   const location = useLocation();
 
   useEffect(() => {
-    analytics.pageView(location.pathname + location.search);
+    import('@/shared/lib/posthog').then((m) => {
+      m.trackPageView(location.pathname + location.search);
+    }).catch(() => {
+      // Non-blocking analytics
+    });
   }, [location]);
 
   return null;
@@ -110,6 +113,7 @@ function UjratApp() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/status" element={<StatusPage />} />
         <Route path="/faq" element={<FAQPage />} />
+        <Route path="/waitlist" element={<WaitlistPage />} />
 
         {/* Public Client Portal */}
         <Route path="/portal/:portalToken" element={<PortalView />} />
@@ -144,22 +148,12 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <BrowserRouter>
-          <Sentry.ErrorBoundary
-            fallback={<div className="min-h-screen bg-background flex flex-col items-center justify-center p-8">
-              <h2 className="text-heading font-semibold text-foreground">Something went wrong</h2>
-              <p className="text-body text-muted-foreground mt-2">We encountered an unexpected error. Our team has been notified.</p>
-              <button 
-                onClick={() => window.location.reload()}
-                className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
-              >
-                Reload Page
-              </button>
-            </div>}
-            showDialog={false}
-          >
+          <ErrorBoundary>
             <PageTracker />
-            <UjratApp />
-          </Sentry.ErrorBoundary>
+            <AuthProvider>
+              <UjratApp />
+            </AuthProvider>
+          </ErrorBoundary>
         </BrowserRouter>
       </ThemeProvider>
     </QueryClientProvider>

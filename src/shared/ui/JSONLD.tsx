@@ -34,7 +34,7 @@ export const getOrganizationSchema = () => ({
   '@id': 'https://ujrat.ninety5.in/#organization',
   'name': 'Ujrat',
   'url': 'https://ujrat.ninety5.in',
-  'logo': 'https://ujrat.ninety5.in/logo.png',
+  'logo': 'https://ujrat.ninety5.in/favicon-transparent.png',
   'sameAs': [
     'https://github.com/ujrat',
     'https://twitter.com/ujrat_in'

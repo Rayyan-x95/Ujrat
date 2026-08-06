@@ -60,16 +60,6 @@ export const STATE_NAME_TO_CODE: Record<string, string> = Object.entries(GST_STA
 // Standard GST Tax Rates under Indian GST Act
 export const VALID_GST_RATES = [0, 3, 5, 12, 18, 28] as const;
 
-// Default HSN / SAC Presets for Freelancers and Agencies
-export const DEFAULT_SAC_CODES = [
-  { code: '998311', description: 'IT Consulting & Management Services', gst_rate: 18 },
-  { code: '998313', description: 'IT Infrastructure & Software Design Services', gst_rate: 18 },
-  { code: '998314', description: 'Web & Mobile Application Development', gst_rate: 18 },
-  { code: '998315', description: 'Software Development & Maintenance', gst_rate: 18 },
-  { code: '998399', description: 'Other Professional & Technical Services', gst_rate: 18 },
-  { code: '998413', description: 'Digital Marketing & Advertising Services', gst_rate: 18 },
-  { code: '9983', description: 'General IT & Technical Services', gst_rate: 18 },
-] as const;
 
 // Official TDS Sections under Indian Income Tax Act 1961
 export const TDS_SECTIONS: Record<string, TDSSectionInfo> = {

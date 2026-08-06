@@ -47,7 +47,7 @@ export default defineConfig({
             if (id.includes('@sentry') || id.includes('posthog')) {
               return 'vendor-monitoring';
             }
-            if (id.includes('zod') || id.includes('react-hook-form') || id.includes('zustand')) {
+            if (id.includes('zod')) {
               return 'vendor-validation';
             }
             return 'vendor-utils';

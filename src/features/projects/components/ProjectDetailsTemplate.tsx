@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Button } from '@/shared/ui/Button';
 import { ProjectStatusBadge } from '@/shared/ui/Badge';
 import { Card } from '@/shared/ui/Card';
@@ -29,28 +29,28 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
   onShowInvoice,
   addToast,
 }) => {
-  const [activeTab, setActiveTab] = useState<'brief' | 'proposal' | 'contract' | 'deliverables' | 'invoices'>('brief');
-
   const {
-      project,
-      deliverables,
-      invoices,
-      emailLogs,
-      isLoading,
-      saveProposal,
-      sendProposal,
-      sendContract,
-      uploadDeliverable,
-      addDeliverableLink,
-      generateInvoice,
-      changeStatus,
-    } = useProjectDetails({
-      workspaceId,
-      projectId,
-      profileId,
-      onShowInvoice,
-      addToast,
-    });
+    project,
+    deliverables,
+    invoices,
+    emailLogs,
+    isLoading,
+    activeTab,
+    setActiveTab,
+    saveProposal,
+    sendProposal,
+    sendContract,
+    uploadDeliverable,
+    addDeliverableLink,
+    generateInvoice,
+    changeStatus,
+  } = useProjectDetails({
+    workspaceId,
+    projectId,
+    profileId,
+    onShowInvoice,
+    addToast,
+  });
 
   const confirmPaymentMutation = useConfirmPayment(workspaceId, profileId, { addToast });
 
@@ -382,7 +382,7 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
       </nav>
 
       {/* Tab Panel contents */}
-      <div className="min-h-[360px]">
+      <div className="min-h-90">
         {activeTab === 'brief' && (
           <BriefTab
             project={project}

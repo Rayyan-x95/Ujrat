@@ -1,11 +1,28 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthService } from '@/features/auth';
 import { WorkspaceService } from '@/features/workspace';
 import type { User } from '@supabase/supabase-js';
 import { useToastStore } from '@/shared/hooks/useToastStore';
+import type { Result } from '@/shared/types';
 
-export function useAuth() {
+interface AuthState {
+  user: User | null;
+  workspaceId: string;
+  profileId: string;
+  authLoading: boolean;
+  setAuthLoading: (v: boolean) => void;
+  fetchSession: () => Promise<void>;
+  signOut: () => Promise<void>;
+  signUp: (email: string, pass: string, name: string) => Promise<Result<any>>;
+  signIn: (email: string, pass: string) => Promise<Result<any>>;
+  resetPassword: (email: string) => Promise<Result<any>>;
+  updatePassword: (pass: string) => Promise<Result<any>>;
+}
+
+const AuthContext = createContext<AuthState | null>(null);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const addToast = useToastStore((state) => state.addToast);
   const [user, setUser] = useState<User | null>(null);
   const [workspaceId, setWorkspaceId] = useState<string>('');
@@ -134,11 +151,7 @@ export function useAuth() {
     return AuthService.updatePassword(pass);
   }, []);
 
-  const signInWithGoogle = useCallback(async () => {
-    return AuthService.signInWithGoogle();
-  }, []);
-
-  return {
+  const value: AuthState = {
     user,
     workspaceId,
     profileId,
@@ -150,8 +163,15 @@ export function useAuth() {
     signIn,
     resetPassword,
     updatePassword,
-    signInWithGoogle,
   };
+
+  return React.createElement(AuthContext.Provider, { value }, children);
+}
+
+export function useAuth(): AuthState {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within <AuthProvider>');
+  return ctx;
 }
 
 export default useAuth;

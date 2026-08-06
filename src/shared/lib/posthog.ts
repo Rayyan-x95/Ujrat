@@ -13,8 +13,8 @@ export function initPostHog() {
 
   posthog.init(apiKey, {
     api_host: host,
-    autocapture: true,
-    capture_pageview: true,
+    autocapture: false,           // PageTracker handles page views; autocapture adds DOM overhead per click
+    capture_pageview: false,       // manual trackPageView() in App.tsx PageTracker handles this
     capture_pageleave: true,
     persistence: 'localStorage',
     loaded: (posthog) => {

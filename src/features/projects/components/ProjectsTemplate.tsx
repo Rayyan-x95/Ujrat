@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@/shared/ui/Table';
 import Table from '@/shared/ui/Table';
 import { ProjectStatusBadge } from '@/shared/ui/Badge';
@@ -11,7 +12,7 @@ import { PageHeader } from '@/shared/ui/PageHeader';
 import { useProjects } from '@/features/projects';
 import { useClients } from '@/features/clients';
 import type { ProjectWithClient } from '@/shared/types';
-import { Plus, Calendar1 as Calendar, Coins, ArrowRight, FolderClosed } from 'lucide-react';
+import { Plus, Calendar1 as Calendar, Coins, ArrowRight, FolderClosed, Users, AlertCircle } from 'lucide-react';
 
 interface ProjectsTemplateProps {
   workspaceId: string;
@@ -26,6 +27,7 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
   onSelectProject,
   addToast,
 }) => {
+  const navigate = useNavigate();
   const { projects, isLoading, addProject } = useProjects(workspaceId, profileId);
   const { clients } = useClients(workspaceId, profileId);
   
@@ -144,7 +146,7 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
         };
         const val = progressMap[row.status] || 0;
         return (
-          <div className="w-[120px] select-none">
+          <div className="w-30 select-none">
             <ProgressBar 
               value={val} 
               showPercent 
@@ -172,7 +174,7 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
   ];
 
   const clientOptions = [
-    { value: '', label: 'Select a linked client' },
+    { value: '', label: clients.length === 0 ? 'No clients found' : 'Select a linked client' },
     ...clients.map(c => ({ value: c.id, label: c.company ? `${c.name} (${c.company})` : c.name })),
   ];
 
@@ -201,11 +203,41 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
         searchPlaceholder="Search project name..."
         emptyMessage="No active projects"
         emptySubMessage="Create your first client workspace pipeline to draft proposals, track sign-offs, and generate invoices."
+        emptyAction={
+          <Button 
+            variant="primary" 
+            size="sm" 
+            onClick={() => setShowAdd(true)} 
+            icon={<Plus className="h-4 w-4" />}
+          >
+            Create First Project
+          </Button>
+        }
         loading={isLoading}
       />
 
       <Dialog open={showAdd} onClose={() => setShowAdd(false)} title="Initialize New Project Pipeline" size="md">
         <form onSubmit={handleAddProject} className="space-y-4 pt-2">
+          {clients.length === 0 && (
+            <div className="p-3.5 border border-warning/30 bg-warning/5 rounded-lg flex items-start gap-3 text-small">
+              <AlertCircle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold text-foreground m-0">No clients registered in workspace</p>
+                <p className="text-muted-foreground m-0 text-[12px]">Projects must be linked to a client contact. Add a client first before initializing a project pipeline.</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  type="button"
+                  className="mt-2"
+                  onClick={() => { setShowAdd(false); navigate('/clients'); }}
+                  icon={<Users className="h-3.5 w-3.5" />}
+                >
+                  Go to Clients
+                </Button>
+              </div>
+            </div>
+          )}
+
           <Input label="Project Name" placeholder="E.g., Brand Strategy & React App" value={name} onChange={e => setName(e.target.value)} required />
           
           <Select
@@ -213,6 +245,7 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
             options={clientOptions}
             value={clientId}
             onChange={e => setClientId(e.target.value)}
+            disabled={clients.length === 0}
             required
           />
 
@@ -225,7 +258,7 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
 
           <div className="flex justify-end gap-2 border-t border-border pt-4 mt-2">
             <Button variant="ghost" size="sm" onClick={() => setShowAdd(false)} type="button">Cancel</Button>
-            <Button variant="primary" size="sm" type="submit" loading={submitting}>Create Project</Button>
+            <Button variant="primary" size="sm" type="submit" loading={submitting} disabled={clients.length === 0}>Create Project</Button>
           </div>
         </form>
       </Dialog>

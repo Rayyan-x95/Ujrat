@@ -40,8 +40,15 @@ const activeMigrations = entries
   .map((entry) => entry.name)
   .sort();
 
-if (activeMigrations.length !== 1 || activeMigrations[0] !== baselineFilename) {
-  fail(`expected only ${baselineFilename} as an active migration; found ${activeMigrations.join(', ') || 'none'}`);
+if (!activeMigrations.includes(baselineFilename)) {
+  fail(`expected ${baselineFilename} to be present; found ${activeMigrations.join(', ') || 'none'}`);
+}
+
+const invalidMigrationNames = activeMigrations.filter(
+  (name) => name !== baselineFilename && !/^\d{14}_.+\.sql$/.test(name)
+);
+if (invalidMigrationNames.length > 0) {
+  fail(`found invalid migration file names: ${invalidMigrationNames.join(', ')}`);
 }
 
 if (entries.some((entry) => entry.isDirectory() && entry.name === 'archive')) {

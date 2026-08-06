@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { usePayments } from '@/features/payments';
 import { useConfirmPayment } from '@/features/payments';
 import { PageHeader } from '@/shared/ui/PageHeader';
+import { Dialog } from '@/shared/ui/Dialog';
 import type { ColumnDef } from '@/shared/ui/Table';
 import Table from '@/shared/ui/Table';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
-import { Check, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Check, Search, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
 
 interface PaymentsTemplateProps {
   workspaceId: string;
@@ -22,6 +23,7 @@ export const PaymentsTemplate: React.FC<PaymentsTemplateProps> = ({
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'failed'>('all');
+  const [paymentToConfirm, setPaymentToConfirm] = useState<any | null>(null);
 
   const { paymentsResult, isLoading } = usePayments(workspaceId, {
     page,
@@ -40,6 +42,16 @@ export const PaymentsTemplate: React.FC<PaymentsTemplateProps> = ({
         totalPages: paymentsResult.totalPages,
       }
     : null;
+
+  const handleConfirmReconciliation = async () => {
+    if (!paymentToConfirm) return;
+    try {
+      await confirmPaymentMutation.mutateAsync(paymentToConfirm.invoice_id);
+      setPaymentToConfirm(null);
+    } catch {
+      // Handled in mutation
+    }
+  };
 
   const columns: ColumnDef<any>[] = [
     {
@@ -102,8 +114,7 @@ export const PaymentsTemplate: React.FC<PaymentsTemplateProps> = ({
           <Button
             variant="primary"
             size="sm"
-            onClick={() => confirmPaymentMutation.mutate(row.invoice_id)}
-            loading={confirmPaymentMutation.isPending}
+            onClick={() => setPaymentToConfirm(row)}
             icon={<Check className="h-3 w-3" />}
           >
             Confirm
@@ -123,7 +134,6 @@ export const PaymentsTemplate: React.FC<PaymentsTemplateProps> = ({
       />
 
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between border-b border-border-subtle pb-4">
-        {/* Status Filter Tab row */}
         <div className="flex gap-1 p-1 bg-surface rounded-lg select-none border border-border/30">
           {(['all', 'pending', 'completed', 'failed'] as const).map(tab => (
             <button
@@ -140,7 +150,6 @@ export const PaymentsTemplate: React.FC<PaymentsTemplateProps> = ({
           ))}
         </div>
         
-        {/* Search input field */}
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50" />
           <input
@@ -168,25 +177,66 @@ export const PaymentsTemplate: React.FC<PaymentsTemplateProps> = ({
             variant="outline" 
             size="sm" 
             onClick={() => setPage(p => Math.max(1, p - 1))} 
-            disabled={page === 1}
-            icon={<ChevronLeft className="h-4 w-4" />}
+            disabled={page <= 1}
+            icon={<ChevronLeft className="h-3.5 w-3.5" />}
           >
             Previous
           </Button>
-          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest font-mono">
+          <span className="text-small text-muted-foreground font-medium">
             Page {page} of {data.totalPages}
           </span>
           <Button 
             variant="outline" 
             size="sm" 
             onClick={() => setPage(p => Math.min(data.totalPages, p + 1))} 
-            disabled={page === data.totalPages}
-            icon={<ChevronRight className="h-4 w-4" />}
+            disabled={page >= data.totalPages}
+            icon={<ChevronRight className="h-3.5 w-3.5" />}
           >
             Next
           </Button>
         </div>
       )}
+
+      <Dialog
+        open={!!paymentToConfirm}
+        onClose={() => setPaymentToConfirm(null)}
+        title="Reconcile UPI Transaction"
+        size="sm"
+      >
+        <div className="space-y-4 pt-1">
+          <div className="p-3.5 border border-border bg-surface rounded-lg space-y-1.5 text-small">
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Invoice:</span>
+              <span className="font-mono font-semibold text-primary">{paymentToConfirm?.invoices?.invoice_number || '—'}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">UTR Number:</span>
+              <span className="font-mono font-bold text-foreground">{paymentToConfirm?.transaction_reference}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Amount:</span>
+              <span className="font-mono font-bold text-success">₹{paymentToConfirm?.amount?.toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+          <p className="text-small text-muted-foreground leading-relaxed">
+            Have you verified receipt of this transaction in your banking app? Confirming will mark the invoice as settled.
+          </p>
+          <div className="flex justify-end gap-2 border-t border-border pt-4">
+            <Button variant="ghost" size="sm" onClick={() => setPaymentToConfirm(null)} type="button">
+              Cancel
+            </Button>
+            <Button 
+              variant="primary" 
+              size="sm" 
+              onClick={handleConfirmReconciliation} 
+              loading={confirmPaymentMutation.isPending}
+              icon={<ShieldCheck className="h-4 w-4" />}
+            >
+              Verify Settlement
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 };

@@ -1,13 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { ColumnDef } from '@/shared/ui/Table';
 import Table from '@/shared/ui/Table';
 import { InvoiceStatusBadge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { Metric } from '@/shared/ui/Card';
 import { PageHeader } from '@/shared/ui/PageHeader';
+import { Dialog } from '@/shared/ui/Dialog';
 import { useInvoices } from '@/features/invoices';
 import type { Invoice } from '@/shared/types';
-import { Printer, Check, Link, AlertCircle, Coins, TrendingUp } from 'lucide-react';
+import { Printer, Check, Link, AlertCircle, Coins, TrendingUp, ShieldCheck, Download, MessageSquareShare, FileSpreadsheet } from 'lucide-react';
+import { exportGstr1Csv } from '@/shared/utils/csvExport';
+import { generateInvoiceWhatsAppUrl } from '@/shared/utils/whatsappShare';
+import { TaxReportsModal } from './TaxReportsModal';
 
 interface InvoicesTemplateProps {
   workspaceId: string;
@@ -23,6 +27,9 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
   addToast,
 }) => {
   const { invoices, isLoading, payInvoice } = useInvoices(workspaceId, profileId);
+  const [invoiceToVerify, setInvoiceToVerify] = useState<Invoice | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [showTaxReports, setShowTaxReports] = useState(false);
 
   const totalInvoiced = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
   const totalGst = invoices.reduce((sum, inv) => sum + (inv.cgst || 0) + (inv.sgst || 0) + (inv.igst || 0), 0);
@@ -30,13 +37,42 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
     .filter(inv => inv.status !== 'paid')
     .reduce((sum, inv) => sum + (inv.total || 0), 0);
 
-  const handleVerifyPayment = async (invoiceId: string) => {
+  const confirmVerification = async () => {
+    if (!invoiceToVerify) return;
     try {
-      await payInvoice(invoiceId);
-      addToast('success', 'Payment Verified Successfully', `Invoice updated to Paid status.`);
+      setVerifying(true);
+      await payInvoice(invoiceToVerify.id);
+      addToast('success', 'Payment Verified', `Invoice ${invoiceToVerify.invoice_number} is now marked as Paid.`);
+      setInvoiceToVerify(null);
     } catch (e) {
       addToast('error', 'Verification Failed', (e as Error).message);
+    } finally {
+      setVerifying(false);
     }
+  };
+
+  const handleExportCsv = () => {
+    if (invoices.length === 0) {
+      addToast('warning', 'No Invoices', 'There are no invoices available to export.');
+      return;
+    }
+    try {
+      exportGstr1Csv(invoices);
+      addToast('success', 'GSTR-1 Export Generated', `Exported ${invoices.length} invoices to CSV.`);
+    } catch (err: any) {
+      addToast('error', 'Export Failed', err.message);
+    }
+  };
+
+  const handleWhatsAppShare = (row: Invoice) => {
+    const portalUrl = `${window.location.origin}/invoices`;
+    const url = generateInvoiceWhatsAppUrl({
+      invoiceNumber: row.invoice_number,
+      total: row.total,
+      dueDate: row.due_date,
+      portalUrl,
+    });
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const columns: ColumnDef<Invoice>[] = [
@@ -61,14 +97,14 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
       header: 'Due Date', 
       render: row => <span>{new Date(row.due_date).toLocaleDateString('en-IN')}</span> 
     },
-    {
+    { 
       key: 'total', 
       header: 'Total Value', 
       align: 'right', 
       sortable: true,
       render: row => <span className="font-semibold text-foreground font-mono">₹{row.total.toLocaleString('en-IN')}</span>
     },
-    {
+    { 
       key: 'actions', 
       header: 'Actions', 
       align: 'right',
@@ -77,19 +113,25 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
           <Button 
             variant="outline" 
             size="sm" 
+            onClick={() => handleWhatsAppShare(row)}
+            icon={<MessageSquareShare className="h-3 w-3 text-success" />}
+            title="Share on WhatsApp"
+          >
+            WhatsApp
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
             onClick={() => onShowInvoiceDetail(row.id)}
             icon={<Link className="h-3 w-3" />}
           >
-            Portal
+            Details
           </Button>
           <Button 
             variant="outline" 
             size="sm" 
             onClick={() => {
-              const token = (row as any).projects?.portal_token;
-              if (token) {
-                window.open(`/portal/${token}/invoice/${row.id}/print`, '_blank');
-              }
+              window.print();
             }}
             icon={<Printer className="h-3 w-3" />}
           >
@@ -99,7 +141,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
             <Button 
               variant="primary" 
               size="sm" 
-              onClick={() => handleVerifyPayment(row.id)}
+              onClick={() => setInvoiceToVerify(row)}
               icon={<Check className="h-3 w-3" />}
             >
               Verify
@@ -112,10 +154,30 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
 
   return (
     <div className="space-y-6.5 animate-slide-up">
-      <PageHeader
-        title="Invoices"
-        description={isLoading ? 'Loading bills...' : `${invoices.length} compliant GST invoice${invoices.length === 1 ? '' : 's'} registered`}
-      />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <PageHeader
+          title="Invoices"
+          description={isLoading ? 'Loading bills...' : `${invoices.length} compliant GST invoice${invoices.length === 1 ? '' : 's'} registered`}
+        />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowTaxReports(true)}
+            icon={<FileSpreadsheet className="h-4 w-4" />}
+          >
+            GST Tax Report
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportCsv}
+            icon={<Download className="h-4 w-4" />}
+          >
+            Export GSTR-1 (CSV)
+          </Button>
+        </div>
+      </div>
 
       {/* Stripe-style metrics summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -153,6 +215,45 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
         emptyMessage="No invoices generated"
         emptySubMessage="Issue milestone billing coordinates and tax splits from individual project detail workspaces."
         loading={isLoading}
+      />
+
+      {/* Confirmation Dialog for Verifying Invoice Settlement */}
+      <Dialog
+        open={!!invoiceToVerify}
+        onClose={() => setInvoiceToVerify(null)}
+        title="Confirm Payment Settlement"
+        size="sm"
+      >
+        <div className="space-y-4 pt-1">
+          <div className="p-3.5 border border-border bg-surface rounded-lg space-y-1.5 text-small">
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Invoice Number:</span>
+              <span className="font-mono font-semibold text-primary">{invoiceToVerify?.invoice_number}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Total Amount:</span>
+              <span className="font-mono font-bold text-foreground">₹{invoiceToVerify?.total?.toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+          <p className="text-small text-muted-foreground leading-relaxed">
+            Marking this invoice as Paid will update revenue metrics and unlock any escrowed project deliverables for the client.
+          </p>
+          <div className="flex justify-end gap-2 border-t border-border pt-4">
+            <Button variant="ghost" size="sm" onClick={() => setInvoiceToVerify(null)} type="button">
+              Cancel
+            </Button>
+            <Button variant="primary" size="sm" onClick={confirmVerification} loading={verifying} icon={<ShieldCheck className="h-4 w-4" />}>
+              Confirm & Mark Paid
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* GSTR-1 & Tax Reports Interactive Breakdown Modal */}
+      <TaxReportsModal
+        isOpen={showTaxReports}
+        onClose={() => setShowTaxReports(false)}
+        workspaceId={workspaceId}
       />
     </div>
   );

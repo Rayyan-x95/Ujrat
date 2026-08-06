@@ -11,8 +11,8 @@ export * from '../tax/GSTCalculator';
 export * from '../tax/TDSCalculator';
 export * from '../tax/InvoiceCalculator';
 export * from '../tax/TaxValidator';
-export * from '../tax/TaxFormatter';
 export * from '../tax/TaxRepository';
+export { numberToIndianRupeeWords, formatCurrency } from '@/shared/utils/currency';
 
 import { evaluateTaxRules } from '../tax/TaxRules';
 import { calculateGSTBreakdown } from '../tax/GSTCalculator';

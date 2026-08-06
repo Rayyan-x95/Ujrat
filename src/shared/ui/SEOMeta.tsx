@@ -17,7 +17,7 @@ export const SEOMeta: React.FC<SEOMetaProps> = ({
 }) => {
   useEffect(() => {
     // 1. Update Title
-    const fullTitle = `${title} | Ujrat`;
+    const fullTitle = title.includes('Ujrat') ? title : `${title} | Ujrat`;
     document.title = fullTitle;
 
     // Helper to update or create meta tag

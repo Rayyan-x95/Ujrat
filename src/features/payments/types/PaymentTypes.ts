@@ -72,16 +72,3 @@ export interface PaymentReceiptData {
   clientName: string;
   issuedAt: string;
 }
-
-/**
- * Provider-Independent Payment Engine Interface (SOLID Principle)
- */
-export interface PaymentProvider {
-  readonly providerId: string;
-  readonly providerName: string;
-
-  createPaymentRequest(params: PaymentRequestParams): Promise<PaymentRequestResult>;
-  generateDeepLink(params: PaymentRequestParams): string;
-  generateQRCodeString(params: PaymentRequestParams): string;
-  verifyPayment(params: PaymentVerificationParams): Promise<{ success: boolean; receipt?: PaymentReceiptData; error?: Error }>;
-}

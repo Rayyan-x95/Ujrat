@@ -318,6 +318,15 @@ export type PortalVerificationsRow = {
   created_at: string;
 };
 
+export type WaitlistRow = {
+  id: string;
+  name: string;
+  email: string;
+  service: string;
+  created_at: string;
+};
+
+
 // Database type for Supabase client
 export type Database = {
   public: {
@@ -434,6 +443,12 @@ export type Database = {
         Row: PortalVerificationsRow;
         Insert: Omit<PortalVerificationsRow, 'id' | 'created_at'>;
         Update: Partial<Omit<PortalVerificationsRow, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
+      waitlist: {
+        Row: WaitlistRow;
+        Insert: Omit<WaitlistRow, 'id' | 'created_at'>;
+        Update: Partial<Omit<WaitlistRow, 'id' | 'created_at'>>;
         Relationships: [];
       };
     };

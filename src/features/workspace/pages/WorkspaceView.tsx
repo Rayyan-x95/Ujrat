@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DashboardLayout } from '@/app/layouts/DashboardLayout';
 import { Spinner } from '@/shared/ui/Feedback';
@@ -62,6 +62,33 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ view }) => {
     navigate(`/${v}`);
   };
 
+  const handleShowInvoiceForProject = useCallback(async (invoiceId: string) => {
+    try {
+      const tokenRes = await ProjectService.getProjectPortalToken(workspaceId, projectId || '');
+      if (tokenRes.success && tokenRes.data) {
+        window.open(`/portal/${tokenRes.data}/invoice/${invoiceId}/print`, '_blank', 'noopener,noreferrer');
+      } else {
+        addToast('warning', 'No portal token', 'This project does not have a portal link yet.');
+      }
+    } catch (e: any) {
+      addToast('error', 'Failed to open invoice', e.message);
+    }
+  }, [workspaceId, projectId, addToast]);
+
+  const handleShowInvoiceDetail = useCallback(async (invoiceId: string) => {
+    try {
+      const invoiceRes = await InvoiceService.getInvoiceDetails(workspaceId, invoiceId);
+      if (invoiceRes.success && invoiceRes.data?.project_id) {
+        const tokenRes = await ProjectService.getProjectPortalToken(workspaceId, invoiceRes.data.project_id);
+        if (tokenRes.success && tokenRes.data) {
+          navigate(`/portal/${tokenRes.data}`);
+        }
+      }
+    } catch (e: any) {
+      addToast('error', 'Failed to open invoice link', e.message);
+    }
+  }, [workspaceId, navigate, addToast]);
+
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
@@ -88,18 +115,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ view }) => {
                 workspaceId={workspaceId}
                 profileId={profileId}
                 onBack={() => navigate('/projects')}
-                onShowInvoice={async (invoiceId: string) => {
-                  try {
-                    const tokenRes = await ProjectService.getProjectPortalToken(workspaceId, projectId);
-                    if (tokenRes.success && tokenRes.data) {
-                      window.open(`/portal/${tokenRes.data}/invoice/${invoiceId}/print`, '_blank', 'noopener,noreferrer');
-                    } else {
-                      addToast('warning', 'No portal token', 'This project does not have a portal link yet.');
-                    }
-                  } catch (e: any) {
-                    addToast('error', 'Failed to open invoice', e.message);
-                  }
-                }}
+                onShowInvoice={handleShowInvoiceForProject}
                 addToast={addToast}
               />
             ) : (
@@ -122,19 +138,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ view }) => {
                   <InvoicesTemplate
                     workspaceId={workspaceId}
                     profileId={profileId}
-                    onShowInvoiceDetail={async (invoiceId) => {
-                      try {
-                        const invoiceRes = await InvoiceService.getInvoiceDetails(workspaceId, invoiceId);
-                        if (invoiceRes.success && invoiceRes.data?.project_id) {
-                          const tokenRes = await ProjectService.getProjectPortalToken(workspaceId, invoiceRes.data.project_id);
-                          if (tokenRes.success && tokenRes.data) {
-                            navigate(`/portal/${tokenRes.data}`);
-                          }
-                        }
-                      } catch (e: any) {
-                        addToast('error', 'Failed to open invoice link', e.message);
-                      }
-                    }}
+                    onShowInvoiceDetail={handleShowInvoiceDetail}
                     addToast={addToast}
                   />
                 )}

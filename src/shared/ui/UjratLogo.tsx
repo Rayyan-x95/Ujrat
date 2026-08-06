@@ -12,30 +12,34 @@ export const UjratLogo: React.FC<UjratLogoProps> = ({
   showText = false,
 }) => {
   if (showText) {
-    // Full lockup: show the logo with text. The PNG is ~1:1 aspect.
-    // We constrain by height derived from size.
-    const height = size * 2.4;
-    const width = height * (1); // logo PNG is roughly square (logo + text stacked)
     return (
-      <img
-        src="/logo.png"
-        alt="Ujrat"
-        height={height}
-        width={width}
-        className={`object-contain select-none dark:invert transition-transform duration-300 hover:scale-105 ${className}`}
-        draggable={false}
-      />
+      <div className={`inline-flex items-center gap-2.5 select-none ${className}`}>
+        <img
+          src="/favicon-transparent.png"
+          alt="Ujrat"
+          height={size}
+          width={size}
+          className="object-contain shrink-0 transition-transform duration-300 group-hover:scale-105"
+          draggable={false}
+        />
+        <span 
+          className="font-bold font-display tracking-tight text-foreground"
+          style={{ fontSize: `${Math.round(size * 0.6)}px`, lineHeight: 1 }}
+        >
+          Ujrat
+        </span>
+      </div>
     );
   }
 
-  // Icon-only: the U+arrow mark
+  // Icon-only: transparent U+arrow mark
   return (
     <img
-      src="/logo-icon.png"
+      src="/favicon-transparent.png"
       alt="Ujrat"
       height={size}
       width={size}
-      className={`object-contain select-none dark:invert shrink-0 ${className}`}
+      className={`object-contain select-none shrink-0 ${className}`}
       draggable={false}
     />
   );

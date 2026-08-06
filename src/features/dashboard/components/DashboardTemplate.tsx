@@ -113,6 +113,7 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
   const navigate = useNavigate();
   const [chartRange, setChartRange] = useState<'month' | 'week'>('month');
   const [hoveredChartIdx, setHoveredChartIdx] = useState<number | null>(null);
+  const todayFormatted = useMemo(() => new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), []);
 
   const actionItems = useMemo(
     () => (metrics?.pipeline || []).filter(p => p.count > 0),
@@ -247,7 +248,7 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
       <header className="flex flex-col sm:flex-row justify-between sm:items-center gap-5 pb-1">
         <div className="space-y-1">
           <p className="text-[11px] font-medium text-muted-foreground leading-none select-none">
-            {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            {todayFormatted}
           </p>
           <h1 className="text-[26px] font-semibold text-foreground tracking-tight m-0 leading-tight">
             {getGreeting()}, {firstName}

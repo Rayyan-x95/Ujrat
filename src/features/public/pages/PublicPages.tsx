@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { SEOMeta } from '@/shared/ui/SEOMeta';
 import { JSONLD, getOrganizationSchema } from '@/shared/ui/JSONLD';
 import { UjratLogo } from '@/shared/ui/UjratLogo';
+import { UniversalNavbar } from '@/shared/ui/UniversalNavbar';
 import { Button } from '@/shared/ui/Button';
 import { 
   ShieldCheck, 
@@ -16,31 +17,10 @@ import {
 
 // Common Public Shell Layout
 const PublicLayout: React.FC<{ children: React.ReactNode; activePath: string }> = ({ children, activePath }) => {
-  const navigate = useNavigate();
-
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col justify-between selection:bg-primary/10 selection:text-primary">
-      {/* Top Header */}
-      <header className="sticky top-0 z-40 w-full border-b border-border-subtle bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-6">
-            <Link to="/" className="flex items-center gap-2 text-foreground font-semibold font-display">
-              <UjratLogo size={38} showText={true} />
-            </Link>
-            <nav className="hidden md:flex items-center gap-6 text-small font-medium text-muted-foreground">
-              <Link to="/features" className={`hover:text-foreground transition-colors ${activePath === '/features' ? 'text-foreground font-semibold' : ''}`}>Features</Link>
-              <Link to="/pricing" className={`hover:text-foreground transition-colors ${activePath === '/pricing' ? 'text-foreground font-semibold' : ''}`}>Pricing</Link>
-              <Link to="/gst" className={`hover:text-foreground transition-colors ${activePath === '/gst' ? 'text-foreground font-semibold' : ''}`}>GST Engine</Link>
-              <Link to="/upi" className={`hover:text-foreground transition-colors ${activePath === '/upi' ? 'text-foreground font-semibold' : ''}`}>UPI Payouts</Link>
-              <Link to="/docs" className={`hover:text-foreground transition-colors ${activePath === '/docs' ? 'text-foreground font-semibold' : ''}`}>Docs</Link>
-            </nav>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>Sign In</Button>
-            <Button variant="primary" size="sm" onClick={() => navigate('/signup')}>Start Free Workspace</Button>
-          </div>
-        </div>
-      </header>
+      {/* Top Universal Navbar */}
+      <UniversalNavbar activePath={activePath} />
 
       {/* Main Content */}
       <main className="flex-1 py-12 px-6 max-w-4xl mx-auto w-full">
@@ -64,6 +44,7 @@ const PublicLayout: React.FC<{ children: React.ReactNode; activePath: string }> 
             <ul className="space-y-2.5">
               <li><Link to="/features" className="hover:text-foreground transition-colors">Features</Link></li>
               <li><Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link></li>
+              <li><Link to="/waitlist" className="hover:text-foreground transition-colors font-medium text-primary">Early Access Waitlist</Link></li>
               <li><Link to="/gst" className="hover:text-foreground transition-colors">GST Engine</Link></li>
               <li><Link to="/upi" className="hover:text-foreground transition-colors">UPI Payouts</Link></li>
               <li><Link to="/contracts" className="hover:text-foreground transition-colors">E-Contracts</Link></li>
@@ -212,25 +193,41 @@ export const PricingPage: React.FC = () => (
 // 5. Features Page
 export const FeaturesPage: React.FC = () => (
   <PublicLayout activePath="/features">
-    <SEOMeta title="Features — Comprehensive Freelance Platform" description="Discover Ujrat client CRM, project boards, contract signing, Indian GST invoices, and zero-fee UPI payouts." canonicalPath="/features" />
-    <article className="space-y-8">
-      <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground text-center">Comprehensive Platform Features</h1>
+    <SEOMeta 
+      title="Freelance CRM, GST Invoices & UPI Payments Features" 
+      description="Explore Ujrat's end-to-end freelance workspace: client CRM, proposal templates, IT Act compliant digital contracts, Indian GST invoices, and zero-fee UPI QR payments." 
+      canonicalPath="/features" 
+    />
+    <article className="space-y-10">
+      <div className="text-center space-y-2">
+        <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground">The Complete Freelancer Operating System</h1>
+        <p className="text-body text-muted-foreground max-w-2xl mx-auto">From initial client lead to final zero-fee UPI bank settlement, Ujrat unifies your entire freelance workflow.</p>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="p-6 border border-border bg-card rounded-lg space-y-2">
-          <h2 className="text-title font-bold text-foreground">Client CRM & Management</h2>
-          <p className="text-small text-muted-foreground">Maintain structured records of client contacts, notes, and aggregate payment velocity.</p>
+        <div className="p-6 border border-border bg-card rounded-lg space-y-3">
+          <h2 className="text-title font-bold text-foreground">Client CRM & Lead Pipeline</h2>
+          <p className="text-small text-muted-foreground leading-relaxed">Centralize client contacts, project history, billing velocity, and workspace notes in one structured database. Track lifetime value (LTV) and on-time payment speed across every account.</p>
         </div>
-        <div className="p-6 border border-border bg-card rounded-lg space-y-2">
-          <h2 className="text-title font-bold text-foreground">Indian GST Tax Engine</h2>
-          <p className="text-small text-muted-foreground">Automatically calculates CGST + SGST or IGST based on regional state routing and HSN codes.</p>
+        <div className="p-6 border border-border bg-card rounded-lg space-y-3">
+          <h2 className="text-title font-bold text-foreground">Indian GST Invoicing Engine</h2>
+          <p className="text-small text-muted-foreground leading-relaxed">Automatic intra-state (CGST 9% + SGST 9%) vs. inter-state (IGST 18%) tax determination with integer paise rounding accuracy, custom SAC/HSN codes (998314), and statutory declarations.</p>
         </div>
-        <div className="p-6 border border-border bg-card rounded-lg space-y-2">
-          <h2 className="text-title font-bold text-foreground">UPI Intent & QR Codes</h2>
-          <p className="text-small text-muted-foreground">Direct P2P banking transfers with 0% payment gateway processing commissions.</p>
+        <div className="p-6 border border-border bg-card rounded-lg space-y-3">
+          <h2 className="text-title font-bold text-foreground">Zero-Fee Direct UPI Payouts</h2>
+          <p className="text-small text-muted-foreground leading-relaxed">NPCI-compliant dynamic UPI intent links and QR codes compatible with Google Pay, PhonePe, Paytm, and BHIM. 100% direct bank-to-bank settlement with 0% gateway commission fees.</p>
         </div>
-        <div className="p-6 border border-border bg-card rounded-lg space-y-2">
-          <h2 className="text-title font-bold text-foreground">Escrow Deliverables Delivery</h2>
-          <p className="text-small text-muted-foreground">Automated file access restrictions until invoices are marked as paid.</p>
+        <div className="p-6 border border-border bg-card rounded-lg space-y-3">
+          <h2 className="text-title font-bold text-foreground">Cryptographic Digital Contracts</h2>
+          <p className="text-small text-muted-foreground leading-relaxed">Legally binding freelance contracts compliant with Section 10A of the Indian Information Technology Act, 2000. Tamper-evident audit trails recording timestamps, IP addresses, and email signatures.</p>
+        </div>
+        <div className="p-6 border border-border bg-card rounded-lg space-y-3">
+          <h2 className="text-title font-bold text-foreground">Escrow Deliverable File Lock</h2>
+          <p className="text-small text-muted-foreground leading-relaxed">Protect your work with encrypted Supabase storage buckets. Client access to final deliverables remains restricted until invoice payment is verified and cleared.</p>
+        </div>
+        <div className="p-6 border border-border bg-card rounded-lg space-y-3">
+          <h2 className="text-title font-bold text-foreground">Dedicated Client Portal</h2>
+          <p className="text-small text-muted-foreground leading-relaxed">Share a frictionless, token-authenticated project portal with clients to review proposals, sign contracts, pay via UPI, and download assets without creating an account.</p>
         </div>
       </div>
     </article>
@@ -240,12 +237,68 @@ export const FeaturesPage: React.FC = () => (
 // 6. GST Engine Page
 export const GSTPage: React.FC = () => (
   <PublicLayout activePath="/gst">
-    <SEOMeta title="Indian GST Invoicing Engine for Freelancers" description="Automated Indian regional taxation calculations: CGST, SGST, IGST, and HSN/SAC codes." canonicalPath="/gst" />
-    <article className="space-y-6">
-      <h1 className="font-display text-3xl font-bold text-foreground">Automated Indian GST Engine</h1>
-      <p className="text-body text-muted-foreground leading-relaxed">
-        Ujrat automatically determines place of supply rules. If your client is in the same Indian state, it splits taxes into CGST + SGST with integer paise rounding accuracy. For inter-state clients, IGST is applied seamlessly.
-      </p>
+    <SEOMeta 
+      title="Indian GST Invoicing Engine for Freelancers — CGST, SGST, IGST & HSN 998314" 
+      description="Automated Indian GST calculation engine for freelancers. Instant place of supply routing for CGST + SGST vs IGST, HSN/SAC codes, and Section 194J TDS compliance." 
+      canonicalPath="/gst" 
+    />
+    <article className="space-y-8">
+      <div className="space-y-3">
+        <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Automated Indian GST Invoicing Engine</h1>
+        <p className="text-body text-muted-foreground leading-relaxed">
+          Built specifically for Indian freelance developers, designers, and consultants navigating the Goods and Services Tax (GST) regime.
+        </p>
+      </div>
+
+      <div className="p-6 border border-border bg-card rounded-xl space-y-4">
+        <h2 className="text-title font-bold text-foreground">How Place of Supply Tax Calculation Works</h2>
+        <p className="text-small text-muted-foreground leading-relaxed">
+          When generating an invoice, Ujrat compares your registered state code against the client's place of supply to determine the exact statutory taxation formula:
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-small text-left border-collapse">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="py-2.5 px-3 font-semibold text-foreground">Transaction Type</th>
+                <th className="py-2.5 px-3 font-semibold text-foreground">Location Rule</th>
+                <th className="py-2.5 px-3 font-semibold text-foreground">Tax Applied</th>
+                <th className="py-2.5 px-3 font-semibold text-foreground">Standard Rate</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-subtle text-muted-foreground">
+              <tr>
+                <td className="py-2.5 px-3 font-medium text-foreground">Intra-State</td>
+                <td className="py-2.5 px-3">Same Indian State</td>
+                <td className="py-2.5 px-3">CGST + SGST</td>
+                <td className="py-2.5 px-3">9% Central + 9% State (18%)</td>
+              </tr>
+              <tr>
+                <td className="py-2.5 px-3 font-medium text-foreground">Inter-State</td>
+                <td className="py-2.5 px-3">Different Indian State</td>
+                <td className="py-2.5 px-3">IGST</td>
+                <td className="py-2.5 px-3">18% Integrated GST</td>
+              </tr>
+              <tr>
+                <td className="py-2.5 px-3 font-medium text-foreground">Export of Service</td>
+                <td className="py-2.5 px-3">International Client</td>
+                <td className="py-2.5 px-3">Zero-Rated (LUT)</td>
+                <td className="py-2.5 px-3">0% with Letter of Undertaking</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="p-6 border border-border bg-card rounded-lg space-y-2">
+          <h3 className="text-title font-semibold text-foreground">HSN & SAC Code 998314 Support</h3>
+          <p className="text-small text-muted-foreground">Pre-configured with official SAC code 998314 (Information technology design and development services) and 998313 (IT consulting) for error-free GSTR-1 return filing.</p>
+        </div>
+        <div className="p-6 border border-border bg-card rounded-lg space-y-2">
+          <h3 className="text-title font-semibold text-foreground">Integer Paise Precision Rounding</h3>
+          <p className="text-small text-muted-foreground">All monetary calculations are computed using exact integer paise arithmetic, eliminating JavaScript IEEE 754 floating-point inaccuracies on tax totals.</p>
+        </div>
+      </div>
     </article>
   </PublicLayout>
 );
@@ -253,12 +306,40 @@ export const GSTPage: React.FC = () => (
 // 7. UPI Page
 export const UPIPage: React.FC = () => (
   <PublicLayout activePath="/upi">
-    <SEOMeta title="Zero-Fee UPI Intent & QR Payments" description="Accept instant freelance payments via Google Pay, PhonePe, Paytm, and BHIM with 0% gateway commission." canonicalPath="/upi" />
-    <article className="space-y-6">
-      <h1 className="font-display text-3xl font-bold text-foreground">Zero-Commission UPI Payouts</h1>
-      <p className="text-body text-muted-foreground leading-relaxed">
-        Bypasses traditional 2-4% gateway commissions by generating direct Unified Payments Interface (UPI) intent links and dynamic QR codes mapped to your VPA.
-      </p>
+    <SEOMeta 
+      title="Zero-Fee UPI QR & Intent Payment Invoicing for Freelancers | Ujrat" 
+      description="Accept freelance client payments with 0% payment gateway commission. Generate dynamic UPI QR codes and intent links compatible with GPay, PhonePe, and Paytm." 
+      canonicalPath="/upi" 
+    />
+    <article className="space-y-8">
+      <div className="space-y-3">
+        <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Zero-Commission Direct UPI Freelance Invoicing</h1>
+        <p className="text-body text-muted-foreground leading-relaxed">
+          Stop losing 2% to 4% of every freelance invoice to third-party payment gateways. Collect payments directly to your bank account via NPCI UPI rails.
+        </p>
+      </div>
+
+      <div className="p-6 border border-border bg-card rounded-xl space-y-4">
+        <h2 className="text-title font-bold text-foreground">How Zero-Fee UPI Invoicing Works</h2>
+        <div className="space-y-3 text-small text-muted-foreground">
+          <div className="flex items-start gap-3">
+            <span className="h-6 w-6 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center shrink-0 text-[12px]">1</span>
+            <p><strong className="text-foreground">Dynamic Deep Link Generation:</strong> When an invoice is created, Ujrat generates an official NPCI specification UPI URI string (<code className="text-primary text-[11px] bg-primary/5 px-1 py-0.5 rounded">upi://pay?pa=...&pn=...&am=...&cu=INR</code>).</p>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="h-6 w-6 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center shrink-0 text-[12px]">2</span>
+            <p><strong className="text-foreground">High-Resolution QR Rendering:</strong> The URI is converted to a dynamic QR code on the public client portal and downloadable PDF invoice.</p>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="h-6 w-6 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center shrink-0 text-[12px]">3</span>
+            <p><strong className="text-foreground">1-Click Mobile Intent:</strong> On mobile devices, clients tap direct deep links for Google Pay, PhonePe, Paytm, CRED, or BHIM.</p>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="h-6 w-6 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center shrink-0 text-[12px]">4</span>
+            <p><strong className="text-foreground">Instant Settlement & UTR Logging:</strong> Funds arrive in your linked bank account with ₹0 deductions. The client submits their 12-digit UTR for verified audit tracking.</p>
+          </div>
+        </div>
+      </div>
     </article>
   </PublicLayout>
 );
@@ -266,12 +347,36 @@ export const UPIPage: React.FC = () => (
 // 8. Contracts Page
 export const ContractsPage: React.FC = () => (
   <PublicLayout activePath="/contracts">
-    <SEOMeta title="Cryptographically Signed Digital Contracts" description="Bind client proposals to legally binding contract templates with tamper-evident audit trails." canonicalPath="/contracts" />
-    <article className="space-y-6">
-      <h1 className="font-display text-3xl font-bold text-foreground">Digital E-Sign Contracts</h1>
-      <p className="text-body text-muted-foreground leading-relaxed">
-        Create enforceable freelance contracts before writing code. Signature events capture timestamp, IP address, and email hashes under IT Act 2000 guidelines.
-      </p>
+    <SEOMeta 
+      title="Digital Freelance Contracts & IT Act Compliant E-Signatures | Ujrat" 
+      description="Create legally binding freelance agreements and contracts in India. Tamper-evident cryptographic signature logs under Section 10A of the Information Technology Act 2000." 
+      canonicalPath="/contracts" 
+    />
+    <article className="space-y-8">
+      <div className="space-y-3">
+        <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Legally Enforceable Freelance Contracts with E-Signatures</h1>
+        <p className="text-body text-muted-foreground leading-relaxed">
+          Protect your freelance work, intellectual property (IP), milestone timelines, and payment schedules before starting production.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="p-6 border border-border bg-card rounded-lg space-y-3">
+          <FileSignature className="h-6 w-6 text-primary" />
+          <h2 className="text-title font-semibold text-foreground">IT Act 2000 Compliance</h2>
+          <p className="text-small text-muted-foreground">Digital contracts signed on Ujrat are legally enforceable in Indian courts under Section 10A of the Information Technology Act, 2000.</p>
+        </div>
+        <div className="p-6 border border-border bg-card rounded-lg space-y-3">
+          <Lock className="h-6 w-6 text-primary" />
+          <h2 className="text-title font-semibold text-foreground">Cryptographic Audit Trail</h2>
+          <p className="text-small text-muted-foreground">Every signature event logs the signer's name, email, IP address, user agent, and timestamp directly into read-only PostgreSQL audit tables.</p>
+        </div>
+        <div className="p-6 border border-border bg-card rounded-lg space-y-3">
+          <ShieldCheck className="h-6 w-6 text-primary" />
+          <h2 className="text-title font-semibold text-foreground">Scope Creep Defense</h2>
+          <p className="text-small text-muted-foreground">Clearly defined milestones, revision limits, and kill-fees ensure you get paid fairly for all billable engineering and design revisions.</p>
+        </div>
+      </div>
     </article>
   </PublicLayout>
 );
@@ -279,12 +384,26 @@ export const ContractsPage: React.FC = () => (
 // 9. Documentation Page
 export const DocsPage: React.FC = () => (
   <PublicLayout activePath="/docs">
-    <SEOMeta title="Documentation & Self-Hosting Guide" description="Complete developer documentation, database migration guides, and self-hosting instructions." canonicalPath="/docs" />
+    <SEOMeta 
+      title="Developer Documentation & Self-Hosting Guide | Ujrat" 
+      description="Complete setup instructions, Supabase database schemas, Row-Level Security policies, and self-hosting documentation for Ujrat." 
+      canonicalPath="/docs" 
+    />
     <article className="space-y-6">
-      <h1 className="font-display text-3xl font-bold text-foreground">Developer Documentation</h1>
+      <h1 className="font-display text-3xl font-bold text-foreground">Developer Documentation & Self-Hosting</h1>
       <p className="text-body text-muted-foreground leading-relaxed">
-        Learn how to clone, configure, and self-host Ujrat on Vercel and Supabase. Baseline SQL schemas and migration scripts are available in the public repository.
+        Ujrat is built on modern web standards with React 19, Vite, Tailwind CSS v4, and Supabase. You can use the hosted cloud platform or self-host your own private instance on your own infrastructure.
       </p>
+      <div className="p-6 border border-border bg-card rounded-lg space-y-3">
+        <h2 className="text-title font-bold text-foreground">Quickstart: Self-Host with Supabase & Vercel</h2>
+        <ol className="list-decimal pl-5 space-y-2 text-small text-muted-foreground">
+          <li>Clone the repository: <code className="text-primary text-[11px] bg-primary/5 px-1 py-0.5 rounded">git clone https://github.com/ujrat/ujrat.git</code></li>
+          <li>Install dependencies: <code className="text-primary text-[11px] bg-primary/5 px-1 py-0.5 rounded">npm install</code></li>
+          <li>Apply database migrations from <code className="text-primary text-[11px] bg-primary/5 px-1 py-0.5 rounded">/supabase/migrations</code> to your Supabase project.</li>
+          <li>Configure your environment variables in <code className="text-primary text-[11px] bg-primary/5 px-1 py-0.5 rounded">.env</code> (<code className="text-primary text-[11px]">VITE_SUPABASE_URL</code> and <code className="text-primary text-[11px]">VITE_SUPABASE_ANON_KEY</code>).</li>
+          <li>Deploy to Vercel or run locally using <code className="text-primary text-[11px] bg-primary/5 px-1 py-0.5 rounded">npm run dev</code>.</li>
+        </ol>
+      </div>
     </article>
   </PublicLayout>
 );
@@ -292,10 +411,14 @@ export const DocsPage: React.FC = () => (
 // 10. Contact Page
 export const ContactPage: React.FC = () => (
   <PublicLayout activePath="/contact">
-    <SEOMeta title="Contact & Community Support" description="Get in touch with the Ujrat team or report issues on GitHub." canonicalPath="/contact" />
+    <SEOMeta 
+      title="Contact & Community Support | Ujrat" 
+      description="Connect with the Ujrat team for assistance, developer feedback, and open-source contributions." 
+      canonicalPath="/contact" 
+    />
     <article className="space-y-6 text-center max-w-lg mx-auto">
       <h1 className="font-display text-3xl font-bold text-foreground">Get in Touch</h1>
-      <p className="text-body text-muted-foreground">Have questions or feature requests? We'd love to hear from you.</p>
+      <p className="text-body text-muted-foreground">Have questions about GST invoicing, UPI integration, or self-hosting? We are here to help.</p>
       <div className="p-6 border border-border bg-card rounded-lg flex flex-col items-center gap-4">
         <Mail className="h-8 w-8 text-primary" />
         <p className="text-small font-semibold text-foreground">support@ninety5.in</p>
@@ -307,12 +430,16 @@ export const ContactPage: React.FC = () => (
 // 11. Status Page
 export const StatusPage: React.FC = () => (
   <PublicLayout activePath="/status">
-    <SEOMeta title="System Status & Uptime" description="Real-time operational status of Ujrat API, Database, and Storage services." canonicalPath="/status" />
+    <SEOMeta 
+      title="System Status & Real-Time Service Health | Ujrat" 
+      description="Check real-time uptime status for Ujrat database, authentication API, and storage services." 
+      canonicalPath="/status" 
+    />
     <article className="space-y-6">
-      <h1 className="font-display text-3xl font-bold text-foreground">System Status</h1>
+      <h1 className="font-display text-3xl font-bold text-foreground">System Status & Service Health</h1>
       <div className="p-4 border border-success/30 bg-success/5 rounded-lg flex items-center gap-3">
         <Activity className="h-5 w-5 text-success" />
-        <span className="text-small font-semibold text-success">All Systems Operational (100% Uptime)</span>
+        <span className="text-small font-semibold text-success">All Systems Operational — 100% Cloud Uptime</span>
       </div>
     </article>
   </PublicLayout>
@@ -321,17 +448,32 @@ export const StatusPage: React.FC = () => (
 // 12. FAQ Page
 export const FAQPage: React.FC = () => (
   <PublicLayout activePath="/faq">
-    <SEOMeta title="Frequently Asked Questions" description="Answers to common questions about Ujrat pricing, GST calculations, UPI payouts, and security." canonicalPath="/faq" />
+    <SEOMeta 
+      title="Freelance Invoicing & Tax FAQs — GST, UPI, Contracts | Ujrat" 
+      description="Frequently asked questions about Indian freelance invoicing, CGST/SGST/IGST tax rates, zero-fee UPI QR codes, and digital contracts." 
+      canonicalPath="/faq" 
+    />
     <article className="space-y-6">
-      <h1 className="font-display text-3xl font-bold text-foreground">Frequently Asked Questions</h1>
+      <div className="space-y-2">
+        <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Frequently Asked Questions</h1>
+        <p className="text-body text-muted-foreground">Everything you need to know about Ujrat's free freelance invoicing, GST compliance, and zero-fee UPI payouts.</p>
+      </div>
       <div className="space-y-4">
-        <div className="p-4 border border-border bg-card rounded-lg space-y-2">
-          <h2 className="text-title font-semibold text-foreground">Is Ujrat completely free?</h2>
-          <p className="text-small text-muted-foreground">Yes, 100% free and open-source under the MIT license with zero commission fees.</p>
+        <div className="p-5 border border-border bg-card rounded-lg space-y-2">
+          <h2 className="text-title font-semibold text-foreground">Is Ujrat really 100% free with no hidden charges?</h2>
+          <p className="text-small text-muted-foreground leading-relaxed">Yes. Ujrat is open-source under the MIT license. There are zero monthly subscription charges, zero feature paywalls, and zero transaction processing fees on UPI payouts.</p>
         </div>
-        <div className="p-4 border border-border bg-card rounded-lg space-y-2">
-          <h2 className="text-title font-semibold text-foreground">Does it support Indian GST?</h2>
-          <p className="text-small text-muted-foreground">Yes, automated intra-state (CGST+SGST) and inter-state (IGST) routing with HSN code support.</p>
+        <div className="p-5 border border-border bg-card rounded-lg space-y-2">
+          <h2 className="text-title font-semibold text-foreground">How does zero-fee UPI payout differ from standard payment gateways?</h2>
+          <p className="text-small text-muted-foreground leading-relaxed">Traditional payment gateways (like Razorpay, Stripe, or PayPal) charge 2% to 4% plus GST per transaction and hold funds for T+2 days. Ujrat generates direct UPI deep links and dynamic QR codes that route payments peer-to-peer (P2P/P2M) directly to your linked bank account with instant settlement and 0% gateway commission.</p>
+        </div>
+        <div className="p-5 border border-border bg-card rounded-lg space-y-2">
+          <h2 className="text-title font-semibold text-foreground">Does Ujrat automatically calculate intra-state vs. inter-state GST?</h2>
+          <p className="text-small text-muted-foreground leading-relaxed">Yes. Based on your registered Indian state and your client's place of supply, Ujrat automatically splits tax into CGST (9%) + SGST (9%) for intra-state transactions or applies IGST (18%) for inter-state clients with integer paise precision rounding.</p>
+        </div>
+        <div className="p-5 border border-border bg-card rounded-lg space-y-2">
+          <h2 className="text-title font-semibold text-foreground">Are digital contracts signed on Ujrat legally binding in India?</h2>
+          <p className="text-small text-muted-foreground leading-relaxed">Yes. Electronic agreements signed on Ujrat capture the signer's email, timestamp, IP address, and browser agent metadata. These logs satisfy legal validity requirements under Section 10A of the Information Technology (IT) Act, 2000 of India.</p>
         </div>
       </div>
     </article>

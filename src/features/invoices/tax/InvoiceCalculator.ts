@@ -27,7 +27,8 @@ export function calculateInvoiceTax(input: InvoiceTaxCalculationInput): TaxBreak
     input.client,
     input.supply_type,
     input.isReverseCharge,
-    input.lutNumber
+    input.lutNumber,
+    input.lutExpiryDate
   );
 
   // 2. Pre-calculate Gross Subtotal
@@ -73,8 +74,6 @@ export function calculateInvoiceTax(input: InvoiceTaxCalculationInput): TaxBreak
 
   const subtotal = gstBreakdown.subtotal;
   const lineDiscountsTotal = gstBreakdown.lineDiscountsTotal;
-  const globalDiscountBeforeTax = fromPaise(invoiceDiscountBeforeTaxPaise);
-  const totalDiscountBeforeTax = lineDiscountsTotal + globalDiscountBeforeTax;
   const taxableAmount = gstBreakdown.taxableSubtotal;
 
   const cgst = gstBreakdown.cgstTotal;
@@ -84,18 +83,19 @@ export function calculateInvoiceTax(input: InvoiceTaxCalculationInput): TaxBreak
   const totalGst = gstBreakdown.totalGst;
 
   // 5. Compute Grand Total & Deterministic Rounding from Taxable Subtotal + GST
-  const discountAfterTax = fromPaise(invoiceDiscountAfterTaxPaise);
-  const totalDiscount = totalDiscountBeforeTax + discountAfterTax;
+  const taxedTotalPaise = toPaise(taxableAmount) + toPaise(totalGst);
+  const appliedAfterTaxDiscountPaise = Math.min(invoiceDiscountAfterTaxPaise, taxedTotalPaise);
+  const unroundedGrandTotalPaise = Math.max(0, taxedTotalPaise - appliedAfterTaxDiscountPaise);
 
-  const unroundedGrandTotalPaise =
-    toPaise(taxableAmount) + toPaise(totalGst) - invoiceDiscountAfterTaxPaise;
-
-  const roundedGrandTotalPaise = Math.round(unroundedGrandTotalPaise / 100) * 100;
+  const roundedGrandTotalPaise = Math.max(0, Math.round(unroundedGrandTotalPaise / 100) * 100);
   const roundOffPaise = roundedGrandTotalPaise - unroundedGrandTotalPaise;
 
   const grandTotalUnrounded = fromPaise(unroundedGrandTotalPaise);
   const grandTotal = fromPaise(roundedGrandTotalPaise);
   const roundOff = fromPaise(roundOffPaise);
+
+  const discountAfterTax = fromPaise(appliedAfterTaxDiscountPaise);
+  const totalDiscount = lineDiscountsTotal + gstBreakdown.allocatedInvoiceDiscount + discountAfterTax;
 
   // 6. Compute Income Tax TDS Deduction
   const tdsResult = calculateTDS(
@@ -105,9 +105,10 @@ export function calculateInvoiceTax(input: InvoiceTaxCalculationInput): TaxBreak
     input.tds?.rate
   );
 
-  // 7. Multi-Currency Foreign Turnover & INR Equivalent from unrounded paise
+  // 7. Multi-Currency Foreign Turnover & INR Equivalent from rounded paise
   const inrSubtotal = fromPaise(Math.round(toPaise(subtotal) * exchangeRate));
-  const inrGrandTotal = fromPaise(Math.round(unroundedGrandTotalPaise * exchangeRate));
+  const inrGrandTotal = fromPaise(Math.round(roundedGrandTotalPaise * exchangeRate));
+  const inrNetReceivable = fromPaise(Math.round(toPaise(tdsResult.netReceivable) * exchangeRate));
 
   return {
     subtotal,
@@ -146,6 +147,7 @@ export function calculateInvoiceTax(input: InvoiceTaxCalculationInput): TaxBreak
     exchange_rate_date: exchangeRateDate,
     inr_subtotal: inrSubtotal,
     inr_grand_total: inrGrandTotal,
+    inr_net_receivable: inrNetReceivable,
 
     declarations: rules.declarations,
     warnings: rules.warnings,

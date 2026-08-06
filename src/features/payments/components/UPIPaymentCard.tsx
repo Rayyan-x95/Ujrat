@@ -5,7 +5,8 @@ import { Input } from '@/shared/ui/Input';
 import { UPIPaymentProvider } from '../providers/UPIPaymentProvider';
 import { SUPPORTED_UPI_APPS } from '../constants/PaymentConstants';
 import { PaymentVerificationService } from '../services/PaymentVerificationService';
-import { formatCurrencyAmount } from '@/features/invoices/utils/TaxEngine';
+import { PortalService } from '@/features/portal/services/PortalService';
+import { formatCurrency } from '@/shared/utils/currency';
 
 interface UPIPaymentCardProps {
   workspaceId: string;
@@ -15,6 +16,7 @@ interface UPIPaymentCardProps {
   currency?: string;
   payeeVpa: string;
   payeeName: string;
+  portalToken?: string;
   onPaymentSubmitted?: () => void;
   addToast?: (type: 'success' | 'info' | 'warning' | 'error', message: string, desc?: string) => void;
 }
@@ -27,6 +29,7 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
   currency = 'INR',
   payeeVpa,
   payeeName,
+  portalToken,
   onPaymentSubmitted,
   addToast,
 }) => {
@@ -37,16 +40,25 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const provider = useMemo(() => new UPIPaymentProvider(), []);
+  const [linkError, setLinkError] = useState<string | null>(null);
+
   const deepLinkUri = useMemo(() => {
-    return provider.generateDeepLink({
-      workspaceId,
-      invoiceId,
-      invoiceNumber,
-      amount,
-      currency,
-      payeeVpa,
-      payeeName,
-    });
+    try {
+      const uri = provider.generateDeepLink({
+        workspaceId,
+        invoiceId,
+        invoiceNumber,
+        amount,
+        currency,
+        payeeVpa,
+        payeeName,
+      });
+      setLinkError(null);
+      return uri;
+    } catch (err: any) {
+      setLinkError(err?.message || 'Invalid payment link parameters.');
+      return '';
+    }
   }, [workspaceId, invoiceId, invoiceNumber, amount, currency, payeeVpa, payeeName, provider]);
 
   const handleCopy = async (text: string, fieldName: string) => {
@@ -69,16 +81,22 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
   const handleLaunchApp = (schemePrefix?: string) => {
     let targetLink = deepLinkUri;
     if (schemePrefix) {
-      targetLink = provider.generateAppSpecificDeepLink(
-        { workspaceId, invoiceId, invoiceNumber, amount, currency, payeeVpa, payeeName },
-        schemePrefix
-      );
+      try {
+        targetLink = provider.generateAppSpecificDeepLink(
+          { workspaceId, invoiceId, invoiceNumber, amount, currency, payeeVpa, payeeName },
+          schemePrefix
+        );
+      } catch {
+        if (addToast) addToast('error', 'Launch Failed', 'Invalid UPI parameters.');
+        return;
+      }
     }
     window.location.href = targetLink;
   };
 
   const handleSubmitUtr = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
 
     const utrVal = PaymentVerificationService.validateUTR(utrNumber);
     if (!utrVal.isValid) {
@@ -99,22 +117,41 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
       }
     }
 
-    setSubmitting(true);
-    const res = await PaymentVerificationService.submitClientPaymentAttempt(workspaceId, {
-      invoiceId,
-      utrNumber: utrNumber.trim(),
-      amount,
-      screenshotUrl: screenshotUrl.trim() || null,
-      notes: notes.trim() || null,
-    });
+    try {
+      setSubmitting(true);
+      if (portalToken) {
+        const res = await PortalService.submitPayment(portalToken, {
+          invoiceId,
+          amount,
+          paymentMethod: 'UPI',
+          transactionReference: utrNumber.trim(),
+        });
+        if (res.success) {
+          if (addToast) addToast('success', 'Payment Submitted', 'Transaction UTR submitted for verification.');
+          if (onPaymentSubmitted) onPaymentSubmitted();
+        } else {
+          if (addToast) addToast('error', 'Submission Failed', res?.error?.message || 'Submission failed');
+        }
+      } else {
+        const res = await PaymentVerificationService.submitClientPaymentAttempt(workspaceId, {
+          invoiceId,
+          utrNumber: utrNumber.trim(),
+          amount,
+          screenshotUrl: screenshotUrl.trim() || null,
+          notes: notes.trim() || null,
+        });
 
-    setSubmitting(false);
-
-    if (res.success) {
-      if (addToast) addToast('success', 'Payment Submitted', res.data.message);
-      if (onPaymentSubmitted) onPaymentSubmitted();
-    } else {
-      if (addToast) addToast('error', 'Submission Failed', res.error.message);
+        if (res?.success) {
+          if (addToast) addToast('success', 'Payment Submitted', res.data?.message || 'Submitted successfully');
+          if (onPaymentSubmitted) onPaymentSubmitted();
+        } else {
+          if (addToast) addToast('error', 'Submission Failed', res?.error?.message || 'Submission failed');
+        }
+      }
+    } catch (err: any) {
+      if (addToast) addToast('error', 'Submission Failed', err?.message || 'Submission failed');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -128,77 +165,85 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
         </div>
         <div className="text-right">
           <span className="text-[10px] font-bold text-neutral-400 block uppercase">AMOUNT DUE</span>
-          <span className="text-xl font-extrabold text-neutral-900 dark:text-white">{formatCurrencyAmount(amount, currency as any)}</span>
+          <span className="text-xl font-extrabold text-neutral-900 dark:text-white">{formatCurrency(amount, currency)}</span>
         </div>
       </div>
 
-      {/* Mobile Primary Action Button */}
-      <div className="block md:hidden space-y-3">
-        <Button
-          variant="primary"
-          className="w-full py-3.5 text-base font-bold shadow-lg shadow-primary/20"
-          onClick={() => handleLaunchApp()}
-        >
-          ⚡ Pay Now via UPI App
-        </Button>
-
-        {/* Quick App Selectors */}
-        <div className="grid grid-cols-3 gap-2">
-          {SUPPORTED_UPI_APPS.slice(0, 6).map(app => (
-            <button
-              key={app.id}
-              onClick={() => handleLaunchApp(app.schemePrefix)}
-              className="px-2 py-2 text-xs font-semibold rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 hover:border-primary transition-all text-center"
+      {linkError ? (
+        <div className="p-4 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-xl text-xs font-medium">
+          {linkError}
+        </div>
+      ) : (
+        <>
+          {/* Mobile Primary Action Button */}
+          <div className="block md:hidden space-y-3">
+            <Button
+              variant="primary"
+              className="w-full py-3.5 text-base font-bold shadow-lg shadow-primary/20"
+              onClick={() => handleLaunchApp()}
             >
-              {app.name}
-            </button>
-          ))}
-        </div>
-      </div>
+              ⚡ Pay Now via UPI App
+            </Button>
 
-      {/* Desktop View: Interactive QR & Details Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-        {/* QR Code Frame */}
-        <div className="flex flex-col items-center justify-center p-4 bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-800 rounded-2xl space-y-2">
-          <div className="h-44 w-44 bg-white p-2.5 rounded-xl shadow-md border border-neutral-200 flex items-center justify-center">
-            <QRCodeSVG value={deepLinkUri} size={156} className="h-full w-full object-contain" />
-          </div>
-          <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Scan with Google Pay, PhonePe, Paytm, BHIM</span>
-        </div>
-
-        {/* Copy Details Table */}
-        <div className="space-y-3 text-xs">
-          <div className="p-3 bg-neutral-50 dark:bg-neutral-800 rounded-xl space-y-1.5 border border-neutral-200 dark:border-neutral-800">
-            <div className="flex justify-between items-center">
-              <span className="text-neutral-400 font-medium">Payee UPI VPA:</span>
-              <button
-                onClick={() => handleCopy(payeeVpa, 'UPI VPA')}
-                className="text-primary hover:underline font-bold"
-              >
-                {copiedField === 'UPI VPA' ? '✓ Copied' : 'Copy'}
-              </button>
+            {/* Quick App Selectors */}
+            <div className="grid grid-cols-3 gap-2">
+              {SUPPORTED_UPI_APPS.slice(0, 6).map(app => (
+                <button
+                  key={app.id}
+                  onClick={() => handleLaunchApp(app.schemePrefix)}
+                  className="px-2 py-2 text-xs font-semibold rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 hover:border-primary transition-all text-center"
+                >
+                  {app.name}
+                </button>
+              ))}
             </div>
-            <div className="font-mono font-bold text-neutral-900 dark:text-white text-sm truncate">{payeeVpa}</div>
           </div>
 
-          <div className="p-3 bg-neutral-50 dark:bg-neutral-800 rounded-xl space-y-1.5 border border-neutral-200 dark:border-neutral-800">
-            <div className="flex justify-between items-center">
-              <span className="text-neutral-400 font-medium">Payee Name:</span>
-              <span className="font-semibold text-neutral-900 dark:text-white">{payeeName}</span>
+          {/* Desktop View: Interactive QR & Details Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            {/* QR Code Frame */}
+            <div className="flex flex-col items-center justify-center p-4 bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-800 rounded-2xl space-y-2">
+              <div className="h-44 w-44 bg-white p-2.5 rounded-xl shadow-md border border-neutral-200 flex items-center justify-center">
+                <QRCodeSVG value={deepLinkUri} size={156} className="h-full w-full object-contain" />
+              </div>
+              <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Scan with Google Pay, PhonePe, Paytm, BHIM</span>
             </div>
-            <div className="flex justify-between items-center pt-1 border-t border-neutral-200 dark:border-neutral-700">
-              <span className="text-neutral-400 font-medium">Invoice Reference:</span>
-              <button
-                onClick={() => handleCopy(invoiceNumber, 'Invoice Ref')}
-                className="text-primary hover:underline font-bold"
-              >
-                {copiedField === 'Invoice Ref' ? '✓ Copied' : 'Copy'}
-              </button>
+
+            {/* Copy Details Table */}
+            <div className="space-y-3 text-xs">
+              <div className="p-3 bg-neutral-50 dark:bg-neutral-800 rounded-xl space-y-1.5 border border-neutral-200 dark:border-neutral-800">
+                <div className="flex justify-between items-center">
+                  <span className="text-neutral-400 font-medium">Payee UPI VPA:</span>
+                  <button
+                    onClick={() => handleCopy(payeeVpa, 'UPI VPA')}
+                    className="text-primary hover:underline font-bold"
+                  >
+                    {copiedField === 'UPI VPA' ? '✓ Copied' : 'Copy'}
+                  </button>
+                </div>
+                <div className="font-mono font-bold text-neutral-900 dark:text-white text-sm truncate">{payeeVpa}</div>
+              </div>
+
+              <div className="p-3 bg-neutral-50 dark:bg-neutral-800 rounded-xl space-y-1.5 border border-neutral-200 dark:border-neutral-800">
+                <div className="flex justify-between items-center">
+                  <span className="text-neutral-400 font-medium">Payee Name:</span>
+                  <span className="font-semibold text-neutral-900 dark:text-white">{payeeName}</span>
+                </div>
+                <div className="flex justify-between items-center pt-1 border-t border-neutral-200 dark:border-neutral-700">
+                  <span className="text-neutral-400 font-medium">Invoice Reference:</span>
+                  <button
+                    onClick={() => handleCopy(invoiceNumber, 'Invoice Ref')}
+                    className="text-primary hover:underline font-bold"
+                  >
+                    {copiedField === 'Invoice Ref' ? '✓ Copied' : 'Copy'}
+                  </button>
+                </div>
+                <div className="font-mono text-neutral-800 dark:text-neutral-200">{invoiceNumber}</div>
+              </div>
             </div>
-            <div className="font-mono text-neutral-800 dark:text-neutral-200">{invoiceNumber}</div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
 
       {/* Payment UTR Submission Form */}
       <form onSubmit={handleSubmitUtr} className="border-t border-neutral-200 dark:border-neutral-800 pt-6 space-y-4">

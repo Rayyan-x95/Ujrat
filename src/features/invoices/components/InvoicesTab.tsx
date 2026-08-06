@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/shared/ui/Card';
 import { Button } from '@/shared/ui/Button';
 import { Input, CurrencyInput, Textarea } from '@/shared/ui/Input';
 import { Badge } from '@/shared/ui/Badge';
-import { Receipt, PlusCircle, Printer } from 'lucide-react';
+import { Receipt, PlusCircle, Printer, Copy, MessageSquareShare } from 'lucide-react';
+import { COMMON_FREELANCE_SAC_CODES } from '../constants/sacCodes';
+import { generateInvoiceWhatsAppUrl } from '@/shared/utils/whatsappShare';
 
 interface InvoicesTabProps {
   invoices: any[];
@@ -22,9 +24,9 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
   onShowInvoice,
   onConfirmPayment,
 }) => {
-  const stableInvoiceNo = useRef(`INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
+  const generateNewInvoiceNo = () => `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
   const [showGenInvoice, setShowGenInvoice] = useState(false);
-  const [invoiceNo, setInvoiceNo] = useState(stableInvoiceNo.current);
+  const [invoiceNo, setInvoiceNo] = useState(generateNewInvoiceNo());
   const [invoiceNote, setInvoiceNote] = useState('');
   const [invoiceAmount, setInvoiceAmount] = useState('0');
   const [submitting, setSubmitting] = useState(false);
@@ -42,9 +44,28 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
       const amt = parseFloat(invoiceAmount) || 0;
       await onGenerateInvoice(invoiceNo, amt, invoiceNote);
       setShowGenInvoice(false);
+      setInvoiceNo(generateNewInvoiceNo());
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleDuplicate = (inv: any) => {
+    setInvoiceNo(generateNewInvoiceNo());
+    setInvoiceAmount(String(inv.total || projectBudget || '0'));
+    setInvoiceNote(inv.notes || '');
+    setShowGenInvoice(true);
+  };
+
+  const handleWhatsAppShare = (inv: any) => {
+    const portalUrl = `${window.location.origin}/invoices`;
+    const url = generateInvoiceWhatsAppUrl({
+      invoiceNumber: inv.invoice_number,
+      total: inv.total,
+      dueDate: inv.due_date,
+      portalUrl,
+    });
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const handleConfirmPayment = async (invoiceId: string) => {
@@ -70,7 +91,10 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
         <Button 
           variant="primary" 
           size="sm" 
-          onClick={() => setShowGenInvoice(true)} 
+          onClick={() => {
+            setInvoiceNo(generateNewInvoiceNo());
+            setShowGenInvoice(true);
+          }} 
           disabled={!canIssueInvoice}
           icon={<PlusCircle className="h-3.5 w-3.5" />}
         >
@@ -85,6 +109,29 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
             <Input label="Invoice Number Reference" value={invoiceNo} onChange={e => setInvoiceNo(e.target.value)} />
             <CurrencyInput label="Milestone Value (INR)" value={invoiceAmount} onChange={e => setInvoiceAmount(e.target.value)} />
           </div>
+
+          {/* SAC Code Quick Selector */}
+          <div>
+            <label className="block text-[11px] font-semibold text-muted-foreground mb-1.5">
+              Suggested SAC Code (GST Compliance)
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {COMMON_FREELANCE_SAC_CODES.map(sac => (
+                <button
+                  key={sac.code}
+                  type="button"
+                  onClick={() => {
+                    const memo = `SAC Code: ${sac.code} (${sac.category} - ${sac.description})`;
+                    setInvoiceNote(prev => prev ? `${prev}\n${memo}` : memo);
+                  }}
+                  className="text-[11px] px-2.5 py-1 rounded-md border border-border bg-surface hover:border-primary/40 hover:text-primary transition-colors cursor-pointer text-left"
+                >
+                  <span className="font-mono font-bold">{sac.code}</span> - {sac.category}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <Textarea label="Invoice Public Memo / Bank details" placeholder="E.g., Bank: HDFC Bank, A/C: 5010049281, IFSC: HDFC0000123" value={invoiceNote} onChange={e => setInvoiceNote(e.target.value)} />
           <div className="flex justify-end gap-2 border-t border-border pt-4 mt-2">
             <Button variant="ghost" size="sm" onClick={() => setShowGenInvoice(false)}>Cancel</Button>
@@ -117,7 +164,25 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
                   <span className="text-base font-bold text-foreground font-mono">₹{inv.total?.toLocaleString('en-IN')}</span>
                 </div>
               </div>
-              <div className="flex gap-2 mt-4">
+              <div className="flex flex-wrap gap-2 mt-4">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => handleWhatsAppShare(inv)}
+                  icon={<MessageSquareShare className="h-3 w-3 text-success" />}
+                  title="Share invoice on WhatsApp"
+                >
+                  WhatsApp
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => handleDuplicate(inv)}
+                  icon={<Copy className="h-3 w-3" />}
+                  title="Clone invoice specifications"
+                >
+                  Duplicate
+                </Button>
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -125,7 +190,7 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
                   className="grow text-xs font-semibold"
                   icon={<Printer className="h-3.5 w-3.5" />}
                 >
-                  View Invoice
+                  View
                 </Button>
                 {inv.status === 'pending_verification' && onConfirmPayment && (
                   <Button 

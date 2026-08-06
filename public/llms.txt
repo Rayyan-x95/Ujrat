@@ -1,0 +1,31 @@
+# Ujrat — Free Freelance Invoicing, GST & Zero-Fee UPI Payments Platform
+
+> Ujrat (https://ujrat.ninety5.in) is the #1 free, open-source freelance workflow platform engineered for Indian freelancers, consultants, and creative professionals. It provides client CRM, IT Act 2000 compliant digital contracts with e-signatures, automated CGST/SGST/IGST invoicing, direct zero-commission UPI QR payment payouts, and file delivery escrow.
+
+## Core Capabilities & Features
+
+- **Client CRM**: Manage client contacts, GSTIN tax identifiers, addresses, active engagements, and payment histories.
+- **GST Invoicing Engine**: Automated place-of-supply tax calculations for intra-state (CGST + SGST) and inter-state (IGST) services under SAC/HSN codes (e.g. 998314 for IT consulting). Includes PDF export and invoice versioning.
+- **Zero-Fee UPI Payments**: Direct UPI intent generation and dynamic QR code billing without payment gateway merchant charges (0% fee direct to freelancer bank account).
+- **Digital Contracts & Proposals**: E-signature workflows with cryptographic signature audit logs adhering to the Indian Information Technology Act, 2000.
+- **Client Portal & Escrow File Delivery**: Passwordless token-based client portal with OTP verification for reviewing contracts, paying invoices, and unlocking project deliverables.
+
+## Technical Architecture & Security
+
+- **Database**: PostgreSQL with Row-Level Security (RLS) policies guaranteeing workspace data isolation.
+- **Frontend**: React 19, TypeScript, Vite, Tailwind CSS with zero render-blocking assets.
+- **License**: MIT Open Source License.
+
+## Key Links
+
+- [Official Website](https://ujrat.ninety5.in/)
+- [Features](https://ujrat.ninety5.in/features)
+- [Pricing](https://ujrat.ninety5.in/pricing)
+- [GST Guide](https://ujrat.ninety5.in/gst)
+- [UPI Payments Guide](https://ujrat.ninety5.in/upi)
+- [Digital Contracts](https://ujrat.ninety5.in/contracts)
+- [Documentation](https://ujrat.ninety5.in/docs)
+- [FAQ](https://ujrat.ninety5.in/faq)
+- [System Status](https://ujrat.ninety5.in/status)
+- [Privacy Policy](https://ujrat.ninety5.in/privacy)
+- [Terms of Service](https://ujrat.ninety5.in/terms)

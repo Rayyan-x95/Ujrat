@@ -1,11 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { formatINR, numberToIndianWords } from '@/shared/utils/currency';
+import { formatINR, numberToIndianRupeeWords } from '@/shared/utils/currency';
 
 describe('Currency Utility Functions', () => {
   describe('formatINR', () => {
     it('should format numbers to Indian currency representation', () => {
-      // Note: Intl.NumberFormat might use non-breaking spaces or different formatting depending on node version,
-      // but we check if it contains the basic characters and structure.
       const formatted = formatINR(150000);
       expect(formatted).toContain('1,50,000.00');
     });
@@ -16,21 +14,21 @@ describe('Currency Utility Functions', () => {
     });
   });
 
-  describe('numberToIndianWords', () => {
-    it('should return Rupees Zero Only for 0', () => {
-      expect(numberToIndianWords(0)).toBe('Rupees Zero Only');
+  describe('numberToIndianRupeeWords', () => {
+    it('should return Zero Rupees Only for 0', () => {
+      expect(numberToIndianRupeeWords(0)).toBe('Zero Rupees Only');
     });
 
     it('should convert small numbers correctly', () => {
-      expect(numberToIndianWords(5)).toBe('Rupees Five Only');
-      expect(numberToIndianWords(15)).toBe('Rupees Fifteen Only');
-      expect(numberToIndianWords(42)).toBe('Rupees Forty Two Only');
+      expect(numberToIndianRupeeWords(5)).toBe('Five Rupees Only');
+      expect(numberToIndianRupeeWords(15)).toBe('Fifteen Rupees Only');
+      expect(numberToIndianRupeeWords(42)).toBe('Forty Two Rupees Only');
     });
 
     it('should convert large numbers correctly using Indian numbering groups', () => {
-      expect(numberToIndianWords(150000)).toBe('Rupees One Lakh Fifty Thousand Only');
-      expect(numberToIndianWords(2500000)).toBe('Rupees Twenty Five Lakh Only');
-      expect(numberToIndianWords(12345678)).toBe('Rupees One Crore Twenty Three Lakh Forty Five Thousand Six Hundred Seventy Eight Only');
+      expect(numberToIndianRupeeWords(150000)).toBe('One Lakh Fifty Thousand Rupees Only');
+      expect(numberToIndianRupeeWords(2500000)).toBe('Twenty Five Lakh Rupees Only');
+      expect(numberToIndianRupeeWords(12345678)).toBe('One Crore Twenty Three Lakh Forty Five Thousand Six Hundred Seventy Eight Rupees Only');
     });
   });
 });

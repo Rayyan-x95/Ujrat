@@ -1,5 +1,4 @@
-import React, { useState, useRef, useMemo, useDeferredValue } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import React, { useState, useMemo, useDeferredValue } from 'react';
 import { EmptyState } from './Feedback';
 
 export interface ColumnDef<T> {
@@ -19,6 +18,7 @@ interface TableProps<T> {
   searchPlaceholder?: string;
   emptyMessage?: string;
   emptySubMessage?: string;
+  emptyAction?: React.ReactNode;
   emptyState?: {
     icon?: React.ReactNode;
     title: string;
@@ -41,6 +41,7 @@ function Table<T extends object>({
   searchPlaceholder = 'Search...',
   emptyMessage = 'No records found',
   emptySubMessage = '',
+  emptyAction,
   emptyState,
   actions,
   loading = false,
@@ -49,7 +50,6 @@ function Table<T extends object>({
   const [sortDir, setSortDir]     = useState<SortDir>(null);
   const [search, setSearch]       = useState('');
   const deferredSearch            = useDeferredValue(search);
-  const parentRef                 = useRef<HTMLDivElement>(null);
 
   const handleSort = (key: string) => {
     if (sortKey !== key) {
@@ -90,21 +90,6 @@ function Table<T extends object>({
         })
       : filtered;
   }, [data, searchable, deferredSearch, columns, sortKey, sortDir]);
-
-  const rowVirtualizer = useVirtualizer({
-    count:           sorted.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize:    () => 52,
-    overscan:        10,
-  });
-
-  const virtualItems  = rowVirtualizer.getVirtualItems();
-  const totalSize     = rowVirtualizer.getTotalSize();
-  const paddingTop    = virtualItems.length > 0 ? (virtualItems[0]?.start ?? 0) : 0;
-  const paddingBottom =
-    virtualItems.length > 0
-      ? totalSize - (virtualItems[virtualItems.length - 1]?.end ?? 0)
-      : 0;
 
   /* ── Sort Icon ──────────────────────────────────────────────────────────── */
   const SortIcon = ({ col }: { col: ColumnDef<T> }) => {
@@ -151,8 +136,20 @@ function Table<T extends object>({
                 placeholder={searchPlaceholder}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="h-9 w-full rounded-md bg-background border border-border pl-8 pr-3 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary placeholder:text-muted-foreground/40 text-foreground transition-colors"
+                className="h-9 w-full rounded-md bg-background border border-border pl-8 pr-8 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary placeholder:text-muted-foreground/40 text-foreground transition-colors"
               />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  aria-label="Clear search"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground rounded cursor-pointer transition-colors"
+                >
+                  <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
             </div>
           )}
           {actions && (
@@ -162,10 +159,7 @@ function Table<T extends object>({
       )}
 
       {/* Table wrapper */}
-      <div
-        ref={parentRef}
-        className="overflow-x-auto max-h-150 overflow-y-auto rounded-lg border border-border bg-card"
-      >
+      <div className="overflow-x-auto max-h-150 overflow-y-auto rounded-lg border border-border bg-card">
         <table className="w-full border-collapse text-left">
           <thead>
             <tr className="border-b border-border bg-surface/60 sticky top-0 z-10">
@@ -212,51 +206,39 @@ function Table<T extends object>({
                   {emptyState ? (
                     <EmptyState {...emptyState} />
                   ) : (
-                    <EmptyState title={emptyMessage} description={emptySubMessage} />
+                    <EmptyState 
+                      title={emptyMessage} 
+                      description={emptySubMessage} 
+                      action={emptyAction}
+                    />
                   )}
                 </td>
               </tr>
             ) : (
-              <>
-                {paddingTop > 0 && (
-                  <tr>
-                    <td colSpan={columns.length} style={{ height: `${paddingTop}px` }} />
-                  </tr>
-                )}
-                {virtualItems.map(virtualRow => {
-                  const row = sorted[virtualRow.index]!;
-                  const ri  = virtualRow.index;
-                  return (
-                    <tr
-                      key={keyField ? String(getValue(row, String(keyField))) : ri}
-                      className="hover:bg-muted/30 transition-colors duration-80"
-                    >
-                      {columns.map(col => {
-                        const cellVal = getValue(row, String(col.key));
-                        return (
-                          <td
-                            key={String(col.key)}
-                            className={`px-4 py-3.5 text-[13px] text-foreground ${
-                              col.align === 'right'
-                                ? 'text-right'
-                                : col.align === 'center'
-                                ? 'text-center'
-                                : ''
-                            }`}
-                          >
-                            {col.render ? col.render(row) : String(cellVal ?? '—')}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-                {paddingBottom > 0 && (
-                  <tr>
-                    <td colSpan={columns.length} style={{ height: `${paddingBottom}px` }} />
-                  </tr>
-                )}
-              </>
+              sorted.map((row, ri) => (
+                <tr
+                  key={keyField ? String(getValue(row, String(keyField))) : ri}
+                  className="hover:bg-muted/30 transition-colors duration-80"
+                >
+                  {columns.map(col => {
+                    const cellVal = getValue(row, String(col.key));
+                    return (
+                      <td
+                        key={String(col.key)}
+                        className={`px-4 py-3.5 text-[13px] text-foreground ${
+                          col.align === 'right'
+                            ? 'text-right'
+                            : col.align === 'center'
+                            ? 'text-center'
+                            : ''
+                        }`}
+                      >
+                        {col.render ? col.render(row) : String(cellVal ?? '—')}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))
             )}
           </tbody>
         </table>

@@ -14,10 +14,7 @@ export function initSentry() {
     release: import.meta.env.VITE_APP_VERSION || '0.0.0',
     integrations: [
       Sentry.browserTracingIntegration(),
-      Sentry.replayIntegration({
-        maskAllText: true,
-        blockAllMedia: true,
-      }),
+      // ponytail: Replay loaded lazily below — saves ~50 kB from the critical monitoring chunk
     ],
     tracesSampleRate: import.meta.env.VITE_APP_ENV === 'production' ? 0.1 : 1.0,
     replaysSessionSampleRate: 0.1,
@@ -47,6 +44,16 @@ export function initSentry() {
       'Failed to fetch',
     ],
   });
+
+  // Lazy-load session replay after init — not needed on critical path
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    (window as any).requestIdleCallback(() => {
+      Sentry.addIntegration(Sentry.replayIntegration({
+        maskAllText: true,
+        blockAllMedia: true,
+      }));
+    });
+  }
 
   console.warn('[Sentry] Initialized');
 }

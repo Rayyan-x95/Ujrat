@@ -25,17 +25,13 @@ export class TaxRepository {
     payload: Record<string, unknown>,
     userId?: string
   ): Promise<void> {
-    try {
-      await (supabase as any).from('tax_audit_logs').insert({
-        workspace_id: workspaceId,
-        invoice_id: invoiceId,
-        event_type: eventType,
-        payload,
-        performed_by: userId || null,
-      });
-    } catch {
-      // Non-blocking audit log fallback
-    }
+    await (supabase as any).from('tax_audit_logs').insert({
+      workspace_id: workspaceId,
+      invoice_id: invoiceId,
+      event_type: eventType,
+      payload,
+      performed_by: userId || null,
+    }).catch(() => {});
   }
 
   /**
@@ -48,14 +44,19 @@ export class TaxRepository {
   ): Promise<GSTR1Summary> {
     const fyLabel = computeFinancialYearLabel(startDate);
 
-    const { data: invoices, error } = await (supabase.from('invoices') as any)
-      .select('*')
+    const { data: allInvoices, error } = await (supabase.from('invoices') as any)
+      .select('id, taxable_amount, subtotal, cgst, sgst, igst, cess_amount, supply_type, client_state, client_gstin')
       .eq('workspace_id', workspaceId)
       .is('deleted_at', null)
       .gte('invoice_date', startDate)
-      .lte('invoice_date', endDate);
+      .lte('invoice_date', endDate)
+      .order('id', { ascending: true });
 
-    if (error || !invoices) {
+    if (error) {
+      throw new Error(`Database error aggregating GSTR-1 summary: ${error.message}`);
+    }
+
+    if (!allInvoices || allInvoices.length === 0) {
       return {
         financial_year: fyLabel,
         month_or_quarter: `${startDate} to ${endDate}`,
@@ -80,14 +81,20 @@ export class TaxRepository {
     let igst = 0;
     let cess = 0;
 
-    for (const inv of invoices) {
+    for (const inv of allInvoices) {
       taxable += Number(inv.taxable_amount || inv.subtotal || 0);
       cgst += Number(inv.cgst || 0);
       sgst += Number(inv.sgst || 0);
       igst += Number(inv.igst || 0);
       cess += Number(inv.cess_amount || 0);
 
-      if (inv.supply_type === 'zero_rated_lut' || inv.supply_type === 'zero_rated_non_lut' || inv.client_state === 'export') {
+      const normState = (inv.client_state || '').trim().toLowerCase();
+      if (
+        inv.supply_type === 'zero_rated_lut' ||
+        inv.supply_type === 'zero_rated_non_lut' ||
+        normState === 'export' ||
+        normState === 'exports'
+      ) {
         exportCount++;
       } else if (inv.client_gstin && inv.client_gstin.trim()) {
         b2bCount++;
@@ -109,26 +116,5 @@ export class TaxRepository {
       cess_amount: Math.round(cess * 100) / 100,
       total_tax: Math.round((cgst + sgst + igst + cess) * 100) / 100,
     };
-  }
-
-  /**
-   * Save or update exchange rate snapshot
-   */
-  static async saveExchangeRateSnapshot(
-    fromCurrency: string,
-    toCurrency: string = 'INR',
-    rate: number,
-    effectiveDate: string
-  ): Promise<void> {
-    try {
-      await (supabase as any).from('exchange_rate_snapshots').upsert({
-        from_currency: fromCurrency,
-        to_currency: toCurrency,
-        rate,
-        effective_date: effectiveDate,
-      });
-    } catch {
-      // Fallback
-    }
   }
 }

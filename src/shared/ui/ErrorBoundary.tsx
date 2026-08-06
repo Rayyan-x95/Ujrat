@@ -98,7 +98,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
           )}
           
           <p className="text-[11px] text-muted-foreground/70 m-0">
-            Need additional assistance? <a href="mailto:support@ujrat.app" className="text-primary hover:underline">Contact Ujrat Support</a>
+            Need additional assistance? <a href="mailto:support@ninety5.in" className="text-primary hover:underline">Contact Ujrat Support</a>
           </p>
         </div>
       );

@@ -141,12 +141,19 @@ export const InvoiceItemSchema = z.object({
   discount_amount: z.coerce.number().nonnegative().default(0),
 });
 
+export const SupplyTypeEnum = z.enum(['taxable', 'zero_rated_lut', 'zero_rated_non_lut', 'sez_with_tax', 'sez_without_tax', 'exempt', 'nil_rated']);
+export const TaxSchemeEnum = z.enum(['regular', 'composition', 'non_gst']);
+export const InvoiceStatusEnum = z.enum(['draft', 'pending_verification', 'sent', 'overdue', 'paid', 'cancelled']);
+
 export const InvoiceBaseSchema = z.object({
-  project_id: z.string().uuid('Select a project'),
   invoice_number: z.string().min(1, 'Invoice number is required'),
+  client_id: z.string().min(1, 'Client is required'),
+  project_id: z.string().optional().nullable(),
   invoice_date: z.string().min(1, 'Invoice date is required'),
   due_date: z.string().min(1, 'Due date is required'),
+  status: InvoiceStatusEnum.default('draft'),
   notes: z.string().optional().nullable(),
+  payment_terms: z.string().optional().nullable(),
   gstin: z.string().optional().nullable(),
   prefix: z.string().optional().nullable(),
   items: z.array(InvoiceItemSchema).min(1, 'At least one line item is required'),
@@ -155,23 +162,25 @@ export const InvoiceBaseSchema = z.object({
   freelancer_state: z.string().optional().nullable(),
   client_state: z.string().optional().nullable(),
   tds_section: TDSSectionEnum.optional().nullable(),
-  tds_rate: z.coerce.number().nonnegative().default(0),
+  tds_rate: z.coerce.number().nonnegative().max(30, 'TDS rate cannot exceed 30%').optional().nullable(),
   currency: CurrencyEnum.default('INR'),
   exchange_rate: z.coerce.number().positive().default(1.0),
-  supply_type: z.string().optional().nullable(),
-  tax_scheme: z.string().optional().nullable(),
+  supply_type: SupplyTypeEnum.optional().nullable(),
+  tax_scheme: TaxSchemeEnum.optional().nullable(),
   lut_number: z.string().optional().nullable(),
   discount_type: z.enum(['percentage', 'fixed']).default('fixed'),
   discount_scope: z.enum(['before_tax', 'after_tax']).default('before_tax'),
+  discount_value: z.coerce.number().nonnegative().optional().nullable(),
   discount_amount: z.coerce.number().nonnegative().default(0),
 });
 
 export const InvoiceSchema = InvoiceBaseSchema.superRefine((data, ctx) => {
-  if (data.discount_type === 'percentage' && data.discount_amount > 100) {
+  const val = data.discount_value ?? data.discount_amount;
+  if (data.discount_type === 'percentage' && val > 100) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: 'Percentage discount cannot exceed 100%',
-      path: ['discount_amount'],
+      path: ['discount_value'],
     });
   }
 });

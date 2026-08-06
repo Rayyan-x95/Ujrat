@@ -1,3 +1,6 @@
+# Ujrat Robots.txt
+# https://ujrat.ninety5.in
+
 User-agent: *
 Allow: /
 Allow: /features
@@ -24,5 +27,66 @@ Disallow: /payments
 Disallow: /settings
 Disallow: /portal
 Disallow: /api/
+
+# AI Search & Large Language Model Crawlers (GEO Optimization)
+User-agent: GPTBot
+Allow: /
+Allow: /features
+Allow: /pricing
+Allow: /gst
+Allow: /upi
+Allow: /contracts
+Allow: /docs
+Allow: /faq
+Disallow: /dashboard
+Disallow: /portal
+
+User-agent: ClaudeBot
+Allow: /
+Allow: /features
+Allow: /pricing
+Allow: /gst
+Allow: /upi
+Allow: /contracts
+Allow: /docs
+Allow: /faq
+Disallow: /dashboard
+Disallow: /portal
+
+User-agent: PerplexityBot
+Allow: /
+Allow: /features
+Allow: /pricing
+Allow: /gst
+Allow: /upi
+Allow: /contracts
+Allow: /docs
+Allow: /faq
+Disallow: /dashboard
+Disallow: /portal
+
+User-agent: Google-Extended
+Allow: /
+Allow: /features
+Allow: /pricing
+Allow: /gst
+Allow: /upi
+Allow: /contracts
+Allow: /docs
+Allow: /faq
+Disallow: /dashboard
+Disallow: /portal
+
+User-agent: Applebot-Extended
+Allow: /
+Allow: /features
+Allow: /pricing
+Allow: /gst
+Allow: /upi
+Allow: /contracts
+Allow: /docs
+Allow: /faq
+Disallow: /dashboard
+Disallow: /portal
 
 Sitemap: https://ujrat.ninety5.in/sitemap.xml

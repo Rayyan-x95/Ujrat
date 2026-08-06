@@ -4,13 +4,13 @@
  */
 
 import { supabase } from '@/shared/lib/supabaseClient';
-import { InvoiceRepository } from '@/features/invoices';
-import { PaymentRepository } from '@/features/payments';
+import { InvoiceRepository } from '@/features/invoices/repositories/InvoiceRepository';
+import { PaymentRepository } from '@/features/payments/repositories/PaymentRepository';
 import { UTR_REGEX } from '../constants/PaymentConstants';
 import { PaymentReceiptService } from './PaymentReceiptService';
 import { PaymentAuditService } from './PaymentAuditService';
 import type { Result, InvoiceStatus } from '@/shared/types';
-import { InvoiceStateMachine, PaymentStateMachine } from '@/shared/utils/StateMachine';
+import { InvoiceStateMachine, PaymentStateMachine, PaymentRequestStateMachine } from '@/shared/utils/StateMachine';
 import { toPaise, fromPaise } from '@/features/invoices/tax/TaxUtilities';
 
 export class PaymentVerificationService {
@@ -57,29 +57,80 @@ export class PaymentVerificationService {
         throw new Error('This invoice has already been fully paid');
       }
 
+      if (typeof params.amount !== 'number' || !Number.isFinite(params.amount) || params.amount <= 0) {
+        throw new Error('Payment amount must be a positive finite number.');
+      }
+
+      // Enforce invoice balance server-side
+      const outstandingBalance = invoice.outstanding_balance ?? invoice.total ?? 0;
+      if (params.amount > outstandingBalance) {
+        throw new Error(`Submitted payment amount (${params.amount}) exceeds outstanding invoice balance (${outstandingBalance}).`);
+      }
+
       // Check for duplicate UTR number in workspace
       const { data: existing, error: dupError } = await (supabase as any)
         .from('payment_attempts')
         .select('id, status')
         .eq('workspace_id', workspaceId)
         .eq('utr_number', params.utrNumber.trim())
-        .maybeSingle();
+        .limit(1);
 
-      if (dupError && !dupError.message?.includes('relation "payment_attempts" does not exist') && !dupError.message?.includes('schema cache')) {
+      if (dupError && dupError.code !== '42P01' && !dupError.message?.includes('schema cache')) {
         throw new Error(`Database error checking duplicate UTR: ${dupError.message}`);
       }
-      if (existing) {
+      if (existing && existing.length > 0) {
         throw new Error('This 12-digit UTR Number has already been submitted for verification.');
+      }
+
+      // Resolve or fetch active payment_request_id
+      let paymentRequestId: string | null = null;
+      try {
+        const { data: reqData } = await (supabase as any)
+          .from('payment_requests')
+          .select('id, status')
+          .eq('workspace_id', workspaceId)
+          .eq('invoice_id', params.invoiceId)
+          .limit(1)
+          .maybeSingle();
+        if (reqData?.id) {
+          paymentRequestId = reqData.id;
+          let currStatus = reqData.status || 'pending';
+          if (currStatus !== 'awaiting_verification') {
+            if (PaymentRequestStateMachine.validate(currStatus, 'initiated')) {
+              currStatus = PaymentRequestStateMachine.transition(currStatus, 'initiated', { requestId: paymentRequestId! }).next;
+            }
+            if (PaymentRequestStateMachine.validate(currStatus, 'awaiting_verification')) {
+              currStatus = PaymentRequestStateMachine.transition(currStatus, 'awaiting_verification', { requestId: paymentRequestId! }).next;
+            }
+            await (supabase as any)
+              .from('payment_requests')
+              .update({ status: currStatus })
+              .eq('id', paymentRequestId);
+          }
+        }
+      } catch {
+        // Table fallback
+      }
+
+      // Validate invoice state transition before DB write
+      let nextInvoiceStatus = invoice.status;
+      if (invoice.status !== 'pending_verification') {
+        const transition = InvoiceStateMachine.transition(
+          invoice.status as InvoiceStatus,
+          'pending_verification' as InvoiceStatus,
+          { invoiceId: invoice.id, invoiceNumber: invoice.invoice_number }
+        );
+        nextInvoiceStatus = transition.next as InvoiceStatus;
       }
 
       // Save payment attempt
       const attemptId = crypto.randomUUID();
       try {
-        await (supabase as any).from('payment_attempts').insert({
+        const { error: insertErr } = await (supabase as any).from('payment_attempts').insert({
           id: attemptId,
           workspace_id: workspaceId,
           invoice_id: params.invoiceId,
-          payment_request_id: params.invoiceId, // link to invoice ID
+          payment_request_id: paymentRequestId,
           utr_number: params.utrNumber.trim(),
           amount: params.amount,
           screenshot_url: params.screenshotUrl || null,
@@ -87,12 +138,15 @@ export class PaymentVerificationService {
           app_name: params.appName || 'UPI_GENERIC',
           status: 'pending_verification',
         });
-      } catch {
-        // Table fallback
+        if (insertErr && insertErr.code === '23505') {
+          throw new Error('This 12-digit UTR Number has already been submitted.');
+        }
+      } catch (err: any) {
+        if (err.message?.includes('already been submitted')) throw err;
       }
 
-      // Save to main payments table for backward compatibility
-      await PaymentRepository.create(workspaceId, {
+      // Save to main payments table
+      const createdPayment = await PaymentRepository.create(workspaceId, {
         workspace_id: workspaceId,
         invoice_id: params.invoiceId,
         amount: params.amount,
@@ -105,14 +159,12 @@ export class PaymentVerificationService {
         verified_at: null,
       });
 
-      // Transition invoice status to pending_verification
-      if (invoice.status !== 'pending_verification') {
-        const transition = InvoiceStateMachine.transition(
-          invoice.status as InvoiceStatus,
-          'pending_verification' as InvoiceStatus,
-          { invoiceId: invoice.id, invoiceNumber: invoice.invoice_number }
-        );
-        await InvoiceRepository.update(workspaceId, invoice.id, { status: transition.next });
+      if (!createdPayment) {
+        throw new Error('Failed to create payment record');
+      }
+
+      if (nextInvoiceStatus !== invoice.status) {
+        await InvoiceRepository.update(workspaceId, invoice.id, { status: nextInvoiceStatus });
       }
 
       // Log audit event
@@ -179,22 +231,46 @@ export class PaymentVerificationService {
 
           const outstandingPaise = Math.max(0, invoiceTotalPaise - completedSumPaise);
           const outstanding = fromPaise(outstandingPaise);
-          const nextInvoiceStatus = outstandingPaise === 0 ? 'paid' : 'sent';
+
+          const isOverdue = invoice.due_date ? new Date(invoice.due_date).getTime() < Date.now() : false;
+          let nextInvoiceStatus: InvoiceStatus = 'paid';
+          if (outstandingPaise > 0) {
+            nextInvoiceStatus = isOverdue ? 'overdue' : 'sent';
+          }
 
           await InvoiceRepository.update(workspaceId, invoice.id, {
             outstanding_balance: outstanding,
             status: nextInvoiceStatus,
           });
 
-          // Resolve associated payment requests lifecycle to paid
+          // Resolve linked payment request lifecycle to paid via StateMachine
           try {
-            await (supabase as any)
-              .from('payment_requests')
-              .update({ status: 'paid' })
+            const { data: attempts } = await (supabase as any)
+              .from('payment_attempts')
+              .select('payment_request_id')
               .eq('workspace_id', workspaceId)
-              .eq('invoice_id', invoice.id);
-          } catch {
-            // Optional table fallback
+              .eq('invoice_id', invoice.id)
+              .eq('utr_number', payment.transaction_reference || '')
+              .limit(1);
+
+            const targetRequestId = attempts?.[0]?.payment_request_id;
+            if (targetRequestId) {
+              const { data: reqData } = await (supabase as any)
+                .from('payment_requests')
+                .select('id, status')
+                .eq('id', targetRequestId)
+                .maybeSingle();
+
+              if (reqData && reqData.status !== 'paid') {
+                const transition = PaymentRequestStateMachine.transition(reqData.status, 'paid', { requestId: targetRequestId });
+                await (supabase as any)
+                  .from('payment_requests')
+                  .update({ status: transition.next })
+                  .eq('id', targetRequestId);
+              }
+            }
+          } catch (e: any) {
+            console.warn('[PaymentVerificationService] Payment request lifecycle fallback:', e.message);
           }
 
           // Generate official Payment Receipt

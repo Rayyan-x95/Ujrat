@@ -37,7 +37,7 @@ export function evaluateTaxRules(
   const declarations: string[] = [];
   const warnings: string[] = [];
 
-  const taxScheme: TaxScheme = freelancer.tax_scheme || (freelancer.is_gst_registered ? 'regular' : 'non_gst');
+  const taxScheme: TaxScheme = freelancer.is_gst_registered === false ? 'non_gst' : (freelancer.tax_scheme || 'regular');
   const freeStateCode = extractStateCode(freelancer.gstin, freelancer.state);
   const clientStateCode = extractStateCode(client.gstin, client.state);
 
@@ -65,10 +65,16 @@ export function evaluateTaxRules(
   let supplyType: SupplyType = customSupplyType || 'taxable';
 
   const lutNo = customLutNumber || freelancer.lut_number;
-  const lutExp = customLutExpiryDate || freelancer.lut_expiry_date;
-  const isLutExpired = Boolean(
-    lutExp && String(lutExp).substring(0, 10) < new Date().toISOString().substring(0, 10)
-  );
+  const rawLutExp = customLutExpiryDate || freelancer.lut_expiry_date;
+  let lutExpDate: string | null = null;
+  if (rawLutExp && typeof rawLutExp === 'string') {
+    const match = rawLutExp.trim().match(/^(\d{4}-\d{2}-\d{2})/);
+    if (match && match[1]) {
+      lutExpDate = match[1];
+    }
+  }
+  const todayStr = new Date().toISOString().substring(0, 10);
+  const isLutExpired = Boolean(lutExpDate && lutExpDate < todayStr);
   const isLutValid = Boolean(lutNo && !isLutExpired);
 
   suppressesGst = taxScheme === 'non_gst' || taxScheme === 'composition';
@@ -88,7 +94,7 @@ export function evaluateTaxRules(
         if (!lutNo) {
           warnings.push('No active LUT Number specified for foreign client. IGST will be applied per GST export rules.');
         } else if (isLutExpired) {
-          warnings.push(`LUT Number ${lutNo} expired on ${lutExp}. IGST will be applied per GST export rules.`);
+          warnings.push(`LUT Number ${lutNo} expired on ${rawLutExp || ''}. IGST will be applied per GST export rules.`);
         }
       }
     }
@@ -110,7 +116,7 @@ export function evaluateTaxRules(
         if (!lutNo) {
           warnings.push('No active LUT Number specified for SEZ supply. Defaulting to SEZ supply with payment of tax.');
         } else if (isLutExpired) {
-          warnings.push(`LUT Number ${lutNo} expired on ${lutExp}. Defaulting to SEZ supply with payment of tax.`);
+          warnings.push(`LUT Number ${lutNo} expired on ${rawLutExp || ''}. Defaulting to SEZ supply with payment of tax.`);
         }
       }
     }

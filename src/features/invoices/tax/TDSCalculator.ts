@@ -21,21 +21,14 @@ export function calculateTDS(
   sectionCode?: string | null,
   customRate?: number
 ): TDSCalculationResult {
-  const code = (sectionCode || 'NONE').trim();
-  const fallback = {
-    code: 'NONE',
-    name: 'No TDS Deducted',
-    defaultRate: 0,
-    description: 'No tax deduction at source applicable.',
-    cbdTCircular: 'N/A',
-  };
-
-  const sectionKey = TDS_SECTIONS[code] ? code : 'NONE';
-  const sectionInfo = TDS_SECTIONS[sectionKey] || TDS_SECTIONS['NONE'] || fallback;
+  const sectionInfo = (sectionCode ? TDS_SECTIONS[sectionCode.trim()] : undefined) || TDS_SECTIONS['NONE']!;
+  const sectionKey = sectionInfo.code;
 
   let rate = sectionInfo.defaultRate;
-  // Statutory ceiling: custom rate must be non-negative, finite, and not exceed 30% (max Indian withholding rate)
-  if (customRate !== undefined && typeof customRate === 'number' && Number.isFinite(customRate) && customRate >= 0 && customRate <= Math.max(30, sectionInfo.defaultRate)) {
+  if (customRate !== undefined && customRate !== null) {
+    if (typeof customRate !== 'number' || !Number.isFinite(customRate) || customRate < 0 || customRate > 30) {
+      throw new Error(`Invalid custom TDS rate: ${customRate}. Rate must be a finite number between 0 and 30.`);
+    }
     rate = customRate;
   }
 

@@ -12,33 +12,54 @@ export interface TransitionDescriptor<T> {
   };
 }
 
-export class ProjectStateMachine {
-  private static allowed: Record<ProjectStatus, ProjectStatus[]> = {
-    'lead': ['proposal', 'archived'],
-    'proposal': ['approved', 'archived'],
-    'approved': ['contract_signed', 'archived'],
-    'contract_signed': ['advance_paid', 'in_progress', 'archived'],
-    'advance_paid': ['in_progress', 'archived'],
-    'in_progress': ['delivered', 'archived'],
-    'delivered': ['invoice_sent', 'archived'],
-    'invoice_sent': ['paid', 'archived', 'delivered'],
-    'paid': ['completed', 'archived'],
-    'completed': ['archived'],
-    'archived': ['lead', 'proposal', 'in_progress'],
+function createStateMachine<S extends string>(
+  allowed: Record<S, S[]>,
+  actionName: string,
+  errorContext: string = 'state'
+) {
+  return {
+    validate: (current: S, next: S): boolean => {
+      if (current === next) return true;
+      return (allowed[current] || []).includes(next);
+    },
+    transition: (current: S, next: S, details: Record<string, any> = {}): TransitionDescriptor<S> => {
+      if (current !== next && !(allowed[current] || []).includes(next)) {
+        throw new Error(`Invalid ${errorContext} transition from '${current}' to '${next}'`);
+      }
+      return {
+        next,
+        activityLog: {
+          action: actionName,
+          details: { ...details, from: current, to: next },
+        },
+      };
+    },
   };
+}
 
-  static validate(current: ProjectStatus, next: ProjectStatus): boolean {
-    if (current === next) return true;
-    const targets = this.allowed[current] || [];
-    return targets.includes(next);
-  }
+const rawProjectSM = createStateMachine<ProjectStatus>(
+  {
+    lead: ['proposal', 'archived'],
+    proposal: ['approved', 'archived'],
+    approved: ['contract_signed', 'archived'],
+    contract_signed: ['advance_paid', 'in_progress', 'archived'],
+    advance_paid: ['in_progress', 'archived'],
+    in_progress: ['delivered', 'archived'],
+    delivered: ['invoice_sent', 'archived'],
+    invoice_sent: ['paid', 'archived', 'delivered'],
+    paid: ['completed', 'archived'],
+    completed: ['archived'],
+    archived: ['lead', 'proposal', 'in_progress'],
+  },
+  'Project Status Updated',
+  'project state'
+);
 
-  static transition(current: ProjectStatus, next: ProjectStatus, details: { projectName: string }): TransitionDescriptor<ProjectStatus> {
-    if (!this.validate(current, next)) {
-      throw new Error(`Invalid project state transition from '${current}' to '${next}'`);
-    }
-
-    const emailNotification = {
+export const ProjectStateMachine = {
+  validate: rawProjectSM.validate,
+  transition: (current: ProjectStatus, next: ProjectStatus, details: { projectName: string }): TransitionDescriptor<ProjectStatus> => {
+    const res = rawProjectSM.transition(current, next, { projectName: details.projectName });
+    res.emailNotification = {
       subject: `Project "${details.projectName}" status updated to ${next}`,
       body: `
         <p>Dear Client,</p>
@@ -46,108 +67,46 @@ export class ProjectStateMachine {
         <p>You can view updates on your client portal.</p>
       `,
     };
+    return res;
+  },
+};
 
-    return {
-      next,
-      activityLog: {
-        action: 'Project Status Updated',
-        details: { from: current, to: next, projectName: details.projectName },
-      },
-      emailNotification,
-    };
-  }
-}
+export const ProposalStateMachine = createStateMachine<ProposalStatus>(
+  {
+    draft: ['sent'],
+    sent: ['approved', 'rejected', 'revision_requested'],
+    approved: ['draft', 'sent'],
+    rejected: ['draft', 'sent'],
+    revision_requested: ['draft', 'sent'],
+  },
+  'Proposal Status Updated',
+  'proposal state'
+);
 
-export class ProposalStateMachine {
-  private static allowed: Record<ProposalStatus, ProposalStatus[]> = {
-    'draft': ['sent'],
-    'sent': ['approved', 'rejected', 'revision_requested'],
-    'approved': ['draft', 'sent'],
-    'rejected': ['draft', 'sent'],
-    'revision_requested': ['draft', 'sent'],
-  };
+export const InvoiceStateMachine = createStateMachine<InvoiceStatus>(
+  {
+    draft: ['sent', 'pending_verification', 'cancelled'],
+    sent: ['viewed', 'pending_verification', 'paid', 'overdue', 'cancelled'],
+    viewed: ['pending_verification', 'paid', 'overdue', 'cancelled'],
+    pending_verification: ['paid', 'sent', 'overdue', 'cancelled'],
+    paid: [],
+    overdue: ['paid', 'cancelled'],
+    cancelled: [],
+  },
+  'Invoice Status Updated',
+  'invoice state'
+);
 
-  static validate(current: ProposalStatus, next: ProposalStatus): boolean {
-    if (current === next) return true;
-    const targets = this.allowed[current] || [];
-    return targets.includes(next);
-  }
-
-  static transition(current: ProposalStatus, next: ProposalStatus, details: { proposalId: string }): TransitionDescriptor<ProposalStatus> {
-    if (!this.validate(current, next)) {
-      throw new Error(`Invalid proposal state transition from '${current}' to '${next}'`);
-    }
-
-    return {
-      next,
-      activityLog: {
-        action: 'Proposal Status Updated',
-        details: { proposalId: details.proposalId, from: current, to: next },
-      },
-    };
-  }
-}
-
-export class InvoiceStateMachine {
-  private static allowed: Record<InvoiceStatus, InvoiceStatus[]> = {
-    'draft': ['sent', 'pending_verification', 'cancelled'],
-    'sent': ['viewed', 'pending_verification', 'paid', 'overdue', 'cancelled'],
-    'viewed': ['pending_verification', 'paid', 'overdue', 'cancelled'],
-    'pending_verification': ['paid', 'sent', 'overdue', 'cancelled'],
-    'paid': [],  // paid invoices are immutable - no transitions allowed
-    'overdue': ['paid', 'cancelled'],
-    'cancelled': [],
-  };
-
-  static validate(current: InvoiceStatus, next: InvoiceStatus): boolean {
-    if (current === next) return true;
-    const targets = this.allowed[current] || [];
-    return targets.includes(next);
-  }
-
-  static transition(current: InvoiceStatus, next: InvoiceStatus, details: { invoiceId: string; invoiceNumber: string }): TransitionDescriptor<InvoiceStatus> {
-    if (!this.validate(current, next)) {
-      throw new Error(`Invalid invoice state transition from '${current}' to '${next}'`);
-    }
-
-    return {
-      next,
-      activityLog: {
-        action: 'Invoice Status Updated',
-        details: { invoiceId: details.invoiceId, invoiceNumber: details.invoiceNumber, from: current, to: next },
-      },
-    };
-  }
-}
-
-export class PaymentStateMachine {
-  private static allowed: Record<PaymentStatus, PaymentStatus[]> = {
-    'pending': ['pending_verification', 'completed', 'failed'],
-    'pending_verification': ['completed', 'failed'],
-    'completed': [],
-    'failed': [],
-  };
-
-  static validate(current: PaymentStatus, next: PaymentStatus): boolean {
-    if (current === next) return true;
-    const targets = this.allowed[current] || [];
-    return targets.includes(next);
-  }
-
-  static transition(current: PaymentStatus, next: PaymentStatus, details: { paymentId: string; utr: string }): TransitionDescriptor<PaymentStatus> {
-    if (!this.validate(current, next)) {
-      throw new Error(`Invalid payment state transition from '${current}' to '${next}'`);
-    }
-
-    return {
-      next,
-      activityLog: {
-        action: 'Payment Status Updated',
-        details: { paymentId: details.paymentId, utr: details.utr, from: current, to: next },
-      },
-    };
-  }
-}
+export const PaymentStateMachine = createStateMachine<PaymentStatus>(
+  {
+    pending: ['pending_verification', 'completed', 'failed'],
+    pending_verification: ['completed', 'failed'],
+    completed: [],
+    failed: [],
+  },
+  'Payment Status Updated',
+  'payment state'
+);
 
 export type PaymentRequestLifecycleStatus =
   | 'pending'
@@ -155,71 +114,34 @@ export type PaymentRequestLifecycleStatus =
   | 'initiated'
   | 'awaiting_verification'
   | 'verified'
+  | 'rejected'
   | 'paid'
   | 'cancelled'
   | 'expired';
 
-export class PaymentRequestStateMachine {
-  private static allowed: Record<PaymentRequestLifecycleStatus, PaymentRequestLifecycleStatus[]> = {
-    'pending': ['viewed', 'initiated', 'cancelled', 'expired'],
-    'viewed': ['initiated', 'awaiting_verification', 'cancelled', 'expired'],
-    'initiated': ['awaiting_verification', 'cancelled', 'expired'],
-    'awaiting_verification': ['verified', 'paid', 'cancelled'],
-    'verified': ['paid'],
-    'paid': [],
-    'cancelled': [],
-    'expired': [],
-  };
+export const PaymentRequestStateMachine = createStateMachine<PaymentRequestLifecycleStatus>(
+  {
+    pending: ['viewed', 'initiated', 'cancelled', 'expired'],
+    viewed: ['initiated', 'awaiting_verification', 'cancelled', 'expired'],
+    initiated: ['awaiting_verification', 'cancelled', 'expired'],
+    awaiting_verification: ['verified', 'rejected', 'initiated', 'paid', 'cancelled'],
+    verified: ['paid', 'rejected'],
+    rejected: ['initiated', 'cancelled'],
+    paid: [],
+    cancelled: [],
+    expired: [],
+  },
+  'Payment Request Lifecycle Updated',
+  'payment request'
+);
 
-  static validate(current: PaymentRequestLifecycleStatus, next: PaymentRequestLifecycleStatus): boolean {
-    if (current === next) return true;
-    const targets = this.allowed[current] || [];
-    return targets.includes(next);
-  }
-
-  static transition(
-    current: PaymentRequestLifecycleStatus,
-    next: PaymentRequestLifecycleStatus,
-    details: { requestId: string }
-  ): TransitionDescriptor<PaymentRequestLifecycleStatus> {
-    if (!this.validate(current, next)) {
-      throw new Error(`Invalid payment request transition from '${current}' to '${next}'`);
-    }
-    return {
-      next,
-      activityLog: {
-        action: 'Payment Request Lifecycle Updated',
-        details: { requestId: details.requestId, from: current, to: next },
-      },
-    };
-  }
-}
-
-export class ContractStateMachine {
-  private static allowed: Record<ContractStatus, ContractStatus[]> = {
-    'draft': ['sent', 'void'],
-    'sent': ['signed', 'void'],
-    'signed': ['void'],
-    'void': ['draft'],
-  };
-
-  static validate(current: ContractStatus, next: ContractStatus): boolean {
-    if (current === next) return true;
-    const targets = this.allowed[current] || [];
-    return targets.includes(next);
-  }
-
-  static transition(current: ContractStatus, next: ContractStatus, details: { contractId: string; projectName: string }): TransitionDescriptor<ContractStatus> {
-    if (!this.validate(current, next)) {
-      throw new Error(`Invalid contract state transition from '${current}' to '${next}'`);
-    }
-
-    return {
-      next,
-      activityLog: {
-        action: 'Contract Status Updated',
-        details: { contractId: details.contractId, projectName: details.projectName, from: current, to: next },
-      },
-    };
-  }
-}
+export const ContractStateMachine = createStateMachine<ContractStatus>(
+  {
+    draft: ['sent', 'void'],
+    sent: ['signed', 'void'],
+    signed: ['void'],
+    void: ['draft'],
+  },
+  'Contract Status Updated',
+  'contract state'
+);

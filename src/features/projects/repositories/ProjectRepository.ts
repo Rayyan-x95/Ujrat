@@ -13,7 +13,7 @@ export class ProjectRepository {
 
     let query = supabase
       .from('projects')
-      .select('*, clients(*), project_briefs(*), proposals(*), contracts(*)', { count: 'exact' })
+      .select('*, clients(*)', { count: 'exact' })
       .eq('workspace_id', workspaceId)
       .is('deleted_at', null);
 

@@ -130,19 +130,4 @@ export const InvoiceStatusBadge: React.FC<{ status: string }> = ({ status }) => 
   );
 };
 
-export const PaymentMethodBadge: React.FC<{ method: string }> = ({ method }) => {
-  const labels: Record<string, string> = {
-    upi:           'UPI',
-    bank_transfer: 'Bank Transfer',
-    cash:          'Cash',
-    cheque:        'Cheque',
-    other:         'Other',
-  };
-  return (
-    <Badge variant="neutral" size="sm">
-      {labels[method] ?? method}
-    </Badge>
-  );
-};
-
 export default Badge;

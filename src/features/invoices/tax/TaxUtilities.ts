@@ -42,15 +42,24 @@ export function extractStateCode(gstin?: string | null, stateName?: string | nul
 
   if (stateName) {
     const normalized = stateName.toLowerCase().trim().replace(/\s+/g, ' ');
+    if (!normalized) return null;
     if (STATE_NAME_TO_CODE[normalized]) {
       return STATE_NAME_TO_CODE[normalized];
     }
-    // Partial search match for state name
+    // Partial search match for state name skipping legacy entries and finding longest exact-prefix match
+    let bestMatchCode: string | null = null;
+    let maxMatchLen = 0;
     for (const [name, code] of Object.entries(STATE_NAME_TO_CODE)) {
-      if (name.includes(normalized) || normalized.includes(name)) {
-        return code;
+      if (name.includes('(legacy)') || name.includes('(old)')) continue;
+      const cleanName = name.replace(/\s*\([^)]*\)/g, '').trim();
+      if (normalized.startsWith(cleanName) || cleanName.startsWith(normalized) || normalized.includes(cleanName) || cleanName.includes(normalized)) {
+        if (cleanName.length > maxMatchLen) {
+          maxMatchLen = cleanName.length;
+          bestMatchCode = code;
+        }
       }
     }
+    if (bestMatchCode) return bestMatchCode;
   }
 
   return null;
@@ -91,45 +100,4 @@ export function validateGSTINFormat(gstin?: string | null): { isValid: boolean; 
 
   const pan = clean.substring(2, 12);
   return { isValid: true, stateName, pan };
-}
-
-/**
- * Converts numbers to words in the Indian Numbering System (Lakhs & Crores)
- */
-export function numberToIndianRupeeWords(num: number): string {
-  if (isNaN(num) || num < 0) return 'Zero Rupees Only';
-
-  const totalPaise = Math.round(num * 100);
-  const integerPart = Math.floor(totalPaise / 100);
-  const decimalPart = totalPaise % 100;
-
-  if (integerPart === 0 && decimalPart === 0) {
-    return 'Zero Rupees Only';
-  }
-
-  const a = [
-    '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
-    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'
-  ];
-  const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-
-  function inWords(n: number): string {
-    if (n < 20) return a[n] || '';
-    if (n < 100) return (b[Math.floor(n / 10)] + ' ' + (a[n % 10] || '')).trim();
-    if (n < 1000) return (a[Math.floor(n / 100)] + ' Hundred ' + inWords(n % 100)).trim();
-    if (n < 100000) return (inWords(Math.floor(n / 1000)) + ' Thousand ' + inWords(n % 1000)).trim();
-    if (n < 10000000) return (inWords(Math.floor(n / 100000)) + ' Lakh ' + inWords(n % 100000)).trim();
-    return (inWords(Math.floor(n / 10000000)) + ' Crore ' + inWords(n % 10000000)).trim();
-  }
-
-  let words = inWords(integerPart);
-  if (!words) words = 'Zero';
-  words += ' Rupees';
-
-  if (decimalPart > 0) {
-    const decStr = inWords(decimalPart) || 'Zero';
-    words += ' and ' + decStr + ' Paise';
-  }
-
-  return words + ' Only';
 }

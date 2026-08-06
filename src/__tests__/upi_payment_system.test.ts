@@ -21,10 +21,10 @@ describe('UPI Deep Link Payment System Test Suite', () => {
 
     expect(link).toContain('upi://pay?');
     expect(link).toContain('pa=freelancer%40upi');
-    expect(link).toContain('pn=Jane+Doe+Consultancy');
+    expect(link).toContain('pn=Jane%20Doe%20Consultancy');
     expect(link).toContain('am=15000.00');
     expect(link).toContain('cu=INR');
-    expect(link).toContain('tn=Invoice+INV-2026-001');
+    expect(link).toContain('tn=Invoice%20INV-2026-001');
   });
 
   it('2. Generates app-specific deep links for GPay, PhonePe, Paytm', () => {
@@ -81,7 +81,7 @@ describe('UPI Deep Link Payment System Test Suite', () => {
 
     expect(res.success).toBe(true);
     if (res.success) {
-      expect(res.data.receiptNumber).toMatch(/^REC-\d{8}-\d{4}$/);
+      expect(res.data.receiptNumber).toMatch(/^REC-\d{8}-[A-Z0-9]+$/);
       expect(res.data.amount).toBe(25000);
       expect(res.data.paymentMethod).toBe('UPI');
       expect(res.data.utrNumber).toBe('423156789012');

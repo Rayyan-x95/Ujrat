@@ -55,23 +55,25 @@ Ujrat brings everything together into one seamless workflow.
 ```
 Client
    ↓
-Project
+Project (Lead)
    ↓
 Proposal
    ↓
-Contract
+Approved
    ↓
-Advance Payment
+Contract Signed
    ↓
-Work
+Advance Paid
    ↓
-Invoice
+In Progress (Work)
    ↓
-Payment
+Delivered
    ↓
-Delivery
+Invoice Sent
    ↓
-Project Closed
+Paid
+   ↓
+Archived
 ```
 
 ---
@@ -254,7 +256,7 @@ Powered entirely by Supabase
 ## Infrastructure
 
 * Vercel
-* Resend
+* Plunk & Open-Source SMTP (Stalwart / Postfix / Postal / Mailcow)
 * Supabase Storage
 
 ---
@@ -464,8 +466,16 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 # Application URL (Required)
 VITE_APP_URL=http://localhost:5173
 
-# Resend Email API (Required for email alerts)
-VITE_RESEND_API_KEY=re_XXXXXXXXXX
+# Open-Source Email Configuration (Plunk / SMTP / Postal)
+# Option 1: Plunk (https://useplunk.com)
+PLUNK_API_KEY=pk_xxxxxxxxxxxx
+
+# Option 2: Standard SMTP Server (Stalwart / Postfix / Mailcow)
+SMTP_HOST=mail.ninety5.in
+SMTP_PORT=587
+SMTP_USER=noreply@ujrat.ninety5.in
+SMTP_PASS=your_smtp_password
+SMTP_FROM="Ujrat <noreply@ujrat.ninety5.in>"
 
 # Sentry Error Tracking (Optional)
 VITE_SENTRY_DSN=your-sentry-dsn

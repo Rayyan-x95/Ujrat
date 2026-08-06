@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import { useSyncExternalStore } from 'react';
 
 export interface Toast {
   id: string;
@@ -13,23 +13,37 @@ interface ToastStore {
   dismissToast: (id: string) => void;
 }
 
-export const useToastStore = create<ToastStore>((set) => ({
-  toasts: [],
+let toasts: Toast[] = [];
+const listeners = new Set<() => void>();
+
+function notify() {
+  listeners.forEach((listener) => listener());
+}
+
+const store: ToastStore = {
+  get toasts() {
+    return toasts;
+  },
   addToast: (type, message, description) => {
     const id = crypto.randomUUID();
-    const newToast: Toast = { id, type, message };
-    if (description !== undefined) {
-      newToast.description = description;
-    }
-    set((state) => ({
-      toasts: [...state.toasts, newToast],
-    }));
+    const newToast: Toast = { id, type, message, ...(description !== undefined ? { description } : {}) };
+    toasts = [...toasts, newToast];
+    notify();
   },
   dismissToast: (id) => {
-    set((state) => ({
-      toasts: state.toasts.filter((t) => t.id !== id),
-    }));
+    toasts = toasts.filter((t) => t.id !== id);
+    notify();
   },
-}));
+};
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+export function useToastStore<T = ToastStore>(selector?: (state: ToastStore) => T): T {
+  useSyncExternalStore(subscribe, () => toasts);
+  return selector ? selector(store) : (store as unknown as T);
+}
 
 export default useToastStore;

@@ -75,10 +75,11 @@
   color-scheme: light;
 }
 
-/* ─── Dark Mode ──────────────────────────────────────────────────────────────── */
+/* ─── Dark Mode (Temporarily Disabled) ───────────────────────────────────────── */
 
+/* 
 .dark {
-  --background:      220 13% 9%;       /* near-black, true neutral              */
+  --background:      220 13% 9%;
   --surface:         220 13% 11%;
   --surface-raised:  220 13% 13%;
   --card:            220 13% 11%;
@@ -118,6 +119,7 @@
 
   color-scheme: dark;
 }
+*/
 
 /* ─── Tailwind v4 Theme Bridge ───────────────────────────────────────────────── */
 
@@ -157,11 +159,12 @@
   --font-sans:    var(--font-body);
   --font-mono:    var(--font-mono);
 
-  --radius-xs: 3px;
-  --radius-sm: 5px;
-  --radius-md: 7px;
-  --radius-lg: 10px;
-  --radius-xl: 14px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
 
   /* Elevation — extremely subtle, used very sparingly */
   --shadow-xs: 0 1px 2px hsl(220 13% 4% / 0.04);
@@ -282,6 +285,7 @@ body {
   color: hsl(var(--muted-foreground));
   border: 1px solid hsl(var(--border));
   line-height: 1;
+  -webkit-user-select: none;
   user-select: none;
 }
 

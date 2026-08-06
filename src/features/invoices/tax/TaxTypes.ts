@@ -77,6 +77,7 @@ export interface InvoiceTaxCalculationInput {
   exchangeRateDate?: string;
   supply_type?: SupplyType;
   lutNumber?: string | null | undefined;
+  lutExpiryDate?: string | null | undefined;
 }
 
 export interface CalculatedLineItem {
@@ -142,6 +143,7 @@ export interface TaxBreakdownResult {
   exchange_rate_date: string;
   inr_subtotal: number;
   inr_grand_total: number;
+  inr_net_receivable?: number;
 
   // Statutory Declarations & Warning badges
   declarations: string[];

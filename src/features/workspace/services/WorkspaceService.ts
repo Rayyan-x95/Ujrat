@@ -27,7 +27,7 @@ export class WorkspaceService {
         .single();
 
       if (error) {
-        // Handle 409 Conflict / Unique constraint (23505) gracefully by retrieving existing workspace
+        // Handle unique constraint / duplicate workspace gracefully by retrieving existing workspace
         if (
           error.code === '23505' ||
           (error as any).status === 409 ||
@@ -61,7 +61,7 @@ export class WorkspaceService {
         .from('workspace_settings')
         .select('*')
         .eq('workspace_id', workspaceId)
-        .single();
+        .maybeSingle();
 
       if (error) return { success: false, error: new Error(error.message) };
       return { success: true, data };
@@ -72,60 +72,33 @@ export class WorkspaceService {
 
   static async updateSettings(workspaceId: string, settingsData: Partial<WorkspaceSettings>): Promise<Result<WorkspaceSettings>> {
     try {
-      // Validate settings data using Zod
       const validated = WorkspaceSettingsSchema.partial().parse(settingsData);
 
-      let { data, error } = await supabase
-        .from('workspace_settings')
-        .update(validated as any)
+      let { data, error } = await (supabase
+        .from('workspace_settings') as any)
+        .update(validated)
         .eq('workspace_id', workspaceId)
         .select()
-        .single();
+        .maybeSingle();
 
-      let fallbackErr: any = null;
-      if (error && error.message?.includes('schema cache')) {
-        const hasTaxFields =
-          validated.preferred_currency !== undefined ||
-          validated.tax_scheme !== undefined ||
-          validated.lut_number !== undefined ||
-          validated.lut_expiry_date !== undefined ||
-          validated.default_tds_section !== undefined;
-
-        if (hasTaxFields) {
-          return {
-            success: false,
-            error: new Error(`Database schema migration required: ${error.message}`),
-          };
-        }
-
-        // Fallback for unmigrated database instances: omit new tax/currency schema columns
-        const fallbackData = { ...validated };
-        delete (fallbackData as any).preferred_currency;
-        delete (fallbackData as any).tax_scheme;
-        delete (fallbackData as any).lut_number;
-        delete (fallbackData as any).lut_expiry_date;
-        delete (fallbackData as any).default_tds_section;
-
-        const fallbackResult = await supabase
-          .from('workspace_settings')
-          .update(fallbackData as any)
-          .eq('workspace_id', workspaceId)
+      if (!error && !data) {
+        const upsertRes = await (supabase
+          .from('workspace_settings') as any)
+          .upsert({
+            workspace_id: workspaceId,
+            ...validated,
+          }, { onConflict: 'workspace_id' })
           .select()
-          .single();
+          .maybeSingle();
 
-        if (!fallbackResult.error && fallbackResult.data) {
-          return { success: true, data: fallbackResult.data };
-        }
-        if (fallbackResult.error) {
-          fallbackErr = fallbackResult.error;
-        }
+        data = upsertRes.data;
+        error = upsertRes.error;
       }
 
-      const finalError = fallbackErr || error;
-      if (finalError || !data) {
+      if (error || !data) {
         return {
           success: false,
-          error: finalError instanceof Error ? finalError : new Error(finalError?.message || 'Settings update failed'),
+          error: error instanceof Error ? error : new Error(error?.message || 'Settings update failed'),
         };
       }
       return { success: true, data };

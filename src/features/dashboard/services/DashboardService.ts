@@ -12,55 +12,13 @@ export interface DashboardMetrics {
   monthlyRevenue: number[];
 }
 
-// In-memory cache for dashboard metrics to ensure instant (0ms) page loads
-interface CacheEntry {
-  data: DashboardMetrics;
-  timestamp: number;
-}
-const metricsCache = new Map<string, CacheEntry>();
-const CACHE_TTL_MS = 15000; // 15 seconds stale-while-revalidate TTL
-
 export class DashboardService {
   static async getDashboardData(workspaceId: string, profileId: string): Promise<Result<DashboardMetrics>> {
-    const isTestEnv = typeof process !== 'undefined' && (process.env.NODE_ENV === 'test' || process.env.VITEST);
-    const cacheKey = `${workspaceId}_${profileId}`;
-    const cached = isTestEnv ? undefined : metricsCache.get(cacheKey);
-
-    // If valid cached data exists, return immediately for 0ms page load, then revalidate in background
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-      this.fetchFreshData(workspaceId, profileId).then(res => {
-        if (res.success && res.data) {
-          metricsCache.set(cacheKey, { data: res.data, timestamp: Date.now() });
-        }
-      });
-      return { success: true, data: cached.data };
-    }
-
-    const res = await this.fetchFreshData(workspaceId, profileId);
-    if (res.success && res.data && !isTestEnv) {
-      metricsCache.set(cacheKey, { data: res.data, timestamp: Date.now() });
-    }
-    return res;
-  }
-
-  static invalidateCache(workspaceId: string, profileId: string): void {
-    const cacheKey = `${workspaceId}_${profileId}`;
-    metricsCache.delete(cacheKey);
-  }
-
-  private static async fetchFreshData(workspaceId: string, profileId: string): Promise<Result<DashboardMetrics>> {
     try {
-      // Race RPC call with a 150ms timeout to avoid blocking page loads if RPC is unavailable
-      const rpcPromise = supabase.rpc('get_dashboard_data', {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_dashboard_data', {
         p_workspace_id: workspaceId,
         p_profile_id: profileId,
       });
-
-      const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) =>
-        setTimeout(() => resolve({ data: null, error: { message: 'RPC timeout' } }), 150)
-      );
-
-      const { data: rpcData, error: rpcError } = await Promise.race([rpcPromise, timeoutPromise]);
 
       if (!rpcError && rpcData) {
         const typedData = rpcData as {
@@ -128,6 +86,7 @@ export class DashboardService {
     let outstanding = 0;
     let earnedThisMonth = 0;
     const pipelineMap = new Map<string, number>();
+    const monthlyRevenue = new Array(12).fill(0);
 
     projects.forEach((p) => {
       const status = p.status;
@@ -140,13 +99,18 @@ export class DashboardService {
       if (status === 'invoice_sent') pipelineMap.set('Invoice Shared', (pipelineMap.get('Invoice Shared') || 0) + 1);
     });
 
-    // Calculate from invoices
     invoiceData.forEach((inv) => {
+      const amount = Number(inv.total) || 0;
       if (inv.status === 'paid') {
-        earnedThisMonth += Number(inv.total) || 0;
-      }
-      if (inv.status !== 'paid' && inv.status !== 'cancelled') {
-        outstanding += Number(inv.total) || 0;
+        earnedThisMonth += amount;
+        if (inv.created_at) {
+          const monthIndex = new Date(inv.created_at).getMonth();
+          if (monthIndex >= 0 && monthIndex < 12) {
+            monthlyRevenue[monthIndex] += amount;
+          }
+        }
+      } else if (inv.status !== 'cancelled') {
+        outstanding += amount;
       }
     });
 
@@ -162,16 +126,6 @@ export class DashboardService {
       count,
       variant: pipelineVariants[label] || 'outline',
     }));
-
-    // Initialize monthly revenue for all 12 months with zeros
-    const monthlyRevenue = new Array(12).fill(0);
-    invoiceData.forEach((inv) => {
-      if (inv.status === 'paid') {
-        const date = new Date(inv.created_at);
-        const monthIndex = date.getMonth();
-        monthlyRevenue[monthIndex] = (monthlyRevenue[monthIndex] ?? 0) + (Number(inv.total) || 0);
-      }
-    });
 
     return {
       success: true,

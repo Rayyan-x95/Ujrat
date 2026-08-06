@@ -5,13 +5,9 @@ import { PortalService } from '@/features/portal/services/PortalService';
 import { Spinner } from '@/shared/ui/Feedback';
 import { Button } from '@/shared/ui/Button';
 import { QRCodeSVG } from 'qrcode.react';
-import {
-  calculateInvoiceTax,
-  generateStatutoryDeclarations,
-  formatAmountInWords,
-  formatCurrencyAmount,
-  TDS_SECTIONS,
-} from '@/features/invoices/utils/TaxEngine';
+import { calculateInvoiceTax } from '@/features/invoices/tax/InvoiceCalculator';
+import { TDS_SECTIONS } from '@/features/invoices/tax/TaxConstants';
+import { formatCurrency, numberToIndianRupeeWords } from '@/shared/utils/currency';
 
 export const InvoicePrintView: React.FC = () => {
   const { portalToken, invoiceId } = useParams<{ portalToken: string; invoiceId: string }>();
@@ -107,7 +103,7 @@ export const InvoicePrintView: React.FC = () => {
   const currency = taxResult.currency;
   const upiId = settings?.upi_id || '';
   const merchantName = settings?.company_name || 'Freelancer';
-  const upiAmount = Number(taxResult.net_receivable || taxResult.grand_total);
+  const upiAmount = Number(taxResult.inr_net_receivable !== undefined && taxResult.inr_net_receivable > 0 ? taxResult.inr_net_receivable : taxResult.inr_grand_total || taxResult.net_receivable || taxResult.grand_total);
   const upiParams = new URLSearchParams({
     pa: upiId,
     pn: merchantName,
@@ -118,7 +114,7 @@ export const InvoicePrintView: React.FC = () => {
   }).toString();
   const upiUrl = `upi://pay?${upiParams}`;
 
-  const declarations = generateStatutoryDeclarations(taxResult);
+  const declarations = taxResult.declarations || [];
 
   const handlePrint = () => {
     window.print();
@@ -139,14 +135,10 @@ export const InvoicePrintView: React.FC = () => {
       {/* A4 Invoice Card */}
       <div className="max-w-[210mm] min-h-[297mm] mx-auto bg-white p-[15mm] shadow-md print:shadow-none print:p-0 print:w-full print:min-h-0 text-[12px] leading-relaxed text-neutral-800 font-sans">
         {/* Header Section */}
-        <div className="flex justify-between items-start border-b border-neutral-200 pb-6 mb-6">
+        <div className="grid grid-cols-2 gap-8 mb-8 pb-6 border-b border-neutral-200">
           <div>
-            {settings?.logo_url ? (
-              <img src={settings.logo_url} alt="Logo" className="h-12 w-auto mb-3 object-contain" />
-            ) : (
-              <div className="text-lg font-bold text-neutral-900 tracking-tight mb-1">{settings?.company_name || 'Freelancer'}</div>
-            )}
-            <p className="text-neutral-500 max-w-xs whitespace-pre-wrap">{settings?.address || ''}</p>
+            <h2 className="text-lg font-bold text-neutral-900 mb-1">{settings?.company_name || 'Freelancer / Studio'}</h2>
+            {settings?.address && <p className="text-neutral-600 whitespace-pre-line">{settings.address}</p>}
             {settings?.phone && <p className="text-neutral-500 mt-0.5">Phone: {settings.phone}</p>}
             {(settings?.gstin || invoice.freelancer_gstin) && (
               <p className="text-neutral-700 font-semibold mt-1">
@@ -170,7 +162,7 @@ export const InvoicePrintView: React.FC = () => {
               {taxResult.place_of_supply && (
                 <>
                   <span className="font-medium text-neutral-500">Place of Supply:</span>
-                  <span className="text-neutral-900 uppercase font-semibold">{taxResult.place_of_supply.replace('_', ' ')}</span>
+                  <span className="text-neutral-900 uppercase font-semibold">{taxResult.place_of_supply.replace(/_/g, ' ')}</span>
                 </>
               )}
 
@@ -221,10 +213,10 @@ export const InvoicePrintView: React.FC = () => {
                 <td className="py-3 pl-1 font-medium">{item.description}</td>
                 <td className="py-3 text-center font-mono">{item.sac_code || item.hsn_code || '9983'}</td>
                 <td className="py-3 text-right">{item.quantity} {item.unit}</td>
-                <td className="py-3 text-right">{formatCurrencyAmount(item.rate, currency)}</td>
+                <td className="py-3 text-right">{formatCurrency(item.rate, currency)}</td>
                 <td className="py-3 text-right">{item.gst_rate}%</td>
-                <td className="py-3 pr-1 text-right">{formatCurrencyAmount(item.taxable_amount, currency)}</td>
-                <td className="py-3 pr-1 text-right font-semibold">{formatCurrencyAmount(item.line_total, currency)}</td>
+                <td className="py-3 pr-1 text-right">{formatCurrency(item.taxable_amount, currency)}</td>
+                <td className="py-3 pr-1 text-right font-semibold">{formatCurrency(item.line_total, currency)}</td>
               </tr>
             ))}
           </tbody>
@@ -267,43 +259,43 @@ export const InvoicePrintView: React.FC = () => {
           <div className="text-right space-y-1.5 text-neutral-600">
             <div className="flex justify-between">
               <span className="text-neutral-500">Subtotal:</span>
-              <span className="font-semibold text-neutral-900">{formatCurrencyAmount(taxResult.subtotal, currency)}</span>
+              <span className="font-semibold text-neutral-900">{formatCurrency(taxResult.subtotal, currency)}</span>
             </div>
 
             {taxResult.discount_amount > 0 && (
               <div className="flex justify-between text-emerald-600">
                 <span>Discount ({taxResult.discount_scope === 'before_tax' ? 'Pre-Tax' : 'Post-Tax'}):</span>
-                <span>-{formatCurrencyAmount(taxResult.discount_amount, currency)}</span>
+                <span>-{formatCurrency(taxResult.discount_amount, currency)}</span>
               </div>
             )}
 
             <div className="flex justify-between text-neutral-700 font-medium">
               <span>Taxable Value:</span>
-              <span>{formatCurrencyAmount(taxResult.taxable_amount, currency)}</span>
+              <span>{formatCurrency(taxResult.taxable_amount, currency)}</span>
             </div>
 
             {taxResult.cgst > 0 && (
               <div className="flex justify-between text-neutral-500">
                 <span>CGST:</span>
-                <span className="font-semibold text-neutral-900">{formatCurrencyAmount(taxResult.cgst, currency)}</span>
+                <span className="font-semibold text-neutral-900">{formatCurrency(taxResult.cgst, currency)}</span>
               </div>
             )}
             {taxResult.sgst > 0 && (
               <div className="flex justify-between text-neutral-500">
                 <span>SGST:</span>
-                <span className="font-semibold text-neutral-900">{formatCurrencyAmount(taxResult.sgst, currency)}</span>
+                <span className="font-semibold text-neutral-900">{formatCurrency(taxResult.sgst, currency)}</span>
               </div>
             )}
             {taxResult.igst > 0 && (
               <div className="flex justify-between text-neutral-500">
                 <span>IGST:</span>
-                <span className="font-semibold text-neutral-900">{formatCurrencyAmount(taxResult.igst, currency)}</span>
+                <span className="font-semibold text-neutral-900">{formatCurrency(taxResult.igst, currency)}</span>
               </div>
             )}
             {taxResult.cess > 0 && (
               <div className="flex justify-between text-neutral-500">
                 <span>CESS:</span>
-                <span className="font-semibold text-neutral-900">{formatCurrencyAmount(taxResult.cess, currency)}</span>
+                <span className="font-semibold text-neutral-900">{formatCurrency(taxResult.cess, currency)}</span>
               </div>
             )}
 
@@ -316,25 +308,25 @@ export const InvoicePrintView: React.FC = () => {
 
             <div className="flex justify-between border-t border-neutral-200 pt-2 font-bold text-neutral-900 text-sm">
               <span>Grand Total:</span>
-              <span>{formatCurrencyAmount(taxResult.grand_total, currency)}</span>
+              <span>{formatCurrency(taxResult.grand_total, currency)}</span>
             </div>
 
             {taxResult.tds_amount > 0 && (
               <div className="flex justify-between text-amber-700 text-[11px] pt-1">
                 <span>TDS Withheld ({TDS_SECTIONS[taxResult.tds_section || '']?.name || taxResult.tds_section} @ {taxResult.tds_rate}%):</span>
-                <span className="font-mono">-{formatCurrencyAmount(taxResult.tds_amount, currency)}</span>
+                <span className="font-mono">-{formatCurrency(taxResult.tds_amount, currency)}</span>
               </div>
             )}
 
             {taxResult.tds_amount > 0 && (
               <div className="flex justify-between border-t border-neutral-200 pt-1.5 font-extrabold text-emerald-700 text-sm">
                 <span>Net Receivable:</span>
-                <span>{formatCurrencyAmount(taxResult.net_receivable, currency)}</span>
+                <span>{formatCurrency(taxResult.net_receivable, currency)}</span>
               </div>
             )}
 
             <div className="text-[11px] text-neutral-500 mt-2 italic capitalize">
-              Amount in words: {formatAmountInWords(taxResult.net_receivable || taxResult.grand_total, currency)}
+              Amount in words: {currency === 'INR' ? numberToIndianRupeeWords(taxResult.net_receivable || taxResult.grand_total) : `${currency} ${(taxResult.net_receivable || taxResult.grand_total).toFixed(2)} Only`}
             </div>
 
             {currency !== 'INR' && (

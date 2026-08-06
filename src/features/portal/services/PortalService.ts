@@ -53,15 +53,12 @@ export class PortalService {
   static async generateVerificationCode(token: string): Promise<Result<string>> {
     try {
       const email = await PortalRepository.generateVerificationCode(token);
-      try {
-        const { error: funcErr } = await supabase.functions.invoke('send-email', {
-          body: { portalToken: token }
-        });
-        if (funcErr) {
-          console.error('[PortalService] Failed to trigger OTP email dispatch:', funcErr);
-        }
-      } catch (invokeErr) {
-        console.error('[PortalService] Exception during OTP email invoke:', invokeErr);
+      const { error: funcErr } = await supabase.functions.invoke('send-email', {
+        body: { portalToken: token }
+      });
+      if (funcErr) {
+        console.error('[PortalService] Failed to trigger OTP email dispatch:', funcErr);
+        throw new Error(funcErr.message || 'Failed to dispatch verification code email');
       }
       return { success: true, data: email };
     } catch (e: any) {

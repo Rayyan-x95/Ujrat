@@ -1,6 +1,5 @@
 import { ProposalRepository } from '@/features/proposals/repositories/ProposalRepository';
 import { ProjectRepository } from '../repositories/ProjectRepository';
-import { ProjectCoreService } from './ProjectCoreService';
 import { ProposalSchema } from '@/shared/validation/schemas';
 import type { Result, Proposal, ProposalStatus, ProposalInsert } from '@/shared/types';
 import { LoggingService } from '@/features/auth/services/LoggingService';
@@ -88,8 +87,7 @@ export class ProposalService {
       });
 
       if (status === 'sent') {
-        const projectStatusRes = await ProjectCoreService.updateProjectStatus(workspaceId, profileId, projectId, 'proposal');
-        if (!projectStatusRes.success) throw projectStatusRes.error;
+        await ProjectRepository.update(workspaceId, projectId, { status: 'proposal' });
       }
 
       return { success: true, data: proposal };

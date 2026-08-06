@@ -18,7 +18,10 @@ const fetchWithRetry = async (url: RequestInfo | URL, options?: RequestInit): Pr
       return response;
     } catch (error) {
       if (i === maxRetries - 1 || !isIdempotent) throw error;
-      await new Promise(resolve => setTimeout(resolve, delay));
+      const jitter = Math.random() * 100;
+      const wait = Math.min(delay + jitter, 1000); // ponytail: cap at 1s to avoid long invisible hangs
+      console.warn(`[Supabase] Retry ${i + 1}/${maxRetries} for ${String(url).slice(0, 80)} (${Math.round(wait)}ms)`);
+      await new Promise(resolve => setTimeout(resolve, wait));
       delay *= 2;
     }
   }

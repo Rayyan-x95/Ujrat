@@ -10,6 +10,9 @@ import { Section } from '@/shared/ui/Section';
 import { useWorkspaceSettings } from '@/features/settings';
 import { ProfileSchema, WorkspaceSettingsSchema } from '@/shared/validation/schemas';
 import { AuthService } from '@/features/auth';
+import { exportWorkspaceJson } from '@/shared/utils/csvExport';
+import { supabase } from '@/shared/lib/supabaseClient';
+import { Database, HardDriveDownload } from 'lucide-react';
 
 interface SettingsTemplateProps {
   workspaceId: string;
@@ -26,6 +29,7 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
 }) => {
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
+  const [exportingData, setExportingData] = useState(false);
   
   const handleTabChange = (tabId: string) => {
     navigate(`/settings/${tabId}`);
@@ -144,42 +148,70 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
         tax_scheme: validated.tax_scheme,
         lut_number: validated.lut_number ?? null,
       });
-      addToast('success', 'Branding & GST Info Saved');
+      addToast('success', 'Tax & Branding Settings Saved');
     } catch (e: any) {
-      addToast('error', 'GST Update Failed', e.message || 'Validation failed');
+      addToast('error', 'Failed to Save GST Settings', e.message || 'Validation failed');
     } finally {
       setSaving(false);
     }
   };
 
   const changePassword = async () => {
-    if (!newPassword.trim()) {
+    if (!newPassword) {
       addToast('warning', 'Validation Error', 'Password cannot be empty.');
       return;
     }
-    if (newPassword.length < 6) {
-      addToast('warning', 'Weak Password', 'Password must be at least 6 characters.');
+    if (newPassword.length < 12) {
+      addToast('warning', 'Weak Password', 'Password must be at least 12 characters.');
       return;
     }
     if (newPassword !== confirmPassword) {
-      addToast('warning', 'Password Mismatch', 'Passwords do not match.');
+      addToast('warning', 'Mismatch', 'New passwords do not match.');
       return;
     }
 
     try {
       setSaving(true);
       const res = await AuthService.updatePassword(newPassword);
-      if (res.success) {
-        addToast('success', 'Password Updated Successfully', 'Your account credentials have been updated.');
-        setNewPassword('');
-        setConfirmPassword('');
-      } else {
-        throw res.error;
-      }
+      if (!res.success) throw res.error;
+      addToast('success', 'Password Updated', 'Your account credentials were successfully updated.');
+      setNewPassword('');
+      setConfirmPassword('');
     } catch (e: any) {
       addToast('error', 'Failed to Update Password', e.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleExportWorkspace = async () => {
+    try {
+      setExportingData(true);
+      const [clientsRes, projectsRes, invoicesRes, paymentsRes] = await Promise.all([
+        supabase.from('clients').select('*').eq('workspace_id', workspaceId),
+        supabase.from('projects').select('*').eq('workspace_id', workspaceId),
+        supabase.from('invoices').select('*').eq('workspace_id', workspaceId),
+        supabase.from('payments').select('*').eq('workspace_id', workspaceId),
+      ]);
+
+      const backup = {
+        ujrat_schema_version: '1.0',
+        exported_at: new Date().toISOString(),
+        workspace_id: workspaceId,
+        profile: profile,
+        settings: settings,
+        clients: clientsRes.data || [],
+        projects: projectsRes.data || [],
+        invoices: invoicesRes.data || [],
+        payments: paymentsRes.data || [],
+      };
+
+      exportWorkspaceJson(backup, `ujrat_backup_${new Date().toISOString().slice(0, 10)}.json`);
+      addToast('success', 'Data Backup Exported', `Downloaded complete workspace archive.`);
+    } catch (err: any) {
+      addToast('error', 'Backup Failed', err.message);
+    } finally {
+      setExportingData(false);
     }
   };
 
@@ -213,7 +245,6 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
                   value={profileEmail} 
                   readOnly={true} 
                   hint="Primary email address is managed via account authentication." 
-                  onChange={e => setProfileEmail(e.target.value)} 
                 />
               </div>
               <div className="flex justify-end pt-2 border-t border-border mt-4">
@@ -268,7 +299,7 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
                 <Input 
                   label="New Password" 
                   type="password" 
-                  placeholder="At least 6 characters" 
+                  placeholder="At least 12 characters" 
                   value={newPassword} 
                   onChange={e => setNewPassword(e.target.value)} 
                 />
@@ -282,6 +313,33 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
               </div>
               <div className="flex justify-end pt-2 border-t border-border mt-4">
                 <Button variant="primary" onClick={changePassword} loading={saving}>Update Password</Button>
+              </div>
+            </div>
+          </Section>
+        )}
+
+        {activeTab === 'data' && (
+          <Section title="Data Portability & Workspace Backup" description="Export and own all your workspace records in standard open formats.">
+            <div className="space-y-5 pt-1 animate-fade-in">
+              <div className="p-4.5 border border-border bg-surface/30 rounded-lg space-y-3">
+                <div className="flex items-center gap-2 text-foreground font-semibold text-small">
+                  <Database className="h-4.5 w-4.5 text-primary" />
+                  <span>Full Workspace Archive (JSON)</span>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed m-0">
+                  Export all your client records, project scopes, issued GST invoices, and transaction payment entries.
+                  This archive is fully portable and can be used for local backups or auditing.
+                </p>
+                <div className="pt-2">
+                  <Button
+                    variant="primary"
+                    onClick={handleExportWorkspace}
+                    loading={exportingData}
+                    icon={<HardDriveDownload className="h-4 w-4" />}
+                  >
+                    Download Full Workspace Backup (.json)
+                  </Button>
+                </div>
               </div>
             </div>
           </Section>
