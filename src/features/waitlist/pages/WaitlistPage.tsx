@@ -146,7 +146,7 @@ export const WaitlistPage: React.FC = () => {
       <JSONLD schema={getOrganizationSchema()} />
 
       {/* Atmospheric Background Lights */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[500px] bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,hsl(var(--primary)/0.15),transparent)] pointer-events-none -z-10" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-125 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,hsl(var(--primary)/0.15),transparent)] pointer-events-none -z-10" />
       <div className="absolute top-[20%] -right-40 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none -z-10" />
       <div className="absolute top-[35%] -left-40 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none -z-10" />
 
@@ -175,7 +175,7 @@ export const WaitlistPage: React.FC = () => {
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground font-display leading-[1.12]">
                 Zero Commission.<br />
                 Instant UPI Settlement.<br />
-                <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                <span className="bg-linear-to-r from-primary to-primary/70 bg-clip-text text-transparent">
                   Indian Freelancing Perfected.
                 </span>
               </h1>
@@ -208,19 +208,19 @@ export const WaitlistPage: React.FC = () => {
               <ul className="space-y-2.5 text-xs text-muted-foreground">
                 <li className="flex items-center gap-2.5">
                   <div className="h-4 w-4 rounded-full bg-primary/15 text-primary flex items-center justify-center shrink-0">
-                    <Check className="h-2.5 w-2.5 stroke-[3]" />
+                    <Check className="h-2.5 w-2.5 stroke-3" />
                   </div>
                   <span><strong className="text-foreground">Lifetime Free Tier</strong>: Guaranteed zero platform fee for early cohort members.</span>
                 </li>
                 <li className="flex items-center gap-2.5">
                   <div className="h-4 w-4 rounded-full bg-primary/15 text-primary flex items-center justify-center shrink-0">
-                    <Check className="h-2.5 w-2.5 stroke-[3]" />
+                    <Check className="h-2.5 w-2.5 stroke-3" />
                   </div>
                   <span><strong className="text-foreground">Custom Client Portals</strong>: Send professional proposals and payment links under your own brand.</span>
                 </li>
                 <li className="flex items-center gap-2.5">
                   <div className="h-4 w-4 rounded-full bg-primary/15 text-primary flex items-center justify-center shrink-0">
-                    <Check className="h-2.5 w-2.5 stroke-[3]" />
+                    <Check className="h-2.5 w-2.5 stroke-3" />
                   </div>
                   <span><strong className="text-foreground">Direct Priority Onboarding</strong>: Personalized assistance from our product engineering team.</span>
                 </li>
@@ -242,7 +242,7 @@ export const WaitlistPage: React.FC = () => {
               <div className="bg-card border border-border/80 rounded-2xl p-6 sm:p-8 shadow-xl shadow-black/5 relative overflow-hidden backdrop-blur-xl transition-all">
                 
                 {/* Glow Accent Line */}
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/30 via-primary to-primary/30" />
+                <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-primary/30 via-primary to-primary/30" />
 
                 <div className="mb-6 space-y-1 text-left">
                   <div className="flex items-center justify-between">
@@ -424,10 +424,10 @@ export const WaitlistPage: React.FC = () => {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full relative group overflow-hidden rounded-xl bg-gradient-to-r from-primary via-blue-600 to-indigo-600 hover:from-primary/95 hover:via-blue-600/95 hover:to-indigo-500 text-white font-semibold text-sm h-12 px-6 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+                      className="w-full relative group overflow-hidden rounded-xl bg-linear-to-r from-primary via-blue-600 to-indigo-600 hover:from-primary/95 hover:via-blue-600/95 hover:to-indigo-500 text-white font-semibold text-sm h-12 px-6 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
                     >
                       {/* Light Shimmer Effect on Hover */}
-                      <div className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-[300%] transition-transform duration-1000 ease-out pointer-events-none" />
+                      <div className="absolute inset-0 w-1/2 h-full bg-linear-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-[300%] transition-transform duration-1000 ease-out pointer-events-none" />
 
                       <div className="relative flex items-center justify-center gap-2.5">
                         {loading ? (
@@ -463,7 +463,7 @@ export const WaitlistPage: React.FC = () => {
               /* ─── Celebratory Holographic VIP Ticket ────────────────────────── */
               <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/10 text-center space-y-6 animate-scale-in relative overflow-hidden">
                 
-                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary via-primary/80 to-primary" />
+                <div className="absolute top-0 left-0 right-0 h-1.5 bg-linear-to-r from-primary via-primary/80 to-primary" />
                 
                 {/* Success Icon Badge */}
                 <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto border border-primary/20 shadow-inner">

@@ -40,7 +40,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       if (this.props.fallback) return this.props.fallback;
 
       return (
-        <div className="min-h-[500px] flex flex-col items-center justify-center p-8 space-y-6 max-w-lg mx-auto animate-fade-in">
+        <div className="min-h-125 flex flex-col items-center justify-center p-8 space-y-6 max-w-lg mx-auto animate-fade-in">
           <div className="h-16 w-16 rounded-2xl bg-destructive/10 flex items-center justify-center text-destructive shadow-sm">
             <svg className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -73,7 +73,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
                 className="w-full flex justify-between items-center px-4 py-2.5 text-xs font-medium text-muted-foreground hover:bg-secondary/40 transition-colors cursor-pointer"
               >
                 <span>{this.state.showDetails ? 'Hide' : 'Show'} Technical Details</span>
-                <svg className={`h-3.5 w-3.5 transition-transform duration-[120ms] ${this.state.showDetails ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className={`h-3.5 w-3.5 transition-transform duration-120 ${this.state.showDetails ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                 </svg>
               </button>
