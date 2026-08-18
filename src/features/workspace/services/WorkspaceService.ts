@@ -82,12 +82,48 @@ export class WorkspaceService {
         .maybeSingle();
 
       if (!error && !data) {
+        // Fallback to upsert if workspace_settings row did not exist yet
         const upsertRes = await (supabase
           .from('workspace_settings') as any)
           .upsert({
             workspace_id: workspaceId,
             ...validated,
           }, { onConflict: 'workspace_id' })
+          .select()
+          .maybeSingle();
+
+        data = upsertRes.data;
+        error = upsertRes.error;
+      }
+
+      let fallbackErr: any = null;
+      if (error && error.message?.includes('schema cache')) {
+        const hasTaxFields =
+          validated.preferred_currency !== undefined ||
+          validated.tax_scheme !== undefined ||
+          validated.lut_number !== undefined ||
+          validated.lut_expiry_date !== undefined ||
+          validated.default_tds_section !== undefined;
+
+        if (hasTaxFields) {
+          return {
+            success: false,
+            error: new Error(`Database schema migration required: ${error.message}`),
+          };
+        }
+
+        // Fallback for unmigrated database instances: omit new tax/currency schema columns
+        const fallbackData = { ...validated };
+        delete (fallbackData as any).preferred_currency;
+        delete (fallbackData as any).tax_scheme;
+        delete (fallbackData as any).lut_number;
+        delete (fallbackData as any).lut_expiry_date;
+        delete (fallbackData as any).default_tds_section;
+
+        const fallbackResult = await (supabase
+          .from('workspace_settings') as any)
+          .update(fallbackData)
+          .eq('workspace_id', workspaceId)
           .select()
           .maybeSingle();
 
