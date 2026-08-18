@@ -52,12 +52,10 @@ export class AuthService {
         const { data: authUserData } = await supabase.auth.getUser();
         const userEmail = authUserData?.user?.email || profileData.email || '';
 
-        const upsertPayload = {
+        const upsertPayload: Record<string, any> = {
           id: profileId,
           email: userEmail,
-          full_name: profileData.full_name ?? null,
-          avatar_url: profileData.avatar_url ?? null,
-          updated_at: new Date().toISOString(),
+          ...payload,
         };
 
         const { data: upsertData, error: upsertError } = await (supabase

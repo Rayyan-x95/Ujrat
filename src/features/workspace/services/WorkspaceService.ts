@@ -81,7 +81,9 @@ export class WorkspaceService {
         .select()
         .maybeSingle();
 
+      let wasUpsert = false;
       if (!error && !data) {
+        wasUpsert = true;
         // Fallback to upsert if workspace_settings row did not exist yet
         const upsertRes = await (supabase
           .from('workspace_settings') as any)
@@ -96,7 +98,6 @@ export class WorkspaceService {
         error = upsertRes.error;
       }
 
-      let fallbackErr: any = null;
       if (error && error.message?.includes('schema cache')) {
         const hasTaxFields =
           validated.preferred_currency !== undefined ||
@@ -120,15 +121,38 @@ export class WorkspaceService {
         delete (fallbackData as any).lut_expiry_date;
         delete (fallbackData as any).default_tds_section;
 
-        const fallbackResult = await (supabase
-          .from('workspace_settings') as any)
-          .update(fallbackData)
-          .eq('workspace_id', workspaceId)
-          .select()
-          .maybeSingle();
+        const fallbackResult = wasUpsert
+          ? await (supabase
+              .from('workspace_settings') as any)
+              .upsert({
+                workspace_id: workspaceId,
+                ...fallbackData,
+              }, { onConflict: 'workspace_id' })
+              .select()
+              .maybeSingle()
+          : await (supabase
+              .from('workspace_settings') as any)
+              .update(fallbackData)
+              .eq('workspace_id', workspaceId)
+              .select()
+              .maybeSingle();
 
-        data = upsertRes.data;
-        error = upsertRes.error;
+        data = fallbackResult.data;
+        error = fallbackResult.error;
+
+        if (!error && !data && !wasUpsert) {
+          const fallbackUpsert = await (supabase
+            .from('workspace_settings') as any)
+            .upsert({
+              workspace_id: workspaceId,
+              ...fallbackData,
+            }, { onConflict: 'workspace_id' })
+            .select()
+            .maybeSingle();
+
+          data = fallbackUpsert.data;
+          error = fallbackUpsert.error;
+        }
       }
 
       if (error || !data) {
