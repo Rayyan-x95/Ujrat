@@ -68,9 +68,9 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
       setWhatsapp('');
       setAddress('');
       setNotes('');
-    } catch (e) {
-      console.error(e);
-      addToast('error', 'Add Client Failed', (e as Error).message);
+    } catch (e: any) {
+      console.error('[ClientsTemplate] Add client failed:', e?.message || e);
+      addToast('error', 'Add Client Failed', e?.message || 'Failed to add client');
     } finally {
       setSubmitting(false);
     }
@@ -90,7 +90,7 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
     }
   };
 
-  const columns: ColumnDef<Client>[] = [
+  const columns: ColumnDef<Client>[] = React.useMemo(() => [
     {
       key: 'name', 
       header: 'Client Details', 
@@ -166,7 +166,7 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
         </Button>
       ),
     },
-  ];
+  ], []);
 
   return (
     <div className="space-y-6.5 animate-slide-up">
@@ -191,18 +191,25 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
         keyField="id"
         searchable
         searchPlaceholder="Search clients by name or company..."
-        emptyMessage="No clients registered"
-        emptySubMessage="Add your first client contact to start mapping projects and issuing compliant invoices."
-        emptyAction={
-          <Button 
-            variant="primary" 
-            size="sm" 
-            onClick={() => setShowAdd(true)} 
-            icon={<Plus className="h-4 w-4" />}
-          >
-            Add First Client
-          </Button>
-        }
+        emptyState={{
+          title: "No Clients Registered Yet",
+          description: "Add your first client contact to start drafting proposals, executing contracts, and issuing GST invoices.",
+          action: (
+            <Button 
+              variant="primary" 
+              size="sm" 
+              onClick={() => setShowAdd(true)} 
+              icon={<Plus className="h-4 w-4" />}
+            >
+              Add First Client
+            </Button>
+          ),
+          tips: [
+            "Adding client WhatsApp numbers enables 1-click invoice sharing.",
+            "Client company names automatically populate into GST Place-of-Supply invoices.",
+            "Each client gets a secure, passwordless portal link to sign agreements."
+          ]
+        }}
         loading={isLoading}
       />
 

@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { UPIPaymentProvider } from '@/features/payments/providers/UPIPaymentProvider';
-import { PaymentVerificationService } from '@/features/payments/services/PaymentVerificationService';
-import { PaymentReceiptService } from '@/features/payments/services/PaymentReceiptService';
+import { PaymentService } from '@/features/payments/services/PaymentService';
 import { PaymentRequestStateMachine } from '@/shared/utils/StateMachine';
 import { UTR_REGEX } from '@/features/payments/constants/PaymentConstants';
 
@@ -53,10 +52,10 @@ describe('UPI Deep Link Payment System Test Suite', () => {
     expect(UTR_REGEX.test('4231567890123')).toBe(false);
     expect(UTR_REGEX.test('42315678901A')).toBe(false);
 
-    const valValid = PaymentVerificationService.validateUTR('423156789012');
+    const valValid = PaymentService.validateUTR('423156789012');
     expect(valValid.isValid).toBe(true);
 
-    const valInvalid = PaymentVerificationService.validateUTR('abc');
+    const valInvalid = PaymentService.validateUTR('abc');
     expect(valInvalid.isValid).toBe(false);
     expect(valInvalid.error).toContain('12 digits');
   });
@@ -72,7 +71,7 @@ describe('UPI Deep Link Payment System Test Suite', () => {
   });
 
   it('5. Generates official Payment Receipt data', async () => {
-    const res = await PaymentReceiptService.generateReceipt('ws-123', {
+    const res = await PaymentService.generateReceipt('ws-123', {
       invoiceId: 'inv-456',
       amount: 25000,
       utrNumber: '423156789012',
@@ -86,5 +85,43 @@ describe('UPI Deep Link Payment System Test Suite', () => {
       expect(res.data.paymentMethod).toBe('UPI');
       expect(res.data.utrNumber).toBe('423156789012');
     }
+  });
+
+  it('6. Strictly encodes adversarial characters in Payee Names and Notes', () => {
+    const adversarialParams = {
+      workspaceId: 'ws-123',
+      invoiceId: 'inv-999',
+      invoiceNumber: 'INV/2026/001&DISCOUNT=100%',
+      amount: 4500.5,
+      payeeVpa: 'freelancer+tax@hdfcbank',
+      payeeName: 'Jane & John "Studio" <Design> #1',
+    };
+
+    const uri = provider.generateDeepLink(adversarialParams);
+    // Invariant: Must not produce unencoded ampersands or angle brackets
+    expect(uri).not.toContain('<Design>');
+    expect(uri).not.toContain('"Studio"');
+    expect(uri).toContain('am=4500.50');
+  });
+
+  it('7. Rejects malformed and fuzz UTR submissions', () => {
+    const maliciousUTRs = [
+      '',
+      ' ',
+      '12345678901', // 11 digits
+      '1234567890123', // 13 digits
+      '42315678901X', // Alphanumeric
+      '<script>123456789012</script>',
+      'DROP TABLE payments;--',
+      '1234 5678 9012',
+      '1234-5678-9012',
+      'null',
+      'undefined',
+    ];
+
+    maliciousUTRs.forEach((utr) => {
+      const res = PaymentService.validateUTR(utr);
+      expect(res.isValid).toBe(false);
+    });
   });
 });

@@ -53,7 +53,7 @@ export const PaymentsTemplate: React.FC<PaymentsTemplateProps> = ({
     }
   };
 
-  const columns: ColumnDef<any>[] = [
+  const columns: ColumnDef<any>[] = React.useMemo(() => [
     {
       key: 'invoice',
       header: 'Invoice Code',
@@ -124,7 +124,7 @@ export const PaymentsTemplate: React.FC<PaymentsTemplateProps> = ({
         )
       ),
     },
-  ];
+  ], []);
 
   return (
     <div className="space-y-6.5 animate-slide-up">
@@ -167,8 +167,15 @@ export const PaymentsTemplate: React.FC<PaymentsTemplateProps> = ({
         data={data?.list || []}
         keyField="id"
         loading={isLoading}
-        emptyMessage="No payments registered"
-        emptySubMessage="Payment references submitted by clients on their secure portal will appear here."
+        emptyState={{
+          title: "No Payment Records Yet",
+          description: "When clients scan dynamic UPI QR codes and submit their 12-digit bank UTR reference, transactions appear here for instant audit and settlement.",
+          tips: [
+            "Payments route directly to your bank account via UPI with 0% gateway commission.",
+            "Confirming a payment record marks the corresponding invoice as Paid.",
+            "Client file escrow unlocks automatically upon payment verification."
+          ]
+        }}
       />
 
       {data && data.totalPages > 1 && (

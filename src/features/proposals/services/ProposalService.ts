@@ -1,5 +1,5 @@
-import { ProposalRepository } from '@/features/proposals/repositories/ProposalRepository';
-import { ProjectRepository } from '../repositories/ProjectRepository';
+import { ProposalRepository } from '../repositories/ProposalRepository';
+import { ProjectRepository } from '@/features/projects/repositories/ProjectRepository';
 import { ProposalSchema } from '@/shared/validation/schemas';
 import type { Result, Proposal, ProposalStatus, ProposalInsert } from '@/shared/types';
 import { LoggingService } from '@/features/auth/services/LoggingService';
@@ -52,7 +52,6 @@ export class ProposalService {
         project_id: projectId,
       };
 
-      // Check transition validity and resolve proposalId
       let resolvedProposalId = proposalId;
       let currentStatus: ProposalStatus = 'draft';
 

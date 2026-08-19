@@ -39,7 +39,17 @@ export const getOrganizationSchema = () => ({
     'https://github.com/ujrat',
     'https://twitter.com/ujrat_in'
   ],
-  'description': 'Ujrat is the premium freelance workflow and GST invoicing portal for Indian freelancers, offering dynamic UPI payouts and secure digital contracts.'
+  'description': 'Ujrat is the free freelance workflow and GST invoicing portal for Indian freelancers, offering dynamic UPI payouts and secure digital contracts.',
+  'address': {
+    '@type': 'PostalAddress',
+    'addressCountry': 'IN'
+  },
+  'contactPoint': {
+    '@type': 'ContactPoint',
+    'contactType': 'customer support',
+    'email': 'support@ninety5.in',
+    'availableLanguage': ['English', 'Hindi']
+  }
 });
 
 export const getWebsiteSchema = () => ({
@@ -48,15 +58,8 @@ export const getWebsiteSchema = () => ({
   '@id': 'https://ujrat.ninety5.in/#website',
   'url': 'https://ujrat.ninety5.in',
   'name': 'Ujrat',
-  'description': 'The premium freelance workflow platform for Indian freelancers.',
-  'potentialAction': {
-    '@type': 'SearchAction',
-    'target': {
-      '@type': 'EntryPoint',
-      'urlTemplate': 'https://ujrat.ninety5.in/search?q={search_term_string}'
-    },
-    'query-input': 'required name=search_term_string'
-  }
+  'description': 'The complete free freelance workspace and GST invoicing engine for Indian freelancers.',
+  'inLanguage': 'en-IN'
 });
 
 export const getSoftwareApplicationSchema = () => ({
@@ -67,6 +70,7 @@ export const getSoftwareApplicationSchema = () => ({
   'url': 'https://ujrat.ninety5.in',
   'applicationCategory': 'BusinessApplication',
   'operatingSystem': 'All',
+  'inLanguage': 'en-IN',
   'offers': {
     '@type': 'Offer',
     'price': '0.00',
@@ -75,13 +79,120 @@ export const getSoftwareApplicationSchema = () => ({
   'featureList': [
     'Client CRM & Relationship Management',
     'Project Kanban Workflow & Milestone Tracking',
-    'Digital Contract Templates & Signatures',
+    'Digital Contract Templates & Signatures (IT Act 2000)',
     'Client Brief Gathering Portal',
-    'GST-Compliant Invoice Generator',
-    'Dynamic UPI Intent & QR Code Payments',
-    'Secure Deliverables Download Portal',
+    'GST-Compliant Invoice Generator (CGST, SGST, IGST, SAC 998314)',
+    'Zero-Fee Dynamic UPI Intent & QR Code Payments',
+    'Secure Deliverables Escrow Download Portal',
     'Activity Logs & Financial Auditing'
   ]
+});
+
+export const getTechArticleSchema = (
+  headline: string,
+  description: string,
+  urlPath: string,
+  datePublished = '2026-01-01',
+  dateModified = '2026-08-20'
+) => ({
+  '@context': 'https://schema.org',
+  '@type': 'TechArticle',
+  'headline': headline,
+  'description': description,
+  'url': `https://ujrat.ninety5.in${urlPath}`,
+  'datePublished': datePublished,
+  'dateModified': dateModified,
+  'inLanguage': 'en-IN',
+  'spatialCoverage': {
+    '@type': 'Place',
+    'name': 'India',
+    'geo': {
+      '@type': 'GeoCoordinates',
+      'latitude': 20.593684,
+      'longitude': 78.96288
+    }
+  },
+  'author': {
+    '@type': 'Organization',
+    'name': 'Ujrat Legal & Taxation Engineering Team',
+    'url': 'https://ujrat.ninety5.in'
+  },
+  'publisher': {
+    '@type': 'Organization',
+    'name': 'Ujrat',
+    'logo': {
+      '@type': 'ImageObject',
+      'url': 'https://ujrat.ninety5.in/favicon-transparent.png'
+    }
+  },
+  'mainEntityOfPage': `https://ujrat.ninety5.in${urlPath}`
+});
+
+export const getLegalLegislationSchema = (
+  lawName: string,
+  section: string,
+  description: string,
+  jurisdiction = 'IN'
+) => ({
+  '@context': 'https://schema.org',
+  '@type': 'Legislation',
+  'name': lawName,
+  'legislationIdentifier': section,
+  'description': description,
+  'legislationJurisdiction': jurisdiction,
+  'inLanguage': 'en-IN'
+});
+
+export const getHowToSchema = (
+  name: string,
+  description: string,
+  steps: Array<{ name: string; text: string }>
+) => ({
+  '@context': 'https://schema.org',
+  '@type': 'HowTo',
+  'name': name,
+  'description': description,
+  'inLanguage': 'en-IN',
+  'step': steps.map((s, idx) => ({
+    '@type': 'HowToStep',
+    'position': idx + 1,
+    'name': s.name,
+    'text': s.text
+  }))
+});
+
+export const getFAQSchema = (faqs: Array<{ q: string; a: string }>) => ({
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  'inLanguage': 'en-IN',
+  'mainEntity': faqs.map((faq) => ({
+    '@type': 'Question',
+    'name': faq.q,
+    'acceptedAnswer': {
+      '@type': 'Answer',
+      'text': faq.a
+    }
+  }))
+});
+
+export const getPricingOfferSchema = () => ({
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  'name': 'Ujrat Core Workspace',
+  'description': 'Free freelance workflow, GST invoicing, UPI payments, and digital contract engine for Indian freelancers.',
+  'inLanguage': 'en-IN',
+  'brand': {
+    '@type': 'Brand',
+    'name': 'Ujrat'
+  },
+  'offers': {
+    '@type': 'Offer',
+    'price': '0.00',
+    'priceCurrency': 'INR',
+    'availability': 'https://schema.org/InStock',
+    'priceValidUntil': '2030-12-31',
+    'url': 'https://ujrat.ninety5.in/pricing'
+  }
 });
 
 export default JSONLD;

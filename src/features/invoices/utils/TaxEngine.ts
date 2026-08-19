@@ -4,21 +4,19 @@
  */
 
 export * from '../tax/TaxTypes';
-export * from '../tax/TaxConstants';
-export * from '../tax/TaxUtilities';
-export * from '../tax/TaxRules';
-export * from '../tax/GSTCalculator';
-export * from '../tax/TDSCalculator';
 export * from '../tax/InvoiceCalculator';
-export * from '../tax/TaxValidator';
-export * from '../tax/TaxRepository';
 export { numberToIndianRupeeWords, formatCurrency } from '@/shared/utils/currency';
 
-import { evaluateTaxRules } from '../tax/TaxRules';
-import { calculateGSTBreakdown } from '../tax/GSTCalculator';
-import { validateGSTINFormat } from '../tax/TaxUtilities';
-import { calculateInvoiceTax } from '../tax/InvoiceCalculator';
-import { validateTaxCalculation } from '../tax/TaxValidator';
+import {
+  evaluateTaxRules,
+  calculateGSTBreakdown,
+  calculateTDSBreakdown,
+  validateGSTINFormat,
+  calculateInvoiceTax,
+  validateTaxCalculation,
+  toPaise,
+  fromPaise,
+} from '../tax/InvoiceCalculator';
 import type { InvoiceItemTaxInput } from '../tax/TaxTypes';
 
 // Backward compatibility adapters for existing components
@@ -77,6 +75,40 @@ export function calculateGST(
   };
 }
 
+export function calculateTDS(
+  taxableAmount: number,
+  invoiceTotalOrSection?: number | string,
+  sectionOrRate?: string | number,
+  rate?: number
+): { tdsAmount: number; netReceivable: number; section: string | null; rate: number } {
+  let section: string = '194J';
+  let appliedRate: number | undefined = rate;
+  let totalAmount = taxableAmount;
+
+  if (typeof invoiceTotalOrSection === 'number') {
+    totalAmount = invoiceTotalOrSection;
+    if (typeof sectionOrRate === 'string') {
+      section = sectionOrRate;
+    }
+    appliedRate = rate;
+  } else if (typeof invoiceTotalOrSection === 'string') {
+    section = invoiceTotalOrSection;
+    if (typeof sectionOrRate === 'number') {
+      appliedRate = sectionOrRate;
+    }
+  }
+
+  const res = calculateTDSBreakdown(taxableAmount, { section, rate: appliedRate });
+  const netReceivable = fromPaise(Math.max(0, toPaise(totalAmount) - toPaise(res.tdsAmount)));
+
+  return {
+    tdsAmount: res.tdsAmount,
+    netReceivable,
+    section: res.section,
+    rate: res.rate,
+  };
+}
+
 export function isValidGstin(gstin: string): boolean {
   return validateGSTINFormat(gstin).isValid;
 }
@@ -86,5 +118,6 @@ export const TaxEngine = {
   validateTaxCalculation,
   determineGSTType,
   calculateGST,
+  calculateTDS,
   isValidGstin,
 };

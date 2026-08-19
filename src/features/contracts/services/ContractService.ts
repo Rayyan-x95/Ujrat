@@ -1,7 +1,7 @@
-import { ContractRepository } from '@/features/contracts/repositories/ContractRepository';
-import { ProjectRepository } from '../repositories/ProjectRepository';
-import { ContractSchema } from '@/shared/validation/schemas';
-import type { Result, Contract, ContractStatus } from '@/shared/types';
+import { ContractRepository } from '../repositories/ContractRepository';
+import { ProjectRepository } from '@/features/projects/repositories/ProjectRepository';
+import { ContractSchema, ContractSignatureSchema } from '@/shared/validation/schemas';
+import type { Result, Contract, ContractStatus, ContractSignature } from '@/shared/types';
 import { LoggingService } from '@/features/auth/services/LoggingService';
 import { ContractStateMachine } from '@/shared/utils/StateMachine';
 
@@ -37,14 +37,15 @@ export class ContractService {
       });
 
       let resolvedContractId = contractId;
-      if (!resolvedContractId) {
-        const existingContract = await ContractRepository.getByProjectId(workspaceId, projectId);
-        if (existingContract) {
-          resolvedContractId = existingContract.id;
-        }
+      let currentStatus: ContractStatus = 'draft';
+
+      const existingContract = await ContractRepository.getByProjectId(workspaceId, projectId);
+      if (existingContract) {
+        resolvedContractId = existingContract.id;
+        currentStatus = existingContract.status as ContractStatus;
       }
 
-      let contract;
+      let contract: Contract;
       if (resolvedContractId) {
         contract = await ContractRepository.update(workspaceId, resolvedContractId, {
           introduction: validated.introduction,
@@ -63,13 +64,21 @@ export class ContractService {
         });
       }
 
+      const transition = ContractStateMachine.transition(currentStatus, status as ContractStatus, {
+        contractId: contract.id
+      });
+
       await LoggingService.logActivity({
         workspaceId,
         profileId,
         projectId,
-        action: status === 'sent' ? 'Contract Shared' : 'Contract Draft Saved',
-        details: { contractId: contract.id },
+        action: transition.activityLog.action,
+        details: { ...transition.activityLog.details, contractId: contract.id },
       });
+
+      if (status === 'sent') {
+        await ProjectRepository.update(workspaceId, projectId, { status: 'approved' });
+      }
 
       return { success: true, data: contract };
     } catch (e) {
@@ -82,47 +91,34 @@ export class ContractService {
     profileId: string,
     projectId: string,
     contractId: string,
-    signatureData: {
-      signature_name: string;
-      ip_address?: string;
-    }
-  ): Promise<Result<Contract>> {
+    signatureData: { signature_name: string; ip_address?: string | null }
+  ): Promise<Result<ContractSignature>> {
     try {
-      const project = await ProjectRepository.getById(workspaceId, projectId);
-      if (!project) throw new Error('Unauthorized project workspace access');
-
-      const contract = await ContractRepository.getByProjectId(workspaceId, projectId);
-      if (!contract || contract.id !== contractId) {
-        throw new Error('Contract not found');
-      }
-
-      await ContractRepository.addSignature(workspaceId, {
-        workspace_id: workspaceId,
-        contract_id: contractId,
+      const validated = ContractSignatureSchema.parse({
         signature_name: signatureData.signature_name,
-        signature_date: new Date().toISOString(),
-        ip_address: signatureData.ip_address || null,
+        ip_address: signatureData.ip_address || '0.0.0.0',
       });
 
-      const updatedContract = await ContractRepository.getByProjectId(workspaceId, projectId);
-      if (updatedContract && updatedContract.contract_signatures) {
-        const transition = ContractStateMachine.transition(updatedContract.status as ContractStatus, 'signed', {
-          contractId,
-          projectName: project.name
-        });
-        
-        await LoggingService.logActivity({
-          workspaceId,
-          profileId,
-          projectId,
-          action: transition.activityLog.action,
-          details: transition.activityLog.details,
-        });
-        
-        await ContractRepository.update(workspaceId, contractId, { status: 'signed' });
-      }
+      const signature = await ContractRepository.addSignature(workspaceId, {
+        workspace_id: workspaceId,
+        contract_id: contractId,
+        signature_name: validated.signature_name,
+        signature_date: new Date().toISOString(),
+        ip_address: validated.ip_address ?? '0.0.0.0',
+      });
 
-      return { success: true, data: contract };
+      await ContractRepository.update(workspaceId, contractId, { status: 'signed' });
+      await ProjectRepository.update(workspaceId, projectId, { status: 'contract_signed' });
+
+      await LoggingService.logActivity({
+        workspaceId,
+        profileId,
+        projectId,
+        action: 'Contract Signed',
+        details: { contractId, signatureName: validated.signature_name },
+      });
+
+      return { success: true, data: signature };
     } catch (e) {
       return { success: false, error: e as Error };
     }

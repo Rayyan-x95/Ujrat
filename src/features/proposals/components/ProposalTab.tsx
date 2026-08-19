@@ -1,20 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from '@/shared/ui/Card';
 import { CurrencyInput, Input, Textarea } from '@/shared/ui/Input';
 import { Button } from '@/shared/ui/Button';
 import { Badge } from '@/shared/ui/Badge';
-import { FileEdit, CheckSquare, MessageSquare } from 'lucide-react';
+import { FileEdit, CheckSquare, MessageSquare, DownloadCloud } from 'lucide-react';
 import type { Proposal } from '@/shared/types';
 
 interface ProposalTabProps {
   proposal: Proposal | null;
   projectStatus: string;
+  brief?: any | null;
+  projectBudget?: number;
   onSave: (data: { pricing: number; scope: string; timeline: string; terms: string }, status: 'draft' | 'sent') => Promise<void>;
 }
 
 export const ProposalTab: React.FC<ProposalTabProps> = ({
   proposal,
   projectStatus,
+  brief,
+  projectBudget,
   onSave,
 }) => {
   const [pricing, setPricing] = useState<string>('0');
@@ -30,8 +34,52 @@ export const ProposalTab: React.FC<ProposalTabProps> = ({
       setScope(proposal.scope || '');
       setTimeline(proposal.timeline || '');
       setTerms(proposal.terms || '');
+    } else if (brief || projectBudget) {
+      // Auto-populate from Brief and project metadata if no proposal draft exists yet
+      setPricing(String(brief?.budget || projectBudget || '0'));
+      const scopeParts: string[] = [];
+      if (brief?.description) scopeParts.push(brief.description);
+      if (brief?.goals) scopeParts.push(`Key Goals:\n${brief.goals}`);
+      if (brief?.references) scopeParts.push(`References & Guidelines:\n${brief.references}`);
+      setScope(scopeParts.join('\n\n'));
+
+      if (brief?.deadline) {
+        try {
+          setTimeline(`Target Delivery: ${new Date(brief.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`);
+        } catch {
+          setTimeline(brief.deadline);
+        }
+      }
+      setTerms('1. Payment: 50% advance upon contract execution, 50% upon final milestone delivery.\n2. Revisions: Includes up to 2 rounds of iterative design feedback.');
     }
-  }, [proposal]);
+  }, [proposal, brief, projectBudget]);
+
+  // Check for unsaved changes
+  const isDirty = useMemo(() => {
+    if (!proposal) {
+      return pricing !== '0' || scope.trim() !== '' || timeline.trim() !== '' || terms.trim() !== '';
+    }
+    return (
+      pricing !== String(proposal.pricing || '0') ||
+      scope !== (proposal.scope || '') ||
+      timeline !== (proposal.timeline || '') ||
+      terms !== (proposal.terms || '')
+    );
+  }, [proposal, pricing, scope, timeline, terms]);
+
+  const handleImportFromBrief = () => {
+    if (brief || projectBudget) {
+      setPricing(String(brief?.budget || projectBudget || '0'));
+      const scopeParts: string[] = [];
+      if (brief?.description) scopeParts.push(brief.description);
+      if (brief?.goals) scopeParts.push(`Key Goals:\n${brief.goals}`);
+      if (brief?.references) scopeParts.push(`References & Guidelines:\n${brief.references}`);
+      setScope(scopeParts.join('\n\n'));
+      if (brief?.deadline) {
+        setTimeline(`Target Delivery: ${new Date(brief.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`);
+      }
+    }
+  };
 
   const handleAction = async (status: 'draft' | 'sent') => {
     if (status === 'draft') setLoadingDraft(true);
@@ -55,12 +103,32 @@ export const ProposalTab: React.FC<ProposalTabProps> = ({
           </Card>
         ) : (
           <Card className="p-5.5 space-y-4">
-            <div className="border-b border-border-subtle pb-3">
-              <h3 className="text-small font-bold text-foreground m-0 flex items-center gap-2">
-                <FileEdit className="h-4.5 w-4.5 text-primary" />
-                <span>Create Proposal</span>
-              </h3>
-              <p className="text-[11px] text-muted-foreground mt-1 m-0">Specify project pricing structure, scope list, and feedback revisions limits.</p>
+            <div className="border-b border-border-subtle pb-3 flex justify-between items-start flex-wrap gap-2">
+              <div>
+                <h3 className="text-small font-bold text-foreground m-0 flex items-center gap-2">
+                  <FileEdit className="h-4.5 w-4.5 text-primary" />
+                  <span>Create Proposal</span>
+                  {isDirty && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-warning bg-warning/10 px-2 py-0.5 rounded-full">
+                      <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
+                      Unsaved changes
+                    </span>
+                  )}
+                </h3>
+                <p className="text-[11px] text-muted-foreground mt-1 m-0">Specify project pricing structure, scope list, and feedback revisions limits.</p>
+              </div>
+              {brief && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleImportFromBrief}
+                  className="text-xs text-primary hover:bg-primary/5"
+                  icon={<DownloadCloud className="h-3.5 w-3.5" />}
+                  title="Pull latest details from the Project Brief tab"
+                >
+                  Import from Brief
+                </Button>
+              )}
             </div>
             <div className="space-y-4">
               <CurrencyInput label="Proposal Base Pricing (INR)" value={pricing} onChange={e => setPricing(e.target.value)} />
@@ -68,7 +136,7 @@ export const ProposalTab: React.FC<ProposalTabProps> = ({
               <Input label="Proposed Execution Timeline" placeholder="3 Weeks / Delivery by September 1" value={timeline} onChange={e => setTimeline(e.target.value)} />
               <Textarea label="Revisions & Feedback Limits" placeholder="E.g., Up to 3 cycles of design adjustments included..." value={terms} onChange={e => setTerms(e.target.value)} rows={3} />
             </div>
-            <div className="flex justify-end gap-2 border-t border-border pt-4 mt-2">
+            <div className="flex justify-end gap-2 border-t border-border pt-4 mt-2 items-center">
               <Button variant="outline" size="sm" onClick={() => handleAction('draft')} loading={loadingDraft}>Save Draft</Button>
               <Button variant="primary" size="sm" onClick={() => handleAction('sent')} loading={loadingSent}>Share with Client</Button>
             </div>

@@ -4,7 +4,7 @@ import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/Input';
 import { UPIPaymentProvider } from '../providers/UPIPaymentProvider';
 import { SUPPORTED_UPI_APPS } from '../constants/PaymentConstants';
-import { PaymentVerificationService } from '../services/PaymentVerificationService';
+import { PaymentService } from '../services/PaymentService';
 import { PortalService } from '@/features/portal/services/PortalService';
 import { formatCurrency } from '@/shared/utils/currency';
 
@@ -98,7 +98,7 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
     e.preventDefault();
     if (submitting) return;
 
-    const utrVal = PaymentVerificationService.validateUTR(utrNumber);
+    const utrVal = PaymentService.validateUTR(utrNumber);
     if (!utrVal.isValid) {
       if (addToast) addToast('warning', 'Invalid UTR Number', utrVal.error);
       return;
@@ -133,7 +133,7 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
           if (addToast) addToast('error', 'Submission Failed', res?.error?.message || 'Submission failed');
         }
       } else {
-        const res = await PaymentVerificationService.submitClientPaymentAttempt(workspaceId, {
+        const res = await PaymentService.submitClientPaymentAttempt(workspaceId, {
           invoiceId,
           utrNumber: utrNumber.trim(),
           amount,

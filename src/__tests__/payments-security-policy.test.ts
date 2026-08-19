@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { StorageService } from '@/features/settings/services/StorageService';
 import { AuthService } from '@/features/auth/services/AuthService';
-import { PaymentVerificationService } from '@/features/payments/services/PaymentVerificationService';
+import { PaymentService } from '@/features/payments/services/PaymentService';
 import { UTR_REGEX } from '@/features/payments/constants/PaymentConstants';
 
 describe('Security and Payment Integrity Test Suite', () => {
@@ -88,7 +88,7 @@ describe('Security and Payment Integrity Test Suite', () => {
     });
 
     it('checks PaymentVerificationService rejects malformed UTR submissions', () => {
-      const validation = PaymentVerificationService.validateUTR('bad-utr');
+      const validation = PaymentService.validateUTR('bad-utr');
       expect(validation.isValid).toBe(false);
       expect(validation.error).toBeDefined();
     });

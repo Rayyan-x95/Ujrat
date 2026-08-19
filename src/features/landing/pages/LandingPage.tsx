@@ -22,11 +22,12 @@ import {
   Workflow,
   Lock,
   ShieldCheck,
-  ChevronDown,
-  Search,
   Activity,
   Plus,
-  TrendingUp
+  LayoutDashboard,
+  Briefcase,
+  CreditCard,
+  Settings
 } from 'lucide-react';
 
 // Custom inline Github SVG to avoid version mismatch in lucide-react exports
@@ -235,22 +236,14 @@ export const LandingPage: React.FC = () => {
       <section className="relative overflow-hidden pt-16 pb-24 md:pt-24 md:pb-32">
         <div className="mx-auto max-w-7xl px-6 flex flex-col items-center text-center">
           
-          {/* Badge */}
-          <Link 
-            to="/waitlist"
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary/5 hover:bg-primary/10 px-3.5 py-1 text-xs font-semibold text-primary border border-primary/15 mb-6 animate-fade-in transition-colors cursor-pointer select-none"
-          >
-            <span>Early Access: Join the Priority Waitlist &gt;</span>
-          </Link>
-
           {/* Heading */}
           <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-foreground max-w-3xl leading-[1.05] animate-slide-up">
-            Run On Facts,<br />Not Guesswork.
+            Stop Losing 3% on Invoices.<br />Get Paid Directly via Zero-Fee UPI.
           </h1>
 
           {/* Value Prop */}
           <p className="mt-6 text-body sm:text-title text-muted-foreground max-w-xl leading-relaxed animate-slide-up">
-            Ujrat connects your clients, invoices, time, and cash flow, then shows you who's profitable, who pays late, and what's actually working. No more guessing.
+            The all-in-one freelance operating system built for India. Manage clients, execute IT Act compliant digital contracts, automate GST invoicing, and keep 100% of your earnings with direct UPI payouts.
           </p>
 
           {/* CTAs */}
@@ -266,32 +259,32 @@ export const LandingPage: React.FC = () => {
                 Go to Dashboard
               </Button>
             ) : (
-              <>
-                <form onSubmit={handleHeroSignUp} className="flex flex-col sm:flex-row items-center gap-2.5 w-full max-w-md shadow-sm border border-border rounded-full p-1 bg-card">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full max-w-2xl">
+                <form onSubmit={handleHeroSignUp} className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto max-w-lg shadow-sm border border-border rounded-2xl sm:rounded-full p-1.5 sm:p-1 bg-card">
                   <input
                     type="email"
                     placeholder="Enter your professional email..."
                     required
                     value={emailInput}
                     onChange={(e) => setEmailInput(e.target.value)}
-                    className="w-full h-10 px-4 text-small bg-transparent focus-visible:outline-none"
+                    className="w-full sm:w-64 md:w-72 h-10 px-4 text-small bg-transparent focus-visible:outline-none text-foreground placeholder:text-muted-foreground flex-1 min-w-0"
                   />
                   <Button 
                     type="submit"
                     variant="primary" 
                     size="lg" 
-                    className="w-full sm:w-auto font-semibold px-6 shrink-0 h-10 text-[13px] rounded-full"
+                    className="w-full sm:w-auto font-semibold px-6 shrink-0 h-10 text-[13px] rounded-xl sm:rounded-full whitespace-nowrap shadow-sm"
                   >
                     Start Free Workspace
                   </Button>
                 </form>
                 <a 
                   href="#use-cases"
-                  className="w-full sm:w-auto h-11 px-6 border border-border bg-card hover:bg-secondary text-foreground text-small flex items-center justify-center font-semibold rounded-full transition-colors cursor-pointer"
+                  className="w-full sm:w-auto h-11 px-5 border border-border bg-card hover:bg-secondary text-foreground text-small inline-flex items-center justify-center font-semibold rounded-xl sm:rounded-full transition-colors cursor-pointer shrink-0 whitespace-nowrap select-none shadow-xs"
                 >
                   Who is it for &gt;
                 </a>
-              </>
+              </div>
             )}
           </div>
 
@@ -304,7 +297,7 @@ export const LandingPage: React.FC = () => {
             <div className="flex justify-center mb-6">
               <a href="#onboarding" className="inline-flex items-center gap-1.5 rounded-full bg-card px-4 py-1.5 text-xs font-semibold text-foreground border border-border shadow-sm hover:bg-secondary transition-all select-none cursor-pointer">
                 <Activity className="h-3 w-3 text-primary animate-pulse" />
-                <span>How to get started &gt;</span>
+                <span>How to get started in 3 mins &gt;</span>
               </a>
             </div>
 
@@ -317,7 +310,7 @@ export const LandingPage: React.FC = () => {
                   <div className="h-3.5 w-3.5 rounded-full bg-border" />
                   <div className="h-3.5 w-3.5 rounded-full bg-border" />
                 </div>
-                <div className="text-[11px] text-muted-foreground font-mono">ujrat.ninety5.in/cockpit</div>
+                <div className="text-[11px] text-muted-foreground font-mono">ujrat.in/dashboard</div>
                 <div className="w-12" />
               </div>
 
@@ -325,237 +318,133 @@ export const LandingPage: React.FC = () => {
               <div className="flex bg-background h-137.5 overflow-hidden">
                 
                 {/* Mock Desktop Sidebar */}
-                <aside className="hidden md:flex flex-col w-50 border-r border-border bg-surface shrink-0 p-3 justify-between select-none">
-                  <div className="space-y-4">
-                    {/* Profile Dropdown Selection block */}
-                    <div className="p-1.5 border border-border bg-card rounded-md flex items-center justify-between shadow-xs">
-                      <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded bg-foreground flex items-center justify-center text-background font-black text-[10px]">TF</div>
-                        <span className="font-display font-semibold text-[11px] text-foreground">Trueform</span>
-                      </div>
-                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                <aside className="hidden md:flex flex-col w-48 border-r border-border bg-surface shrink-0 p-3 justify-between select-none">
+                  <div className="space-y-3">
+                    {/* Brand block */}
+                    <div className="p-1.5 border border-border bg-card rounded-lg flex items-center gap-2 shadow-xs">
+                      <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center font-bold text-[10px]">UJ</div>
+                      <span className="font-display font-semibold text-[11px] text-foreground">Ujrat</span>
                     </div>
 
                     {/* Sidebar navigation list */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 px-2.5 py-1.5 bg-card border border-border text-foreground font-medium rounded-md text-[11px]">
-                        <Activity className="h-3.5 w-3.5 text-primary" />
-                        <span>Cockpit</span>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 px-2.5 py-1.5 bg-primary/10 text-primary font-semibold rounded-lg text-[11px]">
+                        <LayoutDashboard className="h-3.5 w-3.5" />
+                        <span>Dashboard</span>
                       </div>
-                      <div className="flex items-center gap-2 px-2.5 py-1.5 text-muted-foreground rounded-md text-[11px]">
-                        <Search className="h-3.5 w-3.5" />
-                        <span>Search</span>
+                      <div className="flex items-center gap-2 px-2.5 py-1.5 text-muted-foreground hover:text-foreground rounded-lg text-[11px]">
+                        <Briefcase className="h-3.5 w-3.5" />
+                        <span>Projects</span>
                       </div>
-                      
-                      {/* Operations category */}
-                      <div className="space-y-1.5 pt-2">
-                        <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest px-2.5">Operations</p>
-                        <div className="flex items-center gap-2 px-2.5 py-1 text-muted-foreground text-[11px]">
-                          <Users className="h-3.5 w-3.5 animate-pulse" />
-                          <span>Leads</span>
-                        </div>
-                        <div className="flex items-center gap-2 px-2.5 py-1 text-muted-foreground text-[11px]">
-                          <FolderKanban className="h-3.5 w-3.5" />
-                          <span>Projects</span>
-                        </div>
-                        <div className="flex items-center justify-between px-2.5 py-1 text-muted-foreground text-[11px]">
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-3.5 w-3.5" />
-                            <span>Invoices</span>
-                          </div>
-                          <span className="text-[8px] font-bold font-mono text-primary bg-primary/5 px-1.5 py-0.5 rounded border border-primary/10">₹39.7K</span>
-                        </div>
+                      <div className="flex items-center gap-2 px-2.5 py-1.5 text-muted-foreground hover:text-foreground rounded-lg text-[11px]">
+                        <Users className="h-3.5 w-3.5" />
+                        <span>Clients</span>
                       </div>
-
-                      {/* Finances category */}
-                      <div className="space-y-1.5 pt-2">
-                        <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest px-2.5">Finances</p>
-                        <div className="flex items-center gap-2 px-2.5 py-1 text-muted-foreground text-[11px]">
-                          <HardDrive className="h-3.5 w-3.5" />
-                          <span>Drive</span>
-                        </div>
+                      <div className="flex items-center gap-2 px-2.5 py-1.5 text-muted-foreground hover:text-foreground rounded-lg text-[11px]">
+                        <FileText className="h-3.5 w-3.5" />
+                        <span>Invoices</span>
                       </div>
-
-                      {/* CRM category */}
-                      <div className="space-y-1.5 pt-2">
-                        <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest px-2.5">CRM</p>
-                        <div className="flex items-center gap-2 px-2.5 py-1 text-muted-foreground text-[11px]">
-                          <Users className="h-3.5 w-3.5" />
-                          <span>Accounts</span>
-                        </div>
-                        <div className="flex items-center gap-2 px-2.5 py-1 text-muted-foreground text-[11px]">
-                          <Users className="h-3.5 w-3.5" />
-                          <span>Contacts</span>
-                        </div>
+                      <div className="flex items-center gap-2 px-2.5 py-1.5 text-muted-foreground hover:text-foreground rounded-lg text-[11px]">
+                        <CreditCard className="h-3.5 w-3.5" />
+                        <span>Payments</span>
+                      </div>
+                      <div className="flex items-center gap-2 px-2.5 py-1.5 text-muted-foreground hover:text-foreground rounded-lg text-[11px]">
+                        <Settings className="h-3.5 w-3.5" />
+                        <span>Settings</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Bottom Profile info */}
                   <div className="p-2 border-t border-border-subtle flex items-center gap-2">
-                    <div className="h-6 w-6 rounded-full bg-secondary border border-border flex items-center justify-center font-bold text-[10px] text-foreground">RM</div>
+                    <div className="h-6 w-6 rounded-full bg-secondary border border-border flex items-center justify-center font-bold text-[10px] text-foreground">MR</div>
                     <div className="min-w-0">
-                      <p className="text-[10px] font-semibold text-foreground truncate m-0">Rayyan Moore</p>
+                      <p className="text-[10px] font-semibold text-foreground truncate m-0">Rayyan</p>
+                      <p className="text-[8px] text-muted-foreground truncate m-0 font-mono">rayyan@ujrat.in</p>
                     </div>
                   </div>
                 </aside>
 
-                {/* Mock Cockpit Content */}
+                {/* Mock Dashboard Content */}
                 <div className="flex-1 flex flex-col min-w-0 bg-background overflow-y-auto">
                   {/* Inner top header bar */}
                   <div className="h-12 border-b border-border-subtle px-4 flex items-center justify-between shrink-0 select-none">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground">Trueform</span>
+                      <span className="text-[10px] text-muted-foreground">Ujrat</span>
                       <span className="text-[10px] text-muted-foreground">/</span>
-                      <span className="text-[10px] font-semibold text-foreground">Cockpit</span>
+                      <span className="text-[10px] font-semibold text-foreground">Dashboard</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="h-6 w-6 rounded-md hover:bg-surface border border-border flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer">
-                        <Activity className="h-3 w-3" />
-                      </div>
                       <div className="h-6 px-2 rounded-md bg-primary text-primary-foreground text-[10px] flex items-center font-semibold gap-1 hover:bg-primary/95 cursor-pointer">
-                        <Plus className="h-3 w-3" /> Add New
+                        <Plus className="h-3 w-3" /> New Invoice
                       </div>
                     </div>
                   </div>
 
-                  {/* Inner Dashboard Layout (2 Columns) */}
-                  <div className="p-4 space-y-4 flex-1">
-                    
-                    {/* Row with Revenue chart & mini widget side-cards */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                      
-                      {/* Left side chart area */}
-                      <div className="lg:col-span-2 border border-border bg-card rounded-xl p-5 space-y-4 shadow-xs">
-                        <div className="flex justify-between items-start select-none">
-                          <div className="space-y-0.5">
-                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Monthly Revenue</span>
-                            <div className="flex items-center gap-1.5">
-                              <h3 className="font-display text-2xl font-bold tracking-tight text-foreground m-0">$62K</h3>
-                              <div className="flex items-center gap-0.5 text-[8px] font-bold text-success bg-success/5 border border-success/10 px-1 py-0.2 rounded-full">
-                                <TrendingUp className="h-2 w-2" />
-                                <span>+23%</span>
-                              </div>
-                            </div>
-                            <p className="text-[10px] text-muted-foreground">$17,499.75 more than last month</p>
-                          </div>
-                          <div className="flex items-center gap-1 bg-secondary p-0.5 rounded border border-border">
-                            <span className="text-[9px] font-medium px-1.5 py-0.5 rounded text-muted-foreground">Last Week</span>
-                            <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-card text-foreground shadow-xs">Month</span>
-                          </div>
-                        </div>
-
-                        {/* SVG line chart representing $62K with points */}
-                        <div className="w-full relative h-30 mt-2">
-                          <svg className="w-full h-full" viewBox="0 0 400 120" preserveAspectRatio="none">
-                            {/* Grid lines */}
-                            {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => (
-                              <g key={idx}>
-                                <line x1="30" y1={100 - ratio * 80} x2="380" y2={100 - ratio * 80} stroke="var(--border-subtle)" strokeWidth="0.8" strokeDasharray="3 3" />
-                                <text x="5" y={100 - ratio * 80 + 3} className="text-[8px] fill-muted-foreground font-mono font-semibold">
-                                  {ratio === 0 ? "0" : ratio === 0.25 ? "20K" : ratio === 0.5 ? "40K" : ratio === 0.75 ? "60K" : "80K"}
-                                </text>
-                              </g>
-                            ))}
-
-                            {/* Line Path */}
-                            <path 
-                              d="M 30 80 L 80 50 L 130 67 L 180 59 L 230 20 L 280 50 L 330 53 L 380 38" 
-                              fill="none" 
-                              stroke="var(--primary)" 
-                              strokeWidth="2" 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round" 
-                            />
-
-                            {/* Area Fill */}
-                            <path 
-                              d="M 30 80 L 80 50 L 130 67 L 180 59 L 230 20 L 280 50 L 330 53 L 380 38 L 380 100 L 30 100 Z" 
-                              fill="url(#mock-chart-glow)" 
-                              opacity="0.04" 
-                            />
-
-                            {/* Gradient definition */}
-                            <defs>
-                              <linearGradient id="mock-chart-glow" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="var(--primary)" />
-                                <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
-                              </linearGradient>
-                            </defs>
-
-                            {/* Dots */}
-                            {[
-                              { x: 30, y: 80 }, { x: 80, y: 50 }, { x: 130, y: 67 }, { x: 180, y: 59 }, 
-                              { x: 230, y: 20 }, { x: 280, y: 50 }, { x: 330, y: 53 }, { x: 380, y: 38 }
-                            ].map((p, idx) => (
-                              <circle key={idx} cx={p.x} cy={p.y} r="2.5" className="fill-card stroke-primary stroke-[1.5]" />
-                            ))}
-
-                            {/* X Axis Months */}
-                            {['Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct'].map((month, idx) => (
-                              <text key={idx} x={30 + idx * 50} y="115" textAnchor="middle" className="text-[8px] fill-muted-foreground font-mono font-bold">
-                                {month}
-                              </text>
-                            ))}
-                          </svg>
-                        </div>
+                  {/* Inner Dashboard Layout */}
+                  <div className="p-4 space-y-3.5 flex-1">
+                    {/* 4 KPI Cards */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+                      <div className="p-3 border border-border bg-card rounded-lg shadow-2xs">
+                        <span className="text-[8px] font-bold text-muted-foreground uppercase">Revenue This Month</span>
+                        <div className="font-mono text-sm font-bold text-foreground mt-0.5">₹1,84,000</div>
+                        <div className="text-[8px] text-success font-medium mt-0.5">0% fee via UPI</div>
                       </div>
-
-                      {/* Right side stats list */}
-                      <div className="space-y-2 select-none">
-                        {[
-                          { label: '3 Outstanding Offers', val: '$25,542' },
-                          { label: '2 Unpaid Invoices', val: '$39,717' },
-                          { label: 'Costs Covered this month', val: '148%' },
-                          { label: 'Yearly Revenue Target', val: '86%' },
-                          { label: 'Active Clients', val: '13' }
-                        ].map((stat, i) => (
-                          <div key={i} className="p-3 border border-border bg-card rounded-lg flex flex-col justify-center shadow-2xs hover:border-border/80 transition-colors">
-                            <span className="text-[8px] font-bold text-muted-foreground uppercase">{stat.label}</span>
-                            <span className="font-display text-sm font-bold text-foreground mt-0.5">{stat.val}</span>
-                          </div>
-                        ))}
+                      <div className="p-3 border border-border bg-card rounded-lg shadow-2xs">
+                        <span className="text-[8px] font-bold text-muted-foreground uppercase">Active Projects</span>
+                        <div className="font-mono text-sm font-bold text-foreground mt-0.5">3 Active</div>
+                        <div className="text-[8px] text-muted-foreground mt-0.5">₹1.45L pipeline</div>
                       </div>
-
+                      <div className="p-3 border border-border bg-card rounded-lg shadow-2xs">
+                        <span className="text-[8px] font-bold text-muted-foreground uppercase">Pending Invoices</span>
+                        <div className="font-mono text-sm font-bold text-foreground mt-0.5">₹38,500</div>
+                        <div className="text-[8px] text-warning font-medium mt-0.5">2 awaiting payment</div>
+                      </div>
+                      <div className="p-3 border border-border bg-card rounded-lg shadow-2xs">
+                        <span className="text-[8px] font-bold text-muted-foreground uppercase">Total Clients</span>
+                        <div className="font-mono text-sm font-bold text-foreground mt-0.5">12 Clients</div>
+                        <div className="text-[8px] text-muted-foreground mt-0.5">Direct CRM</div>
+                      </div>
                     </div>
 
                     {/* Bottom Invoices table */}
-                    <div className="border border-border bg-card rounded-xl p-5 space-y-3.5 select-none shadow-xs">
-                      <span className="text-[10px] font-bold text-foreground">Open Invoices</span>
+                    <div className="border border-border bg-card rounded-lg p-3.5 space-y-2.5 select-none shadow-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-foreground">Recent Invoices</span>
+                        <span className="text-[9px] text-primary font-semibold">View all →</span>
+                      </div>
                       <div className="overflow-x-auto">
-                        <table className="w-full text-[11px] text-left text-muted-foreground">
+                        <table className="w-full text-[10px] text-left text-muted-foreground">
                           <thead>
-                            <tr className="border-b border-border-subtle text-[9px] font-bold uppercase tracking-wider">
-                              <th className="pb-2">Invoice</th>
-                              <th className="pb-2">Client</th>
-                              <th className="pb-2">Amount</th>
-                              <th className="pb-2">Date</th>
-                              <th className="pb-2">Status</th>
+                            <tr className="border-b border-border-subtle text-[8px] font-bold uppercase tracking-wider">
+                              <th className="pb-1.5">Invoice #</th>
+                              <th className="pb-1.5">Client</th>
+                              <th className="pb-1.5">Amount</th>
+                              <th className="pb-1.5">Due Date</th>
+                              <th className="pb-1.5 text-right">Status</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-border-subtle/50">
                             <tr>
-                              <td className="py-2.5 font-mono text-foreground font-semibold">016</td>
-                              <td className="py-2.5">Miro</td>
-                              <td className="py-2.5 text-foreground font-medium">EUR 19'000</td>
-                              <td className="py-2.5 font-mono">Oct 19th 2025</td>
-                              <td className="py-2.5"><span className="text-[8px] font-bold text-destructive bg-destructive/5 border border-destructive/10 px-1.5 py-0.5 rounded-full">Overdue</span></td>
+                              <td className="py-2 font-mono text-primary font-semibold">INV-042</td>
+                              <td className="py-2 text-foreground font-medium">HyperTech India</td>
+                              <td className="py-2 font-mono font-semibold text-foreground">₹54,000</td>
+                              <td className="py-2 text-muted-foreground">Oct 19</td>
+                              <td className="py-2 text-right"><span className="text-[8px] font-bold text-destructive bg-destructive/10 border border-destructive/20 px-1.5 py-0.5 rounded-full">Overdue</span></td>
                             </tr>
                             <tr>
-                              <td className="py-2.5 font-mono text-foreground font-semibold">024</td>
-                              <td className="py-2.5">Bill Rewards</td>
-                              <td className="py-2.5 text-foreground font-medium">USD 12'800</td>
-                              <td className="py-2.5 font-mono">Oct 30th 2025</td>
-                              <td className="py-2.5"><span className="text-[8px] font-bold text-success bg-success/5 border border-success/10 px-1.5 py-0.5 rounded-full">Paid</span></td>
+                              <td className="py-2 font-mono text-primary font-semibold">INV-048</td>
+                              <td className="py-2 text-foreground font-medium">UrbanClap Partner</td>
+                              <td className="py-2 font-mono font-semibold text-foreground">₹38,500</td>
+                              <td className="py-2 text-muted-foreground">Oct 30</td>
+                              <td className="py-2 text-right"><span className="text-[8px] font-bold text-success bg-success/10 border border-success/20 px-1.5 py-0.5 rounded-full">Paid</span></td>
                             </tr>
                           </tbody>
                         </table>
                       </div>
                     </div>
-
                   </div>
                 </div>
-
               </div>
             </div>
           </div>

@@ -15,6 +15,7 @@ Allow: /security
 Allow: /contact
 Allow: /status
 Allow: /faq
+Allow: /waitlist
 Allow: /login
 Allow: /signup
 Allow: /forgot
@@ -38,6 +39,33 @@ Allow: /upi
 Allow: /contracts
 Allow: /docs
 Allow: /faq
+Allow: /waitlist
+Disallow: /dashboard
+Disallow: /portal
+
+User-agent: OAI-SearchBot
+Allow: /
+Allow: /features
+Allow: /pricing
+Allow: /gst
+Allow: /upi
+Allow: /contracts
+Allow: /docs
+Allow: /faq
+Allow: /waitlist
+Disallow: /dashboard
+Disallow: /portal
+
+User-agent: ChatGPT-User
+Allow: /
+Allow: /features
+Allow: /pricing
+Allow: /gst
+Allow: /upi
+Allow: /contracts
+Allow: /docs
+Allow: /faq
+Allow: /waitlist
 Disallow: /dashboard
 Disallow: /portal
 
@@ -50,6 +78,7 @@ Allow: /upi
 Allow: /contracts
 Allow: /docs
 Allow: /faq
+Allow: /waitlist
 Disallow: /dashboard
 Disallow: /portal
 
@@ -62,6 +91,7 @@ Allow: /upi
 Allow: /contracts
 Allow: /docs
 Allow: /faq
+Allow: /waitlist
 Disallow: /dashboard
 Disallow: /portal
 
@@ -74,6 +104,7 @@ Allow: /upi
 Allow: /contracts
 Allow: /docs
 Allow: /faq
+Allow: /waitlist
 Disallow: /dashboard
 Disallow: /portal
 
@@ -86,6 +117,20 @@ Allow: /upi
 Allow: /contracts
 Allow: /docs
 Allow: /faq
+Allow: /waitlist
+Disallow: /dashboard
+Disallow: /portal
+
+User-agent: cohere-ai
+Allow: /
+Allow: /features
+Allow: /pricing
+Allow: /gst
+Allow: /upi
+Allow: /contracts
+Allow: /docs
+Allow: /faq
+Allow: /waitlist
 Disallow: /dashboard
 Disallow: /portal
 

@@ -2,7 +2,6 @@ const CACHE_NAME = 'ujrat-v1';
 const PRECACHE_ASSETS = [
   '/',
   '/offline.html',
-  '/favicon.svg',
   '/favicon-transparent.png',
   '/site.webmanifest'
 ];

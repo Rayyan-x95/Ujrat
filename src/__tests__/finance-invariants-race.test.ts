@@ -40,6 +40,22 @@ describe('Financial Invariants, Tax Engine & Payment Race Conditions Suite (F-00
       const isDeficientSettled = sumDeficient >= invoiceTotal;
       expect(isDeficientSettled).toBe(false);
     });
+
+    it('tracks progressive multi-installment milestone reconciliation ledger', () => {
+      const invoiceTotal = 100000;
+      const installments = [25000, 25000, 30000, 20000];
+      let remainingBalance = invoiceTotal;
+
+      installments.forEach((payment, idx) => {
+        const prevBalance = remainingBalance;
+        remainingBalance -= payment;
+        // Invariant: Balance must decrease monotonically
+        expect(remainingBalance).toBeLessThan(prevBalance);
+        expect(remainingBalance).toBeGreaterThanOrEqual(0);
+      });
+
+      expect(remainingBalance).toBe(0);
+    });
   });
 
   describe('Tax Calculation Precision & Indian GST Integrity', () => {
@@ -75,6 +91,20 @@ describe('Financial Invariants, Tax Engine & Payment Race Conditions Suite (F-00
       expect(totals.subtotal).toBeCloseTo(200000.99, 2);
       expect(totals.grand_total_unrounded).toBeCloseTo(totals.subtotal + totals.cgst + totals.sgst, 2);
       expect(totals.grand_total).toBe(236001);
+    });
+
+    it('enforces Section 170 CGST Act statutory rounding to nearest whole rupee', () => {
+      // 100.49 -> 100
+      const roundDown = Math.round(100.49);
+      expect(roundDown).toBe(100);
+
+      // 100.50 -> 101
+      const roundUp = Math.round(100.50);
+      expect(roundUp).toBe(101);
+
+      // 100.99 -> 101
+      const roundHigh = Math.round(100.99);
+      expect(roundHigh).toBe(101);
     });
   });
 

@@ -413,10 +413,12 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
                                 {cooldown > 0 ? `Resend (${cooldown}s)` : 'Resend'}
                               </Button>
                             </div>
-                            <div className="p-3 border border-dashed border-primary/20 bg-primary-muted/20 rounded text-[10px] text-primary space-y-1 select-none">
-                              <span className="font-semibold block">How to retrieve the OTP:</span>
+                            <div className="p-3 border border-primary/20 bg-primary/5 rounded-md text-[11px] space-y-1 select-none">
+                              <span className="font-semibold text-primary block">Identity Verification Tips:</span>
                               <p className="m-0 text-muted-foreground leading-normal">
-                                The generated OTP has been sent to your registered email. Check your spam folder if you do not receive it within 2 minutes.
+                                • A 6-digit security code was dispatched to your email address.<br />
+                                • If you don't see it within 60 seconds, check your <strong>Spam / Promotions</strong> folder.<br />
+                                • The verification code remains valid for 15 minutes. Click <strong>Resend</strong> if the timer expires.
                               </p>
                             </div>
                           </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Section } from '@/shared/ui/Section';
 import { Card } from '@/shared/ui/Card';
 import { Button } from '@/shared/ui/Button';
@@ -43,6 +43,20 @@ export const BriefTab: React.FC<BriefTabProps> = ({
       setBudget(String(project.budget || '0'));
     }
   }, [liveBrief, initialBrief, project]);
+
+  const isDirty = useMemo(() => {
+    const b = liveBrief || initialBrief;
+    if (!b) {
+      return description.trim() !== '' || goals.trim() !== '' || references.trim() !== '';
+    }
+    return (
+      description !== (b.description || '') ||
+      goals !== (b.goals || '') ||
+      deadline !== (b.deadline || project.timeline_end || '') ||
+      budget !== String(b.budget || project.budget || '0') ||
+      references !== (b.references || '')
+    );
+  }, [liveBrief, initialBrief, project, description, goals, deadline, budget, references]);
 
   const handleSaveBrief = async () => {
     if (!description.trim() || !goals.trim()) {
@@ -173,7 +187,15 @@ export const BriefTab: React.FC<BriefTabProps> = ({
             />
           </div>
 
-          <div className="flex justify-end gap-2 border-t border-border pt-4 mt-2">
+          <div className="flex justify-between items-center gap-2 border-t border-border pt-4 mt-2">
+            <div>
+              {isDirty && (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-warning bg-warning/10 px-2.5 py-0.5 rounded-full">
+                  <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
+                  Unsaved changes
+                </span>
+              )}
+            </div>
             <Button
               variant="primary"
               size="sm"

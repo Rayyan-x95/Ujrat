@@ -6,10 +6,6 @@ export interface TransitionDescriptor<T> {
     action: string;
     details: Record<string, any>;
   };
-  emailNotification?: {
-    subject: string;
-    body: string;
-  };
 }
 
 function createStateMachine<S extends string>(
@@ -37,7 +33,7 @@ function createStateMachine<S extends string>(
   };
 }
 
-const rawProjectSM = createStateMachine<ProjectStatus>(
+export const ProjectStateMachine = createStateMachine<ProjectStatus>(
   {
     lead: ['proposal', 'archived'],
     proposal: ['approved', 'archived'],
@@ -54,22 +50,6 @@ const rawProjectSM = createStateMachine<ProjectStatus>(
   'Project Status Updated',
   'project state'
 );
-
-export const ProjectStateMachine = {
-  validate: rawProjectSM.validate,
-  transition: (current: ProjectStatus, next: ProjectStatus, details: { projectName: string }): TransitionDescriptor<ProjectStatus> => {
-    const res = rawProjectSM.transition(current, next, { projectName: details.projectName });
-    res.emailNotification = {
-      subject: `Project "${details.projectName}" status updated to ${next}`,
-      body: `
-        <p>Dear Client,</p>
-        <p>Your project <strong>${details.projectName}</strong> has progressed to status <strong>${next}</strong>.</p>
-        <p>You can view updates on your client portal.</p>
-      `,
-    };
-    return res;
-  },
-};
 
 export const ProposalStateMachine = createStateMachine<ProposalStatus>(
   {

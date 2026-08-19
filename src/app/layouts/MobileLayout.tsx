@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  LayoutDashboard, 
+  LayoutDashboard,
   Users, 
   Briefcase, 
   FileText, 
@@ -10,12 +10,12 @@ import {
   Moon, 
   Search, 
   Menu, 
-  X,
-  Plus,
-  UserPlus,
-  FolderPlus,
-  FilePlus,
-  ChevronRight
+  X, 
+  Plus, 
+  UserPlus, 
+  FolderPlus, 
+  FilePlus, 
+  ChevronRight 
 } from 'lucide-react';
 import { useTheme } from '@/shared/hooks/useTheme';
 import { Avatar } from '@/shared/ui/Containers';
@@ -30,12 +30,12 @@ export interface MobileNavItem {
 }
 
 export const MOBILE_NAV_ITEMS: MobileNavItem[] = [
-  { id: 'dashboard', name: 'Home',     icon: LayoutDashboard },
-  { id: 'clients',   name: 'Clients',  icon: Users },
-  { id: 'projects',  name: 'Projects', icon: Briefcase },
-  { id: 'invoices',  name: 'Invoices', icon: FileText },
-  { id: 'payments',  name: 'Pay',      icon: CreditCard },
-  { id: 'settings',  name: 'Settings', icon: Settings },
+  { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
+  { id: 'projects',  name: 'Projects',  icon: Briefcase },
+  { id: 'clients',   name: 'Clients',   icon: Users },
+  { id: 'invoices',  name: 'Invoices',  icon: FileText },
+  { id: 'payments',  name: 'Payments',  icon: CreditCard },
+  { id: 'settings',  name: 'Settings',  icon: Settings },
 ];
 
 export interface MobileLayoutProps {
@@ -88,7 +88,6 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
     if (onQuickAction) {
       onQuickAction(action);
     } else {
-      // Fallback navigation based on action
       if (action === 'client') onViewChange('clients');
       else if (action === 'project') onViewChange('projects');
       else if (action === 'invoice') onViewChange('invoices');
@@ -213,7 +212,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
               style={{ minHeight: '48px' }}
             >
               <div className="relative flex items-center justify-center">
-                <Icon className={`h-5 w-5 ${isActive ? 'scale-110' : ''}`} strokeWidth={isActive ? 2.5 : 1.75} />
+                <Icon className={`h-5 w-5 ${isActive ? 'scale-110' : ''}`} strokeWidth={isActive ? 2.3 : 1.75} />
                 {item.badge && (
                   <span className="absolute -top-1 -right-2 h-4 min-w-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center leading-none">
                     {item.badge}

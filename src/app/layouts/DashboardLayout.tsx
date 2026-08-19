@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, memo } from 'react';
 import { 
-  LayoutDashboard, 
-  Users, 
+  LayoutDashboard,
   Briefcase, 
+  Users, 
   FileText, 
   CreditCard, 
   Settings, 
@@ -10,28 +10,36 @@ import {
   Moon, 
   Search, 
   ChevronLeft, 
-  ChevronRight
+  ChevronRight,
+  Plus
 } from 'lucide-react';
 import { useTheme } from '@/shared/hooks/useTheme';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { Avatar } from '@/shared/ui/Containers';
-import { UjratLogo } from '@/shared/ui/UjratLogo';
+import { Button } from '@/shared/ui/Button';
 import { CommandPalette } from './CommandPalette';
 import { MobileLayout } from './MobileLayout';
+import { UjratLogo } from '@/shared/ui/UjratLogo';
 
-// ─── Module-level constant — never recreated on render ────────────────────────
-const NAV_ITEMS = [
+interface NavItem {
+  id: string;
+  name: string;
+  icon: React.ElementType;
+  badge?: string;
+}
+
+const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
-  { id: 'clients',   name: 'Clients',   icon: Users },
   { id: 'projects',  name: 'Projects',  icon: Briefcase },
+  { id: 'clients',   name: 'Clients',   icon: Users },
   { id: 'invoices',  name: 'Invoices',  icon: FileText },
   { id: 'payments',  name: 'Payments',  icon: CreditCard },
   { id: 'settings',  name: 'Settings',  icon: Settings },
-] as const;
+];
 
 // ─── NavButton extracted + memoized ──────────────────────────────────────────
 interface NavButtonProps {
-  item: { id: string; name: string; icon: React.ElementType };
+  item: NavItem;
   isActive: boolean;
   expanded: boolean;
   mobile?: boolean;
@@ -46,25 +54,25 @@ const NavButton = memo(({ item, isActive, expanded, mobile = false, onViewChange
       onClick={() => { onViewChange(item.id); if (mobile && onMobileClose) onMobileClose(); }}
       title={expanded ? undefined : item.name}
       aria-current={isActive ? 'page' : undefined}
-      className={`group relative flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium transition-colors duration-120 cursor-pointer ${
+      className={`group relative flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-[13px] font-medium transition-colors duration-150 cursor-pointer ${
         isActive
-          ? 'bg-primary/6 text-primary'
-          : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+          ? 'bg-primary/10 text-primary font-semibold'
+          : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
       }`}
     >
-      {/* Active left indicator */}
-      {isActive && (
-        <span
-          className="absolute left-0 inset-y-1.5 w-0.75 bg-primary rounded-r-full"
-          aria-hidden="true"
+      <div className="flex items-center gap-3 min-w-0">
+        <Icon
+          className={`h-4.5 w-4.5 shrink-0 transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}
+          strokeWidth={isActive ? 2.2 : 1.75}
         />
-      )}
-      <Icon
-        className={`h-4 w-4 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}
-        strokeWidth={isActive ? 2.2 : 1.9}
-      />
-      {(expanded || mobile) && (
-        <span className={`truncate ${isActive ? 'font-semibold' : ''}`}>{item.name}</span>
+        {(expanded || mobile) && (
+          <span className="truncate">{item.name}</span>
+        )}
+      </div>
+      {(expanded || mobile) && item.badge && (
+        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/15">
+          {item.badge}
+        </span>
       )}
     </button>
   );
@@ -101,8 +109,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Freelancer';
-  const userEmail = user?.email || '';
-  const pageTitle = breadcrumbs[breadcrumbs.length - 1] || 'Workspace';
+  const userEmail = user?.email || 'user@ujrat.in';
+  const pageTitle = currentView === 'dashboard' ? 'Dashboard' : (breadcrumbs[breadcrumbs.length - 1] || 'Workspace');
 
   useEffect(() => {
     localStorage.setItem('ujrat_sidebar_expanded', String(expanded));
@@ -144,17 +152,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   }
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
+    <div className="flex min-h-screen bg-background text-foreground font-sans">
       {/* Desktop Sidebar */}
       <aside
-        className={`hidden md:flex flex-col fixed inset-y-0 left-0 z-30 bg-surface border-r border-border transition-all duration-200 ease-out select-none ${
-          expanded ? 'w-55' : 'w-15'
+        className={`hidden md:flex flex-col fixed inset-y-0 left-0 z-30 bg-surface/90 backdrop-blur-md border-r border-border transition-all duration-200 ease-out select-none ${
+          expanded ? 'w-56' : 'w-18'
         }`}
       >
         {/* Sidebar Header */}
-        <div className="flex h-13 items-center justify-between px-3 shrink-0 border-b border-border-subtle">
-          <div className="flex items-center gap-2 min-w-0">
-            <UjratLogo size={20} />
+        <div className="flex h-13 items-center justify-between px-3.5 shrink-0 border-b border-border-subtle">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <UjratLogo size={22} />
             {expanded && (
               <span className="font-display font-semibold text-[13px] text-foreground tracking-tight truncate animate-fade-in">
                 Ujrat
@@ -174,19 +182,19 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         </div>
 
         {/* Global Search shortcut trigger */}
-        <div className="px-2 pt-3 pb-1 shrink-0">
+        <div className="px-3 pb-2 shrink-0">
           <button
             onClick={handleOpenCommandPalette}
-            className={`flex items-center gap-2 w-full rounded-md border border-border bg-card hover:bg-surface px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:border-border hover:text-foreground cursor-pointer transition-colors ${
+            className={`flex items-center gap-2 w-full rounded-xl border border-border/80 bg-card hover:bg-surface px-3 py-2 text-left text-[12px] text-muted-foreground hover:text-foreground cursor-pointer transition-colors ${
               expanded ? 'justify-between' : 'justify-center'
             }`}
           >
             <div className="flex items-center gap-2">
               <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={2} />
-              {expanded && <span className="truncate">Search workspace</span>}
+              {expanded && <span className="truncate">Search</span>}
             </div>
             {expanded && (
-              <span className="kbd-badge shrink-0">
+              <span className="kbd-badge shrink-0 text-[10px]">
                 ⌘K
               </span>
             )}
@@ -194,10 +202,24 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         </div>
 
         {/* Sidebar Navigation */}
-        <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-hidden">
-          {NAV_ITEMS.map(item => (
-            <NavButton key={item.id} item={item} isActive={currentView === item.id} expanded={expanded} onViewChange={onViewChange} />
-          ))}
+        <nav className="flex-1 px-3 py-1 space-y-1 overflow-y-auto">
+          {NAV_ITEMS.map((item) => {
+            const isActive = (item.id === 'dashboard' && currentView === 'dashboard') ||
+              (item.id === 'invoices' && currentView === 'invoices') ||
+              (item.id === 'clients' && currentView === 'clients') ||
+              (item.id === 'payments' && currentView === 'payments') ||
+              (item.id === 'settings' && currentView === 'settings') ||
+              (item.id === 'projects' && (currentView === 'projects' || currentView === 'project-details'));
+            return (
+              <NavButton
+                key={item.id}
+                item={item}
+                isActive={isActive}
+                expanded={expanded}
+                onViewChange={onViewChange}
+              />
+            );
+          })}
 
           {/* Collapsed Expand Toggle */}
           {!expanded && (
@@ -214,11 +236,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="px-2 py-3 space-y-1 shrink-0 border-t border-border-subtle bg-surface">
+        <div className="p-3 space-y-1.5 shrink-0 border-t border-border-subtle bg-surface">
           <button
             onClick={toggleTheme}
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer text-[13px] font-medium"
+            className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer text-[12px] font-medium"
           >
             {theme === 'dark' ? (
               <Sun className="h-4 w-4 shrink-0 text-warning" strokeWidth={2} />
@@ -228,7 +250,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             {expanded && <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>}
           </button>
 
-          <div className={`flex items-center gap-2.5 px-2 py-1.5 rounded-md ${expanded ? 'hover:bg-secondary' : 'justify-center border-t border-border-subtle pt-2'} transition-colors`}>
+          <div className={`flex items-center gap-2.5 p-1.5 rounded-xl ${expanded ? 'hover:bg-secondary/60' : 'justify-center border-t border-border-subtle pt-2'} transition-colors`}>
             <Avatar name={userName} size="sm" />
             {expanded && (
               <div className="min-w-0 animate-fade-in">
@@ -241,39 +263,35 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       </aside>
 
       {/* Main content viewport column */}
-      <div className={`flex-1 flex flex-col min-w-0 ${expanded ? 'md:ml-55' : 'md:ml-15'} transition-all duration-200`}>
+      <div className={`flex-1 flex flex-col min-w-0 ${expanded ? 'md:ml-56' : 'md:ml-18'} transition-all duration-200`}>
         {/* Sticky Page Header */}
-        <header className="sticky top-0 z-20 h-13 flex items-center justify-between px-5 md:px-8 bg-background border-b border-border-subtle">
+        <header className="sticky top-0 z-20 h-14 flex items-center justify-between px-5 md:px-8 bg-background/80 backdrop-blur-md border-b border-border-subtle">
           <div className="flex items-center gap-2 min-w-0">
-            <h1 className="text-[13px] font-semibold text-foreground m-0 truncate select-none tracking-tight">
+            <span className="text-[13px] font-medium text-muted-foreground truncate">
+              Ujrat
+            </span>
+            <span className="text-muted-foreground/50 text-xs">/</span>
+            <h1 className="text-[13px] font-bold text-foreground m-0 truncate select-none tracking-tight">
               {pageTitle}
             </h1>
-            {breadcrumbs.length > 1 && (
-              <nav
-                className="hidden sm:flex items-center gap-1 text-[11px] text-muted-foreground/60"
-                aria-label="Breadcrumb"
-              >
-                <span aria-hidden="true">/</span>
-                {breadcrumbs.slice(0, -1).map((crumb, idx) => (
-                  <React.Fragment key={crumb}>
-                    {idx > 0 && <span aria-hidden="true" className="text-muted-foreground/40">/</span>}
-                    <span className="truncate">{crumb}</span>
-                  </React.Fragment>
-                ))}
-              </nav>
-            )}
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={handleOpenCommandPalette}
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-md border border-border bg-surface text-[11px] text-muted-foreground hover:text-foreground hover:border-border cursor-pointer transition-colors"
-              aria-label="Open command palette"
+          <div className="flex items-center gap-2.5 shrink-0">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                if (onQuickAction) {
+                  onQuickAction('invoice');
+                } else {
+                  onViewChange('invoices');
+                }
+              }}
+              className="font-semibold rounded-xl px-4 h-9 shadow-xs"
+              icon={<Plus className="h-4 w-4" />}
             >
-              <Search className="h-3 w-3" />
-              <span>Search</span>
-              <kbd className="kbd-badge">⌘K</kbd>
-            </button>
+              New Invoice
+            </Button>
           </div>
         </header>
 

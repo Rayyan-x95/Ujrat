@@ -6,7 +6,7 @@ import { Spinner } from '@/shared/ui/Feedback';
 import { Button } from '@/shared/ui/Button';
 import { QRCodeSVG } from 'qrcode.react';
 import { calculateInvoiceTax } from '@/features/invoices/tax/InvoiceCalculator';
-import { TDS_SECTIONS } from '@/features/invoices/tax/TaxConstants';
+import { TDS_SECTIONS } from '@/features/invoices/tax/TaxTypes';
 import { formatCurrency, numberToIndianRupeeWords } from '@/shared/utils/currency';
 
 export const InvoicePrintView: React.FC = () => {
@@ -62,7 +62,7 @@ export const InvoicePrintView: React.FC = () => {
   const client = data.client;
 
   // Run pure TaxEngine calculation for complete fidelity
-  const taxResult = calculateInvoiceTax({
+  const { breakdown: taxResult, lineItems } = calculateInvoiceTax({
     freelancer: {
       is_gst_registered: settings?.is_gst_registered ?? false,
       gstin: settings?.gstin || invoice.freelancer_gstin,
@@ -208,7 +208,7 @@ export const InvoicePrintView: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100">
-            {taxResult.line_items.map((item, idx) => (
+            {lineItems.map((item, idx) => (
               <tr key={idx} className="text-neutral-900">
                 <td className="py-3 pl-1 font-medium">{item.description}</td>
                 <td className="py-3 text-center font-mono">{item.sac_code || item.hsn_code || '9983'}</td>

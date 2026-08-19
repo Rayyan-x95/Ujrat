@@ -161,15 +161,6 @@ export const WaitlistPage: React.FC = () => {
           {/* Left Column: Value Narrative */}
           <div className="lg:col-span-6 space-y-8 text-left">
             
-            {/* Pre-Launch Cohort Badge */}
-            <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-primary text-xs font-semibold tracking-tight shadow-xs">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
-              </span>
-              <span>Pre-Launch Access • Cohort 1 Enrollment Open</span>
-            </div>
-
             {/* Main Headline */}
             <div className="space-y-4">
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground font-display leading-[1.12]">
@@ -200,17 +191,17 @@ export const WaitlistPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Pre-Launch Cohort Perks */}
+            {/* Early Access Perks */}
             <div className="space-y-3 pt-2 border-t border-border/50">
               <div className="text-xs font-semibold text-foreground uppercase tracking-wider">
-                Cohort 1 Early Access Benefits:
+                Early Access Benefits:
               </div>
               <ul className="space-y-2.5 text-xs text-muted-foreground">
                 <li className="flex items-center gap-2.5">
                   <div className="h-4 w-4 rounded-full bg-primary/15 text-primary flex items-center justify-center shrink-0">
                     <Check className="h-2.5 w-2.5 stroke-3" />
                   </div>
-                  <span><strong className="text-foreground">Lifetime Free Tier</strong>: Guaranteed zero platform fee for early cohort members.</span>
+                  <span><strong className="text-foreground">Lifetime Free Tier</strong>: Guaranteed zero platform fee for early members.</span>
                 </li>
                 <li className="flex items-center gap-2.5">
                   <div className="h-4 w-4 rounded-full bg-primary/15 text-primary flex items-center justify-center shrink-0">
@@ -473,7 +464,7 @@ export const WaitlistPage: React.FC = () => {
                 <div className="space-y-2">
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold border border-primary/20">
                     <Sparkles className="w-3 h-3" />
-                    <span>{isExisting ? 'Waitlist Position Confirmed' : 'VIP Pre-Launch Pass #UJ-' + ticketNumber}</span>
+                    <span>{isExisting ? 'Waitlist Position Confirmed' : 'Priority Pass #UJ-' + ticketNumber}</span>
                   </div>
                   <h2 className="text-2xl font-bold font-display text-foreground">
                     Spot Reserved, {name}!
@@ -491,7 +482,7 @@ export const WaitlistPage: React.FC = () => {
                       <span className="font-bold text-foreground">UJrat Early Access Pass</span>
                     </div>
                     <span className="text-[10px] font-mono text-primary bg-primary/10 px-2 py-0.5 rounded font-semibold">
-                      COHORT #1
+                      CONFIRMED
                     </span>
                   </div>
 

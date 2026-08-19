@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PaymentVerificationService } from '@/features/payments/services/PaymentVerificationService';
+import { PaymentService } from '@/features/payments/services/PaymentService';
 import { PaymentSchema, ClientSchema } from '@/shared/validation/schemas';
 
 describe('Input Fuzzing, Schema Validation & Injection Defense Suite', () => {
@@ -7,7 +7,7 @@ describe('Input Fuzzing, Schema Validation & Injection Defense Suite', () => {
     it('accepts strictly valid 12-digit numeric Indian bank UTRs', () => {
       const validUtrs = ['123456789012', '987654321098', '000123456789', ' 123456789012 '];
       for (const utr of validUtrs) {
-        const val = PaymentVerificationService.validateUTR(utr);
+        const val = PaymentService.validateUTR(utr);
         expect(val.isValid).toBe(true);
       }
     });
@@ -28,7 +28,7 @@ describe('Input Fuzzing, Schema Validation & Injection Defense Suite', () => {
       ];
 
       for (const utr of hostileUtrs) {
-        const val = PaymentVerificationService.validateUTR(utr);
+        const val = PaymentService.validateUTR(utr);
         expect(val.isValid).toBe(false);
       }
     });

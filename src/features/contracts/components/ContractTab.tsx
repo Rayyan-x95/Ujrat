@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from '@/shared/ui/Card';
 import { Textarea } from '@/shared/ui/Input';
 import { Button } from '@/shared/ui/Button';
@@ -26,19 +26,26 @@ export const ContractTab: React.FC<ContractTabProps> = ({
   const [loadingDraft, setLoadingDraft] = useState(false);
   const [loadingSent, setLoadingSent] = useState(false);
 
+  const defaultContractText = useMemo(() => (
+    'PROJECT SERVICES AGREEMENT\n\n' +
+    'This agreement is made between the Freelancer and the Client.\n\n' +
+    '1. Services: Freelancer will perform design/dev tasks as specified in the scope.\n' +
+    '2. Payment: A total payment of \u20B9' + (budget || 0) + ' shall be paid.\n' +
+    '3. Intellectual Property: Upon final payment, IP transfers to the Client.'
+  ), [budget]);
+
   useEffect(() => {
     if (contract) {
       setContractContent(contract.introduction || '');
     } else {
-      setContractContent(
-        'PROJECT SERVICES AGREEMENT\n\n' +
-        'This agreement is made between the Freelancer and the Client.\n\n' +
-        '1. Services: Freelancer will perform design/dev tasks as specified in the scope.\n' +
-        '2. Payment: A total payment of \u20B9' + (budget || 0) + ' shall be paid.\n' +
-        '3. Intellectual Property: Upon final payment, IP transfers to the Client.'
-      );
+      setContractContent(defaultContractText);
     }
-  }, [contract, budget]);
+  }, [contract, defaultContractText]);
+
+  const isDirty = useMemo(() => {
+    const saved = contract?.introduction || defaultContractText;
+    return contractContent.trim() !== saved.trim();
+  }, [contract, contractContent, defaultContractText]);
 
   const handleAction = async (status: 'draft' | 'sent') => {
     if (status === 'draft') setLoadingDraft(true);
@@ -65,7 +72,15 @@ export const ContractTab: React.FC<ContractTabProps> = ({
       <div className="lg:col-span-2 space-y-6">
         <Card className="p-6 space-y-4 border border-border rounded-xl">
           <div className="flex justify-between items-center">
-            <h3 className="text-base font-semibold">Contract Agreement Text</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-semibold">Contract Agreement Text</h3>
+              {isDirty && !isContractSigned && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-warning bg-warning/10 px-2 py-0.5 rounded-full">
+                  <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
+                  Unsaved terms
+                </span>
+              )}
+            </div>
             {contract?.status === 'sent' && (
               <Badge variant="warning">Sent to Client</Badge>
             )}

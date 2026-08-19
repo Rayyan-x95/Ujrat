@@ -2,10 +2,9 @@ import { InvoiceRepository } from '../repositories/InvoiceRepository';
 import { ProjectRepository } from '@/features/projects/repositories/ProjectRepository';
 import { InvoiceSchema } from '@/shared/validation/schemas';
 import type { Invoice, InvoiceWithItems, Result, QueryOptions, PaginatedResult, InvoiceStatus } from '@/shared/types';
-
 import { InvoiceStateMachine } from '@/shared/utils/StateMachine';
 import { WorkspaceService } from '@/features/workspace/services/WorkspaceService';
-import { determineGSTType, calculateGST } from '@/features/invoices/utils/TaxEngine';
+import { calculateInvoiceTax } from '@/features/invoices/utils/TaxEngine';
 import { supabase } from '@/shared/lib/supabaseClient';
 import { LoggingService } from '@/features/auth/services/LoggingService';
 
@@ -63,60 +62,59 @@ export class InvoiceService {
       });
 
       const project = await ProjectRepository.getById(workspaceId, projectId);
-      if (!project) {
-        throw new Error('Project not found');
-      }
+      if (!project) throw new Error('Project not found');
 
       const client = project.clients;
-      if (!client) {
-        throw new Error('Client not found');
-      }
+      if (!client) throw new Error('Client not found');
 
-      // Determine GST type - expects objects with is_gst_registered, state, gstin
       const workspaceSettingsResult = await WorkspaceService.getSettings(workspaceId);
       if (!workspaceSettingsResult.success || !workspaceSettingsResult.data) {
         throw new Error('Failed to load workspace settings');
       }
       const workspaceSettings = workspaceSettingsResult.data;
-      const freelancer = {
-        is_gst_registered: workspaceSettings.is_gst_registered || false,
-        state: workspaceSettings.state,
-        gstin: workspaceSettings.gstin,
-      };
-      const clientData = {
-        state: client.state,
-        gstin: client.gstin,
-      };
-      const gstType = determineGSTType(freelancer, clientData);
 
-      // Calculate GST for each item
-      const itemsWithGST = validated.items.map(item => {
-        const { cgst, sgst, igst, total: amount } = calculateGST(
-          item.rate * item.quantity,
-          item.gst_rate,
-          gstType.isInterstate,
-          gstType.isZeroRated
-        );
-        return {
-          ...item,
+      const { breakdown, lineItems } = calculateInvoiceTax({
+        freelancer: {
+          is_gst_registered: workspaceSettings.is_gst_registered || false,
+          state: workspaceSettings.state,
+          gstin: workspaceSettings.gstin,
+          tax_scheme: (workspaceSettings.tax_scheme as any) || 'regular',
+          lut_number: workspaceSettings.lut_number,
+        },
+        client: {
+          state: client.state,
+          gstin: client.gstin,
+        },
+        items: validated.items.map(item => ({
+          description: item.description,
+          quantity: item.quantity,
+          rate: item.rate,
+          gst_rate: item.gst_rate,
           hsn_code: item.hsn_code ?? null,
-          sac_code: item.sac_code ?? item.hsn_code ?? null,
-          unit: item.unit ?? 'NOS',
-          cess_rate: item.cess_rate ?? 0,
-          discount_amount: item.discount_amount ?? 0,
-          cgst,
-          sgst,
-          igst,
-          amount,
-        };
+          sac_code: item.sac_code ?? null,
+          unit: item.unit || 'NOS',
+          discount_amount: item.discount_amount || 0,
+          cess_rate: item.cess_rate || 0,
+        })),
+        currency: (validated.currency as any) || 'INR',
+        exchangeRate: validated.exchange_rate || 1,
       });
 
-      // Calculate totals
-      const subtotal = itemsWithGST.reduce((sum, item) => sum + item.rate * item.quantity, 0);
-      const cgst = itemsWithGST.reduce((sum, item) => sum + item.cgst, 0);
-      const sgst = itemsWithGST.reduce((sum, item) => sum + item.sgst, 0);
-      const igst = itemsWithGST.reduce((sum, item) => sum + item.igst, 0);
-      const total = subtotal + cgst + sgst + igst;
+      const itemsWithGST = lineItems.map((li, idx) => ({
+        description: validated.items[idx]?.description ?? li.description,
+        quantity: validated.items[idx]?.quantity ?? li.quantity,
+        rate: validated.items[idx]?.rate ?? li.rate,
+        gst_rate: validated.items[idx]?.gst_rate ?? li.gst_rate,
+        hsn_code: li.hsn_code || null,
+        sac_code: li.sac_code || null,
+        unit: li.unit || 'NOS',
+        cess_rate: li.cess_rate,
+        discount_amount: li.discount_amount,
+        cgst: li.cgst_amount,
+        sgst: li.sgst_amount,
+        igst: li.igst_amount,
+        amount: li.line_total,
+      }));
 
       // Generate invoice number with prefix, year, and serial
       let prefix = validated.prefix || 'INV';
@@ -138,15 +136,9 @@ export class InvoiceService {
           .limit(1)
           .maybeSingle();
 
-        if (lastInvoice) {
-          serial_number = lastInvoice.serial_number + 1;
-        } else {
-          serial_number = 1;
-        }
-
+        serial_number = lastInvoice ? lastInvoice.serial_number + 1 : 1;
         finalInvoiceNumber = `${prefix}-${year}-${String(serial_number).padStart(4, '0')}`;
       } else {
-        // Parse existing invoice number to extract prefix, year, serial
         const parts = validated.invoice_number.split('-');
         if (parts.length >= 3) {
           prefix = parts[0] || 'INV';
@@ -166,21 +158,21 @@ export class InvoiceService {
           due_date: validated.due_date,
           notes: validated.notes ?? null,
           gstin: validated.gstin ?? null,
-          subtotal,
-          cgst,
-          sgst,
-          igst,
-          total,
+          subtotal: breakdown.subtotal,
+          cgst: breakdown.cgst,
+          sgst: breakdown.sgst,
+          igst: breakdown.igst,
+          total: breakdown.grand_total,
           status: 'draft',
           pdf_url: null,
           freelancer_gstin: workspaceSettings?.gstin,
           client_gstin: client.gstin,
           freelancer_state: workspaceSettings?.state,
           client_state: client.state,
-          is_interstate: gstType.isInterstate,
-          is_zero_rated: gstType.isZeroRated,
-          is_reverse_charge: gstType.isReverseCharge,
-          outstanding_balance: total,
+          is_interstate: breakdown.is_interstate,
+          is_zero_rated: breakdown.is_zero_rated,
+          is_reverse_charge: breakdown.is_reverse_charge,
+          outstanding_balance: breakdown.grand_total,
           prefix,
           year,
           serial_number,

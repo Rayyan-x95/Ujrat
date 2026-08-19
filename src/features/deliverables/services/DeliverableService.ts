@@ -1,5 +1,5 @@
-import { DeliverableRepository } from '@/features/deliverables/repositories/DeliverableRepository';
-import { ProjectRepository } from '../repositories/ProjectRepository';
+import { DeliverableRepository } from '../repositories/DeliverableRepository';
+import { ProjectRepository } from '@/features/projects/repositories/ProjectRepository';
 import type { Result, Deliverable } from '@/shared/types';
 import { LoggingService } from '@/features/auth/services/LoggingService';
 

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@/shared/ui/Table';
 import Table from '@/shared/ui/Table';
 import { InvoiceStatusBadge } from '@/shared/ui/Badge';
@@ -8,7 +9,7 @@ import { PageHeader } from '@/shared/ui/PageHeader';
 import { Dialog } from '@/shared/ui/Dialog';
 import { useInvoices } from '@/features/invoices';
 import type { Invoice } from '@/shared/types';
-import { Printer, Check, Link, AlertCircle, Coins, TrendingUp, ShieldCheck, Download, MessageSquareShare, FileSpreadsheet } from 'lucide-react';
+import { Printer, Check, Link, AlertCircle, Coins, TrendingUp, ShieldCheck, Download, MessageSquareShare, FileSpreadsheet, Briefcase } from 'lucide-react';
 import { exportGstr1Csv } from '@/shared/utils/csvExport';
 import { generateInvoiceWhatsAppUrl } from '@/shared/utils/whatsappShare';
 import { TaxReportsModal } from './TaxReportsModal';
@@ -26,16 +27,26 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
   onShowInvoiceDetail,
   addToast,
 }) => {
+  const navigate = useNavigate();
   const { invoices, isLoading, payInvoice } = useInvoices(workspaceId, profileId);
   const [invoiceToVerify, setInvoiceToVerify] = useState<Invoice | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [showTaxReports, setShowTaxReports] = useState(false);
 
-  const totalInvoiced = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
-  const totalGst = invoices.reduce((sum, inv) => sum + (inv.cgst || 0) + (inv.sgst || 0) + (inv.igst || 0), 0);
-  const outstanding = invoices
-    .filter(inv => inv.status !== 'paid')
-    .reduce((sum, inv) => sum + (inv.total || 0), 0);
+  const { totalInvoiced, totalGst, outstanding } = useMemo(() => {
+    let invoiced = 0;
+    let gst = 0;
+    let out = 0;
+    for (const inv of invoices) {
+      const tot = inv.total || 0;
+      invoiced += tot;
+      gst += (inv.cgst || 0) + (inv.sgst || 0) + (inv.igst || 0);
+      if (inv.status !== 'paid') {
+        out += tot;
+      }
+    }
+    return { totalInvoiced: invoiced, totalGst: gst, outstanding: out };
+  }, [invoices]);
 
   const confirmVerification = async () => {
     if (!invoiceToVerify) return;
@@ -75,7 +86,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const columns: ColumnDef<Invoice>[] = [
+  const columns: ColumnDef<Invoice>[] = useMemo(() => [
     { 
       key: 'invoice_number', 
       header: 'Invoice #', 
@@ -137,7 +148,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
           >
             Print
           </Button>
-          {row.status !== 'paid' && (
+          {row.status === 'pending_verification' && (
             <Button 
               variant="primary" 
               size="sm" 
@@ -150,7 +161,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
         </div>
       )
     }
-  ];
+  ], [onShowInvoiceDetail]);
 
   return (
     <div className="space-y-6.5 animate-slide-up">
@@ -212,8 +223,25 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
         keyField="id"
         searchable
         searchPlaceholder="Search invoices by invoice code..."
-        emptyMessage="No invoices generated"
-        emptySubMessage="Issue milestone billing coordinates and tax splits from individual project detail workspaces."
+        emptyState={{
+          title: "No Invoices Generated Yet",
+          description: "Invoices are generated directly from milestone deliverables inside your project workspaces.",
+          action: (
+            <Button 
+              variant="primary" 
+              size="sm" 
+              onClick={() => navigate('/projects')} 
+              icon={<Briefcase className="h-4 w-4" />}
+            >
+              View Active Projects
+            </Button>
+          ),
+          tips: [
+            "Invoices automatically calculate CGST, SGST, and IGST based on client state.",
+            "Each invoice generates a zero-fee dynamic UPI QR code linked to your bank account.",
+            "Marking invoices as Paid automatically releases escrowed project deliverables."
+          ]
+        }}
         loading={isLoading}
       />
 

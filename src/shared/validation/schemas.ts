@@ -1,10 +1,9 @@
 import { z } from 'zod';
-import { SUPPORTED_CURRENCIES, TDS_SECTIONS } from '@/features/invoices/tax/TaxConstants';
+import { SUPPORTED_CURRENCIES, TDS_SECTIONS } from '@/features/invoices/tax/TaxTypes';
 
-const currencyKeys = Object.keys(SUPPORTED_CURRENCIES) as [string, ...string[]];
 const tdsSectionKeys = Object.keys(TDS_SECTIONS) as [string, ...string[]];
 
-export const CurrencyEnum = z.enum(currencyKeys);
+export const CurrencyEnum = z.enum(SUPPORTED_CURRENCIES as [string, ...string[]]);
 export const TDSSectionEnum = z.enum(tdsSectionKeys);
 
 // Profile & Workspace validations

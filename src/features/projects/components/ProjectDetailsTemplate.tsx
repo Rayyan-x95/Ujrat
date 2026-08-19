@@ -54,21 +54,11 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
 
   const confirmPaymentMutation = useConfirmPayment(workspaceId, profileId, { addToast });
 
-  const proposal = Array.isArray(project?.proposals)
-    ? project.proposals[0] || null
-    : project?.proposals || null;
-
-  const contract = Array.isArray(project?.contracts)
-    ? project.contracts[0] || null
-    : project?.contracts || null;
-
-  const client = Array.isArray(project?.clients)
-    ? project.clients[0] || null
-    : project?.clients || null;
-
-  const brief = Array.isArray(project?.project_briefs)
-    ? project.project_briefs[0] || null
-    : project?.project_briefs || null;
+  const unwrapFirst = <T,>(val: T | T[] | null | undefined): T | null => Array.isArray(val) ? val[0] || null : val || null;
+  const proposal = unwrapFirst(project?.proposals);
+  const contract = unwrapFirst(project?.contracts);
+  const client = unwrapFirst(project?.clients);
+  const brief = unwrapFirst(project?.project_briefs);
 
   const handleSaveProposal = async (proposalData: { pricing: number; scope: string; timeline: string; terms: string }, status: 'draft' | 'sent') => {
     try {
@@ -88,8 +78,8 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
         addToast('success', 'Proposal Draft Saved');
       }
     } catch (e: any) {
-      console.error('SAVE PROPOSAL ERROR DETAILS:', e, e.message, e.details, e.hint);
-      addToast('error', 'Failed to save proposal', e.message);
+      console.error('[ProjectDetails] Save proposal failed:', e?.message || e);
+      addToast('error', 'Failed to save proposal', e?.message || 'Error occurred');
     }
   };
 
@@ -98,8 +88,8 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
       await sendContract([content, status]);
       addToast('success', status === 'sent' ? 'Contract Shared with Client' : 'Contract Draft Saved');
     } catch (e: any) {
-      console.error('SAVE CONTRACT ERROR DETAILS:', e, e.message, e.details, e.hint);
-      addToast('error', 'Failed to save contract', e.message);
+      console.error('[ProjectDetails] Save contract failed:', e?.message || e);
+      addToast('error', 'Failed to save contract', e?.message || 'Error occurred');
     }
   };
 
@@ -329,31 +319,54 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
           </div>
         </div>
 
-        {/* Status progression bar */}
-        <div className="border border-border bg-card p-4 rounded-lg shadow-sm space-y-2.5 select-none">
-          <div className="flex justify-between items-center text-small font-medium text-muted-foreground">
-            <span className="text-foreground">{getWorkflowMessage()}</span>
-            <span className="font-semibold text-foreground text-mono tabular-nums">{getWorkflowProgress()}%</span>
+        {/* Status progression bar & Action Anchor */}
+        <div className="border border-border bg-card p-4.5 rounded-lg shadow-sm space-y-3.5 select-none">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-small font-medium">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+              <span className="text-foreground font-semibold">{getWorkflowMessage()}</span>
+            </div>
+            <span className="font-semibold text-primary font-mono tabular-nums bg-primary/8 px-2 py-0.5 rounded text-xs">
+              {getWorkflowProgress()}% Complete
+            </span>
           </div>
           <ProgressBar value={getWorkflowProgress()} showPercent={false} variant="success" />
+
+          {/* Sequential Lifecycle Steps */}
+          <div className="grid grid-cols-5 gap-1.5 pt-1 text-[10px] text-muted-foreground font-medium border-t border-border-subtle">
+            {[
+              { num: '1', name: 'Brief', active: true },
+              { num: '2', name: 'Proposal', active: ['proposal', 'approved', 'contract_signed', 'advance_paid', 'in_progress', 'delivered', 'invoice_sent', 'paid'].includes(project.status) },
+              { num: '3', name: 'Contract', active: ['contract_signed', 'advance_paid', 'in_progress', 'delivered', 'invoice_sent', 'paid'].includes(project.status) },
+              { num: '4', name: 'Deliver', active: ['in_progress', 'delivered', 'invoice_sent', 'paid'].includes(project.status) },
+              { num: '5', name: 'Payout', active: ['invoice_sent', 'paid'].includes(project.status) },
+            ].map(step => (
+              <div key={step.num} className={`flex items-center gap-1 truncate ${step.active ? 'text-primary font-semibold' : 'text-muted-foreground/50'}`}>
+                <span className={`h-3.5 w-3.5 rounded-full flex items-center justify-center text-[9px] shrink-0 ${step.active ? 'bg-primary text-primary-foreground font-bold' : 'bg-secondary text-muted-foreground'}`}>
+                  {step.num}
+                </span>
+                <span className="truncate hidden sm:inline">{step.name}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Priority Action Highlight Panel */}
         {nextAction && (
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4.5 rounded-lg border border-primary/20 bg-primary-muted/20">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4.5 rounded-lg border border-primary/25 bg-primary/5 shadow-xs">
             <div className="space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-primary flex items-center gap-1.5 select-none">
                 <AlertCircle className="h-3.5 w-3.5" />
-                <span>Next Required Action</span>
+                <span>Next Recommended Action</span>
               </span>
-              <h4 className="text-[13.5px] font-bold text-foreground m-0">{nextAction.title}</h4>
+              <h4 className="text-[14px] font-bold text-foreground m-0">{nextAction.title}</h4>
               <p className="text-xs text-muted-foreground m-0 leading-normal">{nextAction.desc}</p>
             </div>
             <Button 
               variant="primary" 
               size="sm" 
               onClick={nextAction.onClick} 
-              className="shrink-0 shadow-sm"
+              className="shrink-0 shadow-sm font-semibold"
             >
               {nextAction.btn}
             </Button>
@@ -361,21 +374,27 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
         )}
       </header>
 
-      {/* Tab Navigation */}
+      {/* Tab Navigation with Sequence Numbers */}
       <nav className="flex gap-1 overflow-x-auto pb-1.5 border-b border-border select-none" aria-label="Project workflow">
-        {(['brief', 'proposal', 'contract', 'deliverables', 'invoices'] as const).map(tab => {
-          const isActive = activeTab === tab;
+        {[
+          { id: 'brief', label: '1. Brief' },
+          { id: 'proposal', label: '2. Proposal' },
+          { id: 'contract', label: '3. Contract' },
+          { id: 'deliverables', label: '4. Deliverables' },
+          { id: 'invoices', label: '5. Invoices & Tax' },
+        ].map(t => {
+          const isActive = activeTab === t.id;
           return (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-3 py-1.5 text-[13px] font-medium rounded-md transition-colors cursor-pointer capitalize whitespace-nowrap ${
+              key={t.id}
+              onClick={() => setActiveTab(t.id as any)}
+              className={`px-3 py-1.5 text-[13px] font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
                 isActive
-                  ? 'bg-primary-muted text-primary'
+                  ? 'bg-primary/10 text-primary font-semibold'
                   : 'text-muted-foreground hover:text-foreground hover:bg-surface/50'
               }`}
             >
-              {tab}
+              {t.label}
             </button>
           );
         })}
@@ -397,6 +416,8 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
           <ProposalTab
             proposal={proposal}
             projectStatus={project.status}
+            brief={brief}
+            projectBudget={project.budget}
             onSave={handleSaveProposal}
           />
         )}
@@ -418,6 +439,7 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
             projectStatus={project.status}
             onUpload={handleUploadDeliverable}
             onAddLink={handleAddDeliverableLink}
+            onNavigateTab={(targetTab) => setActiveTab(targetTab as any)}
             onActivateWork={async () => {
               try {
                 await changeStatus('in_progress');

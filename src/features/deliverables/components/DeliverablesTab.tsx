@@ -13,6 +13,7 @@ interface DeliverablesTabProps {
   onUpload: (file: File) => Promise<void>;
   onAddLink?: (name: string, linkUrl: string) => Promise<void>;
   onActivateWork: () => void;
+  onNavigateTab?: (tab: 'brief' | 'proposal' | 'contract') => void;
 }
 
 export const DeliverablesTab: React.FC<DeliverablesTabProps> = ({
@@ -21,6 +22,7 @@ export const DeliverablesTab: React.FC<DeliverablesTabProps> = ({
   onUpload,
   onAddLink,
   onActivateWork,
+  onNavigateTab,
 }) => {
   const [uploadMode, setUploadMode] = useState<'file' | 'link'>('file');
   const [uploading, setUploading] = useState(false);
@@ -62,15 +64,25 @@ export const DeliverablesTab: React.FC<DeliverablesTabProps> = ({
             </div>
             <h3 className="text-small font-bold text-foreground m-0">Deliverables Workspace Locked</h3>
             <p className="text-xs text-muted-foreground m-0 leading-normal">
-              Uploading project deliverables and final file downloads becomes accessible once the project service agreement has been authorized and project execution is active.
+              Uploading project deliverables and release coordinates becomes accessible once the project service agreement is authorized and work execution is active.
             </p>
-            {projectStatus === 'contract_signed' && (
-              <div className="pt-2">
+            <div className="pt-2 flex justify-center gap-2">
+              {projectStatus === 'contract_signed' && (
                 <Button variant="primary" size="sm" onClick={onActivateWork}>
-                  Activate Project Work
+                  Activate Project Work ➜
                 </Button>
-              </div>
-            )}
+              )}
+              {projectStatus === 'approved' && onNavigateTab && (
+                <Button variant="primary" size="sm" onClick={() => onNavigateTab('contract')}>
+                  Prepare Contract Agreement ➜
+                </Button>
+              )}
+              {(projectStatus === 'lead' || projectStatus === 'proposal') && onNavigateTab && (
+                <Button variant="primary" size="sm" onClick={() => onNavigateTab('proposal')}>
+                  Draft & Send Proposal ➜
+                </Button>
+              )}
+            </div>
           </div>
         </Card>
       ) : (

@@ -24,9 +24,18 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
   onShowInvoice,
   onConfirmPayment,
 }) => {
-  const generateNewInvoiceNo = () => `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const generateNewInvoiceNo = (existingInvoices: any[] = invoices) => {
+    const year = new Date().getFullYear();
+    const nextSeq = String(existingInvoices.length + 1).padStart(3, '0');
+    const candidate = `INV-${year}-${nextSeq}`;
+    if (existingInvoices.some(i => i.invoice_number === candidate)) {
+      return `INV-${year}-${String(existingInvoices.length + 101).padStart(3, '0')}`;
+    }
+    return candidate;
+  };
+
   const [showGenInvoice, setShowGenInvoice] = useState(false);
-  const [invoiceNo, setInvoiceNo] = useState(generateNewInvoiceNo());
+  const [invoiceNo, setInvoiceNo] = useState(generateNewInvoiceNo(invoices));
   const [invoiceNote, setInvoiceNote] = useState('');
   const [invoiceAmount, setInvoiceAmount] = useState('0');
   const [submitting, setSubmitting] = useState(false);
@@ -34,7 +43,8 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
 
   useEffect(() => {
     setInvoiceAmount(String(projectBudget || '0'));
-  }, [projectBudget]);
+    setInvoiceNo(generateNewInvoiceNo(invoices));
+  }, [projectBudget, invoices]);
 
   const canIssueInvoice = projectStatus !== 'lead' && projectStatus !== 'proposal';
 
@@ -44,14 +54,14 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
       const amt = parseFloat(invoiceAmount) || 0;
       await onGenerateInvoice(invoiceNo, amt, invoiceNote);
       setShowGenInvoice(false);
-      setInvoiceNo(generateNewInvoiceNo());
+      setInvoiceNo(generateNewInvoiceNo(invoices));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDuplicate = (inv: any) => {
-    setInvoiceNo(generateNewInvoiceNo());
+    setInvoiceNo(generateNewInvoiceNo(invoices));
     setInvoiceAmount(String(inv.total || projectBudget || '0'));
     setInvoiceNote(inv.notes || '');
     setShowGenInvoice(true);

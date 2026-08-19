@@ -68,14 +68,14 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
       setStartDate('');
       setEndDate('');
     } catch (err: any) {
-      console.error(err);
-      addToast('error', 'Creation Failed', err.message);
+      console.error('[ProjectsTemplate] Create project failed:', err?.message || err);
+      addToast('error', 'Creation Failed', err?.message || 'Failed to create project');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const columns: ColumnDef<ProjectWithClient>[] = [
+  const columns: ColumnDef<ProjectWithClient>[] = React.useMemo(() => [
     {
       key: 'name', 
       header: 'Project Pipeline', 
@@ -171,12 +171,12 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
         </Button>
       ),
     },
-  ];
+  ], [onSelectProject]);
 
-  const clientOptions = [
+  const clientOptions = React.useMemo(() => [
     { value: '', label: clients.length === 0 ? 'No clients found' : 'Select a linked client' },
     ...clients.map(c => ({ value: c.id, label: c.company ? `${c.name} (${c.company})` : c.name })),
-  ];
+  ], [clients]);
 
   return (
     <div className="space-y-6.5 animate-slide-up">
@@ -201,18 +201,34 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
         keyField="id"
         searchable
         searchPlaceholder="Search project name..."
-        emptyMessage="No active projects"
-        emptySubMessage="Create your first client workspace pipeline to draft proposals, track sign-offs, and generate invoices."
-        emptyAction={
-          <Button 
-            variant="primary" 
-            size="sm" 
-            onClick={() => setShowAdd(true)} 
-            icon={<Plus className="h-4 w-4" />}
-          >
-            Create First Project
-          </Button>
-        }
+        emptyState={{
+          title: "No Active Projects Yet",
+          description: "Initialize your first project pipeline to manage briefs, send digital proposals, execute contracts, and issue GST invoices.",
+          action: clients.length === 0 ? (
+            <Button 
+              variant="primary" 
+              size="sm" 
+              onClick={() => navigate('/clients')} 
+              icon={<Users className="h-4 w-4" />}
+            >
+              Add Client First
+            </Button>
+          ) : (
+            <Button 
+              variant="primary" 
+              size="sm" 
+              onClick={() => setShowAdd(true)} 
+              icon={<Plus className="h-4 w-4" />}
+            >
+              Create First Project
+            </Button>
+          ),
+          tips: [
+            "Projects follow a sequential pipeline: Lead → Proposal → Contract → Delivered → Settled.",
+            "Client portals automatically sync with project status updates.",
+            "Deliverables are stored in an escrow vault until payment invoices clear."
+          ]
+        }}
         loading={isLoading}
       />
 

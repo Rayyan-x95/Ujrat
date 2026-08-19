@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/shared/ui/Button';
-import { TaxRepository } from '../tax/TaxRepository';
+import { TaxRepository } from '../tax/InvoiceCalculator';
 import type { GSTR1Summary } from '../tax/TaxTypes';
 import { formatINR } from '@/shared/utils/currency';
 

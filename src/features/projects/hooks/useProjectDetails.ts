@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ProjectService } from '../services/ProjectService';
-import { ProposalService } from '../services/ProposalService';
-import { ContractService } from '../services/ContractService';
-import { DeliverableService } from '../services/DeliverableService';
+import { ProposalService } from '@/features/proposals';
+import { ContractService } from '@/features/contracts';
+import { DeliverableService } from '@/features/deliverables';
 import { InvoiceService } from '@/features/invoices/services/InvoiceService';
 import { PaymentService } from '@/features/payments/services/PaymentService';
 import { StorageService } from '@/features/settings/services/StorageService';
@@ -201,10 +201,18 @@ export function useProjectDetails({
   // Invoice mutations - matching template's expected interface
   const generateInvoice = useMutation({
     mutationFn: async (args: [string, number, string]) =>
-      unwrapResult(await ProjectService.generateInvoice(workspaceId, profileId, projectId, {
+      unwrapResult(await InvoiceService.createInvoice(workspaceId, profileId, projectId, {
         invoice_number: args[0],
-        amount: args[1],
-        note: args[2],
+        invoice_date: new Date().toISOString().split('T')[0] || '',
+        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] || '',
+        notes: args[2] || '',
+        items: [{
+          description: args[2] || 'Project milestone',
+          quantity: 1,
+          rate: args[1],
+          gst_rate: 18,
+          hsn_code: '998314',
+        }],
       })),
     onSuccess: (invoice) => {
       queryClient.invalidateQueries({ queryKey: ['invoices', workspaceId, projectId] });
