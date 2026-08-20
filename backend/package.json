@@ -1,0 +1,16 @@
+{
+  "name": "@ujrat/backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "python -m uvicorn app.main:app --reload --port 8000",
+    "test": "python -m unittest discover -s tests -p \"test_*.py\"",
+    "validate:migrations": "node scripts/validate-migrations.mjs",
+    "validate:security": "node scripts/validate-security.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ujrat/shared-types": "*"
+  }
+}

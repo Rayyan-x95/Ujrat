@@ -1,0 +1,77 @@
+import posthog from 'posthog-js';
+
+let initialized = false;
+
+export function initPostHog() {
+  const apiKey = import.meta.env.VITE_POSTHOG_KEY;
+  const host = import.meta.env.VITE_POSTHOG_HOST || 'https://app.posthog.com';
+  
+  if (!apiKey || initialized) {
+    if (!apiKey && import.meta.env.DEV && !initialized) {
+      console.debug('[PostHog] API key not configured, skipping initialization');
+    }
+    return;
+  }
+
+  posthog.init(apiKey, {
+    api_host: host,
+    autocapture: false,           // PageTracker handles page views; autocapture adds DOM overhead per click
+    capture_pageview: false,       // manual trackPageView() in App.tsx PageTracker handles this
+    capture_pageleave: true,
+    persistence: 'localStorage',
+    loaded: (posthog) => {
+      if (import.meta.env.DEV) {
+        posthog.debug(true);
+        console.debug('[PostHog] Initialized');
+      }
+    },
+    disable_session_recording: true,
+    person_profiles: 'identified_only',
+    respect_dnt: true,
+    mask_all_element_attributes: true,
+  });
+
+  initialized = true;
+}
+
+export function identifyUser(userId: string, traits?: Record<string, unknown>) {
+  if (!initialized) {
+    return;
+  }
+  
+  posthog.identify(userId, {
+    ...traits,
+    last_seen: new Date().toISOString(),
+  });
+}
+
+export function trackEvent(eventName: string, properties?: Record<string, unknown>) {
+  if (!initialized) {
+    return;
+  }
+  
+  posthog.capture(eventName, {
+    ...properties,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+export function trackPageView(url: string, title?: string) {
+  if (!initialized) return;
+  
+  posthog.capture('$pageview', {
+    $current_url: url,
+    $title: title || document.title,
+  });
+}
+
+export function resetUser() {
+  if (!initialized) return;
+  posthog.reset();
+}
+
+export function isPostHogInitialized() {
+  return initialized;
+}
+
+export { posthog };

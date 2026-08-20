@@ -36,7 +36,7 @@ async function clickTab(page: any, tabName: string, isPortal = false) {
   for (let i = 0; i < 5; i++) {
     await tabButton.click();
     const className = await tabButton.getAttribute('class');
-    if (className && className.includes('bg-primary-muted')) {
+    if (className && (className.includes('bg-primary-muted') || className.includes('bg-primary/10') || className.includes('text-primary'))) {
       isActive = true;
       break;
     }

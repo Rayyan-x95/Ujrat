@@ -3,7 +3,7 @@
 > **From first client contact to final payment — one workflow, zero chaos.**
 
 <p align="center">
-  <img src="./public/og-image.png" alt="Ujrat Banner" width="100%" />
+  <img src="./frontend/public/og-image.png" alt="Ujrat Banner" width="100%" />
 </p>
 
 <p align="center">
@@ -225,76 +225,75 @@ Automatic emails for
 
 # 🏗 Tech Stack
 
-## Frontend
+## Frontend (`frontend/`)
 
-* React 19
-* TypeScript
-* Vite
-* Tailwind CSS
-* shadcn/ui
-* React Router
-* TanStack Query
-* Zustand
-* React Hook Form
+* React 19 + TypeScript 6
+* Vite 8 + Tailwind CSS 4
+* React Router 7
+* TanStack Query v5
 * Zod
+* Custom shared UI primitives (`frontend/src/shared/ui`) + lightweight stores
 
 ---
 
-## Backend
+## Backend (`backend/`)
 
-Powered entirely by Supabase
-
-* Authentication
-* PostgreSQL
-* Storage
-* Realtime
-* Edge Functions
-* Row Level Security
+* **Python Operations Backend** (`backend/app/`):
+  * Python 3.12+ with FastAPI & Uvicorn
+  * Pydantic v2 & Pydantic Settings
+  * PyJWT Bearer authentication & workspace scoping
+  * Indian GST Tax Engine 2.0 with integer paise math
+  * NPCI UPI deep links & UTR validation
+  * Authoritative state machines (`state_machines.py`)
+* **Supabase Infrastructure** (`backend/supabase/`):
+  * PostgreSQL & Row-Level Security (RLS)
+  * Timestamped database migrations & baseline
+  * Deno Edge Functions (email dispatch, payment webhooks)
+  * Storage bucket policies
 
 ---
 
 ## Infrastructure
 
-* Vercel
+* Vercel (Frontend SPA Hosting & Strict CSP)
 * Plunk & Open-Source SMTP (Stalwart / Postfix / Postal / Mailcow)
-* Supabase Storage
+* Supabase Storage & Database
 
 ---
 
-# 📁 Project Structure
+# 📁 Project Structure (Monorepo Workspaces)
 
 ```
-src/
+ujrat/
+├── frontend/                     # React 19 SPA (@ujrat/frontend)
+│   ├── public/                   # Static assets, sitemap, manifest
+│   ├── src/
+│   │   ├── app/                  # Router, layouts, providers, config, styles
+│   │   ├── features/             # Feature DDD modules (auth, clients, projects,
+│   │   │                         # briefs, proposals, contracts, invoices,
+│   │   │                         # payments, portal, deliverables, settings)
+│   │   ├── shared/               # UI components, apiClient, utils, validation
+│   │   ├── __tests__/            # Centralized Vitest test harness (24 suites)
+│   │   └── main.tsx              # Application bootstrap
+│   ├── vite.config.ts
+│   └── package.json
 │
-├── app/
-├── components/
-│   ├── ui/
-│   ├── layout/
-│   └── shared/
+├── backend/                      # Python backend & Supabase (@ujrat/backend)
+│   ├── app/                      # Authoritative FastAPI operations service
+│   │   ├── api/v1/               # Endpoints (tax, payments, clients, projects, etc.)
+│   │   ├── core/                 # Config, security, database client
+│   │   └── services/             # Tax engine, UPI service, state machines
+│   ├── tests/                    # Python unit & API tests (unittest)
+│   ├── supabase/                 # Migrations & Deno Edge Functions
+│   ├── scripts/                  # Migration & security validators
+│   ├── pyproject.toml            # Python packaging & tool configs
+│   └── requirements.txt          # Python dependencies
 │
-├── features/
-│   ├── auth/
-│   ├── dashboard/
-│   ├── clients/
-│   ├── projects/
-│   ├── briefs/
-│   ├── proposals/
-│   ├── contracts/
-│   ├── invoices/
-│   ├── payments/
-│   ├── portal/
-│   └── settings/
+├── packages/
+│   └── shared-types/             # Shared database types (@ujrat/shared-types)
 │
-├── hooks/
-├── services/
-├── repositories/
-├── schemas/
-├── types/
-├── utils/
-├── constants/
-├── lib/
-├── store/
-└── styles/
+├── e2e/                          # Playwright end-to-end test suite
+└── package.json                  # Root workspace orchestrator
 ```
 
 ---
@@ -455,7 +454,7 @@ npm install
 
 ## Environment Variables
 
-Create a `.env.local` file in the root of the project with the following keys:
+Create a `.env` file in the root of the project with the following keys:
 
 ```env
 # Supabase Configuration (Required)
@@ -490,10 +489,35 @@ VITE_POSTHOG_HOST=https://app.posthog.com
 
 ---
 
-## Run
+## Development
 
 ```bash
+# Start Vite frontend dev server (http://localhost:5173)
 npm run dev
+
+# Start FastAPI backend server (http://localhost:8000)
+npm run dev:backend
+```
+
+---
+
+## Testing & Verification
+
+```bash
+# Run full test suite (frontend Vitest + backend Python unittest)
+npm run test:all
+
+# Run frontend Vitest suite (24 suites, 227 tests)
+npm test
+
+# Run backend Python test suite
+npm run test:backend
+
+# TypeScript typecheck across monorepo project references
+npm run typecheck
+
+# Run linter
+npm run lint
 ```
 
 ---

@@ -8,13 +8,13 @@ Welcome to the comprehensive documentation portal for **Ujrat** — India's zero
 
 | Document | Description | Target Audience |
 | :--- | :--- | :--- |
-| **[Architecture Documentation](file:///d:/CODE%20PROJECTS/Ujrat/docs/ARCHITECTURE.md)** | Modular monolith, clean DDD layering, state machines, and multi-tenant security boundary. | Software Engineers, Architects |
-| **[API & Database Schema](file:///d:/CODE%20PROJECTS/Ujrat/docs/API_AND_DATABASE_SCHEMA.md)** | PostgreSQL relational schema, Row-Level Security (RLS) policies, and RPC procedures. | Backend Developers, DBA |
-| **[Indian GST & UPI Payments Guide](file:///d:/CODE%20PROJECTS/Ujrat/docs/TAX_AND_PAYMENTS_GUIDE.md)** | Interstate/Intrastate GST calculation rules, TDS rates, and NPCI UPI deep link specifications. | Financial Engineers, Compliance |
-| **[UX & Design System Guidelines](file:///d:/CODE%20PROJECTS/Ujrat/docs/UX_DESIGN_SYSTEM.md)** | Design tokens, HSL palette, typography hierarchy, WCAG 2.1 AA, and Day-0 onboarding. | UI/UX Designers, Frontend Devs |
-| **[Testing & Security Infrastructure](file:///d:/CODE%20PROJECTS/Ujrat/docs/TESTING_AND_SECURITY.md)** | Zero-trust authentication, RLS boundary, input sanitization, and 22-suite Vitest test harness. | QA, Security Auditors |
-| **[Developer Onboarding Guide](file:///d:/CODE%20PROJECTS/Ujrat/docs/DEVELOPMENT_GUIDE.md)** | Getting started, environment variables, local scripts, and Vercel edge deployment. | New Contributors, DevOps |
-| **[Operations Runbook](file:///d:/CODE%20PROJECTS/Ujrat/docs/OPERATIONS_RUNBOOK.md)** | Incident response, monitoring, database backups, and health checks. | DevOps, SRE |
+| **[Architecture Documentation](ARCHITECTURE.md)** | Modular monolith, clean DDD layering, state machines, and multi-tenant security boundary. | Software Engineers, Architects |
+| **[API & Database Schema](API_AND_DATABASE_SCHEMA.md)** | PostgreSQL relational schema, Row-Level Security (RLS) policies, and RPC procedures. | Backend Developers, DBA |
+| **[Indian GST & UPI Payments Guide](TAX_AND_PAYMENTS_GUIDE.md)** | Interstate/Intrastate GST calculation rules, TDS rates, and NPCI UPI deep link specifications. | Financial Engineers, Compliance |
+| **[UX & Design System Guidelines](UX_DESIGN_SYSTEM.md)** | Design tokens, HSL palette, typography hierarchy, WCAG 2.1 AA, and Day-0 onboarding. | UI/UX Designers, Frontend Devs |
+| **[Testing & Security Infrastructure](TESTING_AND_SECURITY.md)** | Zero-trust authentication, RLS boundary, input sanitization, and 22-suite Vitest test harness. | QA, Security Auditors |
+| **[Developer Onboarding Guide](DEVELOPMENT_GUIDE.md)** | Getting started, environment variables, local scripts, and Vercel edge deployment. | New Contributors, DevOps |
+| **[Operations Runbook](OPERATIONS_RUNBOOK.md)** | Incident response, monitoring, database backups, and health checks. | DevOps, SRE |
 
 ---
 
@@ -30,14 +30,18 @@ Welcome to the comprehensive documentation portal for **Ujrat** — India's zero
 ## ⚡ Quick Commands Cheatsheet
 
 ```bash
-# Start Development Server
-npm run dev
+# Start Development Servers
+npm run dev          # Frontend SPA (http://localhost:5173)
+npm run dev:backend  # Python FastAPI Backend (http://localhost:8000)
 
-# Run Vitest Suite (18 test files, 130 tests)
-npm test -- --run
+# Run Full Test Suite (Frontend Vitest 227 tests + Backend Python 14 tests)
+npm run test:all
 
-# Full TypeScript Compiler Check
-npx tsc --noEmit
+# TypeScript Project Reference Type Check
+npm run typecheck
+
+# Lint Codebase
+npm run lint
 
 # Production Build
 npm run build

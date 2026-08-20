@@ -37,107 +37,104 @@ Ujrat follows a **Feature-Driven Modular Architecture** combined with **Clean Do
 
 ---
 
-## 2. Directory Structure
+## 2. Directory Structure (Monorepo Workspaces)
 
 ```text
-src/
-├── app/                      # Application Bootstrap & Shell
-│   ├── layouts/              # DashboardLayout, MobileLayout, CommandPalette
-│   ├── router/               # React Router configuration & Lazy Chunk Preloader
-│   └── styles/               # Global tokens, CSS variables, animations
-├── features/                 # Domain Feature Modules
-│   ├── auth/                 # Authentication, OTP Zero-Trust, Session Hook
-│   ├── clients/              # Client CRM & Directory (Services, Repos, Types)
-│   ├── contracts/            # IT Act compliant E-Signatures & Agreements
-│   ├── dashboard/            # Metrics aggregation, Cashflow Trend, Onboarding
-│   ├── deliverables/         # File escrow, asset uploads, download links
-│   ├── invoices/             # GST Invoice Engine, PDF export, state machine
-│   ├── landing/              # High-conversion public landing page & SEO
-│   ├── payments/             # Dynamic UPI QR codes, settlement journal
-│   ├── portal/               # Public zero-auth client review & payment portal
-│   ├── projects/             # Project Kanban, milestones, deliverable tracker
-│   ├── proposals/            # Client proposals, scope builder, approval flow
-│   ├── settings/             # VPA configuration, business profile, preferences
-│   └── waitlist/             # Early access priority onboarding engine
-└── shared/                   # Cross-cutting primitives
-    ├── hooks/                # useTheme, useIsMobile, useCurrency, useKeyboard
-    ├── lib/                  # supabaseClient, analytics, logger
-    ├── types/                # Core domain types, Result<T>, Error models
-    └── ui/                   # Button, Badge, Modal, FormInput, UjratLogo
+ujrat/ (repo root)
+├── package.json                   # Root orchestrator (npm workspaces: ["frontend", "backend", "packages/*"])
+├── vercel.json                    # Vercel deployment & security headers (outputDirectory: frontend/dist)
+├── .github/workflows/ci.yml       # Workspace-aware CI verification pipeline
+│
+├── frontend/                      # @ujrat/frontend (React 19 + TypeScript + Vite SPA)
+│   ├── package.json               # UI dependencies & scripts
+│   ├── vite.config.ts             # Vite configuration & path aliases
+│   ├── vitest.config.ts           # Vitest configuration for unit tests
+│   ├── public/                    # Static assets & web manifest
+│   ├── index.html                 # Single page application entry point
+│   └── src/                       # React 19 source application
+│       ├── app/                   # Shell, layouts, router, global styles
+│       ├── features/              # Feature-driven DDD modules (auth, clients, invoices, etc.)
+│       ├── shared/                # Cross-cutting UI, hooks, and Supabase client
+│       ├── __tests__/             # 227 unit & integration tests
+│       └── main.tsx               # Entry bootstrap
+│
+├── backend/                       # @ujrat/backend (Python FastAPI + Supabase backend)
+│   ├── app/                       # Authoritative Python operations service (FastAPI)
+│   │   ├── api/v1/                # REST endpoints (/tax, /payments, /clients, /invoices, /portal)
+│   │   ├── core/                  # Settings (config.py), JWT auth (security.py), Supabase (database.py)
+│   │   ├── services/              # Indian GST Tax Engine 2.0, UPI links/UTR, state machines
+│   │   └── main.py                # FastAPI ASGI application entry point
+│   ├── tests/                     # Backend Python unit & integration tests (unittest)
+│   ├── supabase/                  # Authoritative Supabase directory
+│   │   ├── migrations/            # 000_baseline.sql and timestamped migrations
+│   │   └── functions/             # Deno Edge Functions (send-email, payment-webhook, health, etc.)
+│   ├── scripts/                   # Validation scripts (validate-migrations.mjs, validate-security.mjs)
+│   ├── pyproject.toml             # Python packaging, ruff, pytest settings
+│   ├── requirements.txt           # Python backend dependencies
+│   ├── package.json               # Backend npm workspace configuration
+│   └── k6/                        # Performance and load testing suite
+│
+└── packages/
+    └── shared-types/              # @ujrat/shared-types
+        └── src/                   # Shared TypeScript models (database.types.ts)
 ```
 
 ---
 
 ## 3. Core Domain State Machines
 
-### 3.1 Project Lifecycle State Machine
+### 3.1 Project Lifecycle State Machine (`src/shared/utils/StateMachine.ts`)
 ```
-[ LEAD / DRAFT ]
-       │
-       ▼ (create_proposal)
-[ PROPOSAL_SENT ]
-       │
-       ▼ (client_approves)
+[ LEAD ]
+        │
+        ▼
+[ PROPOSAL ]
+        │
+        ▼
 [ APPROVED ]
-       │
-       ▼ (sign_agreement)
-[ CONTRACT_SIGNED ]
-       │
-       ▼ (record_advance)
-[ ADVANCE_PAID ]
-       │
-       ▼ (start_work)
-[ IN_PROGRESS ]
-       │
-       ▼ (upload_deliverable)
-[ DELIVERED ]
-       │
-       ▼ (generate_invoice)
-[ INVOICE_SENT ]
-       │
-       ▼ (settle_payment)
-[ COMPLETED / ARCHIVED ]
+        │
+        ▼
+[ CONTRACT_SIGNED ] ──(advance | start)──> [ ADVANCE_PAID ] / [ IN_PROGRESS ]
+        │                                        │
+        ▼                                        ▼
+[ IN_PROGRESS ] ──> [ DELIVERED ] ──> [ INVOICE_SENT ] ──> [ PAID ] ──> [ COMPLETED ] ──> [ ARCHIVED ]
+        ▲                                                                                      │
+        └────────────────── reactivation: ARCHIVED ──> LEAD / PROPOSAL / IN_PROGRESS ────────────┘
 ```
+`archived` is reachable from any state; reactivation to `lead`/`proposal`/`in_progress` is intentional (mirrors the DB trigger).
 
 ### 3.2 Invoice Lifecycle State Machine
 ```
-[ DRAFT ] ──(issue)──> [ SENT ] ──(overdue_window)──> [ OVERDUE ]
-                           │                               │
-                           └───────────(pay_upi)───────────┘
-                                           │
-                                           ▼
-                                        [ PAID ]
-                                           │
-                                      (reconcile)
-                                           │
-                                           ▼
-                                       [ VOID / SETTLED ]
+[ DRAFT ] ──> [ SENT ] ──> [ VIEWED ] ──> [ PENDING_VERIFICATION ] ──> [ PAID ]
+                  │              │                    │
+                  └────> [ OVERDUE ] <────────────────┘
+[ DRAFT ] / [ SENT ] / [ VIEWED ] / [ PENDING_VERIFICATION ] / [ OVERDUE ] ──> [ CANCELLED ]
 ```
+`paid` and `cancelled` are terminal. (Matches the DB CHECK + `InvoiceStatusEnum`.)
 
 ---
 
 ## 4. Multi-Tenant Isolation & Security Boundary
 
 1. **Workspace ID Scoping**: Every database entity (`clients`, `projects`, `invoices`, `payments`, `deliverables`) contains a foreign key `workspace_id`.
-2. **Row-Level Security (RLS)**:
+2. **Row-Level Security (RLS)** (single-owner workspaces — there is no
+   `workspace_members` table):
    ```sql
-   CREATE POLICY "Users can only access their workspace data"
-   ON clients FOR ALL
-   USING (
-     workspace_id IN (
-       SELECT workspace_id FROM workspace_members WHERE profile_id = auth.uid()
-     )
-   );
+   CREATE POLICY "All workspaces" ON public.workspaces FOR ALL
+   USING (auth.uid() = profile_id) WITH CHECK (auth.uid() = profile_id);
+   -- tenant tables scope via their workspace_id, e.g. clients:
+   -- USING (workspace_id IN (SELECT id FROM public.workspaces
+   --                        WHERE profile_id = auth.uid()));
    ```
 3. **Public Client Portal Boundary (`SECURITY DEFINER`)**:
    - Clients do not sign into Supabase directly.
    - Public actions (viewing proposals, signing contracts, paying UPI invoices) execute through strictly validated PostgreSQL `SECURITY DEFINER` RPC functions requiring an unguessable 64-character SHA-256 token.
-   - Tokens auto-expire upon completion or after 30 days.
+   - Tokens auto-expire upon completion, on `portal_token_expires_at`, and via a 90-day absolute cap (`portal_token_is_live()`).
 
 ---
 
 ## 5. Performance & Bundle Optimization
 
-- **Route Lazy-Loading**: All feature views are lazily loaded with `React.lazy()` and preloaded upon mouse hover via `RoutePreloader`.
-- **Zero-Layout-Shift Fonts**: Google Fonts (`Inter` and `Outfit`) preconnected with `font-display: swap`.
-- **Client-Side Cache**: TanStack React Query with `staleTime: 5 minutes` and optimistic cache updates.
+- **Route Lazy-Loading**: All feature views are lazily loaded with `React.lazy()` and gated by `Suspense` (`src/app/router/App.tsx`).
+- **Zero-Layout-Shift Fonts**: Google Fonts (`Inter` and `Outfit`) preconnected with `font-display` swap via print-media `onload` (`index.html`). Font origins must be allow-listed in both `style-src`/`font-src` **and** `connect-src` in `vercel.json`, or the service worker font fetch is CSP-blocked in production.
+- **Client-Side Cache**: TanStack React Query with `staleTime: 60s`, `gcTime: 5 min`, `retry: 1`, `refetchOnWindowFocus: false` (`src/app/router/App.tsx`).

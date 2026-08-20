@@ -1,0 +1,42 @@
+name: Render Backend Keep-Alive
+
+on:
+  schedule:
+    # Run every 14 minutes (Render free instances sleep after 15 minutes of inactivity)
+    - cron: '*/14 * * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  ping:
+    name: Ping Health Endpoint
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping Render Backend
+        run: |
+          TARGET_URL="${{ secrets.RENDER_BACKEND_URL || vars.RENDER_BACKEND_URL }}"
+          if [ -z "$TARGET_URL" ]; then
+            echo "::warning ::RENDER_BACKEND_URL secret/variable is not configured yet. Set it in GitHub Repo Settings -> Secrets/Variables."
+            exit 0
+          fi
+
+          # Ensure the URL points to /health
+          CLEAN_URL="${TARGET_URL%/}"
+          if [[ "$CLEAN_URL" != */health ]]; then
+            CLEAN_URL="${CLEAN_URL}/health"
+          fi
+
+          echo "Pinging: $CLEAN_URL"
+          RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 30 "$CLEAN_URL")
+          HTTP_BODY=$(echo "$RESPONSE" | sed '$d')
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
+
+          echo "HTTP Status Code: $HTTP_CODE"
+          echo "Response: $HTTP_BODY"
+
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 400 ]; then
+            echo "Backend is awake and healthy!"
+          else
+            echo "::error ::Keep-alive ping received unexpected status code $HTTP_CODE"
+            exit 1
+          fi

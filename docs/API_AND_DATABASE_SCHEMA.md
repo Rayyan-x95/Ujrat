@@ -18,20 +18,20 @@ This document describes the complete PostgreSQL relational schema, Row-Level Sec
                                        │ 1
      ┌───────────────────┬─────────────┼───────────────────┬───────────────────┐
      ▼                   ▼             ▼                   ▼                   ▼
-┌─────────┐         ┌─────────┐   ┌─────────┐         ┌─────────┐         ┌───────────────┐
-│ clients │ 1─────* │projects │ 1*│invoices │ 1─────* │payments │         │ activity_logs │
-└─────────┘         └────┬────┘   └────┬────┘         └─────────┘         └───────────────┘
-                         │ 1           │ 1
-        ┌────────────────┼─────────────┼────────────────┐
-        ▼                ▼             ▼                ▼
-  ┌───────────┐    ┌───────────┐ ┌──────────────┐ ┌────────────────────┐
-  │ proposals │    │ contracts │ │ deliverables │ │ project_activities │
-  └───────────┘    └───────────┘ └──────────────┘ └────────────────────┘
-                                       │ 1
-                                       ▼
-                                 ┌──────────────────┐
-                                 │ payment_attempts │
-                                 └──────────────────┘
+┌─────────┐         ┌─────────┐ 0..1 *┌─────────┐         ┌─────────┐         ┌───────────────┐
+│ clients │ 1─────* │projects │- - - -│invoices │ 1─────* │payments │         │ activity_logs │
+└─────────┘         └────┬────┘       └────┬────┘         └─────────┘         └───────────────┘
+                         │ 1               │ 1
+        ┌────────────────┼─────────────┐   └───────────────────┐
+        ▼                ▼             ▼                       ▼
+  ┌───────────┐    ┌───────────┐ ┌──────────────┐    ┌──────────────────┐
+  │ proposals │    │ contracts │ │ deliverables │    │ payment_attempts │
+  └───────────┘    └───────────┘ └──────────────┘    └──────────────────┘
+                         │ 1
+                         ▼
+               ┌────────────────────┐
+               │ project_activities │
+               └────────────────────┘
 ```
 
 ---
@@ -103,7 +103,7 @@ Core pipeline execution unit.
 * `deadline` (`date`)
 * `portal_token` (`text`, UNIQUE) - Cryptographic unguessable token for client portal access
 * `deleted_at` (`timestamptz`)
-* **Multi-Tenant Scoping**: All child entities (`proposals`, `contracts`, `deliverables`, `project_activities`) enforce shared `workspace_id` scoping matching the parent `projects.workspace_id`.
+* **Multi-Tenant Scoping & Workspace-Matching Constraints**: All child entities (`proposals`, `contracts`, `deliverables`, `project_activities`) and associated relations (e.g. `client_id`) enforce strict workspace-matching constraints via composite foreign keys `(id, workspace_id)`, database validation triggers, or RPC validation, guaranteeing that related clients and child records must share the parent `projects.workspace_id`.
 
 ### 2.5 `proposals`
 

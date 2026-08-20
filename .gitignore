@@ -13,11 +13,27 @@ dist-ssr/
 .env.*
 env.*
 *.env
+backend/supabase/functions/.env
+backend/supabase/functions/**/.env*
+backend/supabase/.env.local
 supabase/functions/.env
 supabase/functions/**/.env*
 supabase/.env.local
 !.env.example
-!src/app/config/env.ts
+!frontend/src/app/config/env.ts
+!**/config/env.ts
+
+# ─── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+venv/
+ENV/
+env/
 
 # ─── Testing & Coverage ───────────────────────────────────────────────────
 coverage/
@@ -26,6 +42,7 @@ playwright-report/
 blob-report/
 playwright/.cache/
 .nyc_output/
+.artifacts/
 
 # ─── Logs & Diagnostics ───────────────────────────────────────────────────
 logs/
@@ -37,8 +54,12 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # ─── Supabase CLI ─────────────────────────────────────────────────────────
+backend/supabase/.temp/
+backend/supabase/.branches/
 supabase/.temp/
 supabase/.branches/
+**/supabase/.temp/
+**/supabase/.branches/
 
 # ─── Editor, OS & System Files ───────────────────────────────────────────
 .vscode/*
@@ -67,4 +88,3 @@ desktop.ini
 .cursor/
 .windsurf/
 .clinerules/
-.github/
