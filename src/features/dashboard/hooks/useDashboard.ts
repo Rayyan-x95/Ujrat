@@ -9,13 +9,16 @@ export function useDashboard(workspaceId: string, profileId: string) {
       if (res.success === false) throw res.error;
       return res.data;
     },
-    enabled: !!workspaceId && !!profileId,
+    enabled: Boolean(workspaceId),
+    staleTime: 30000,
+    retry: 1,
   });
 
   return {
     metrics: dashboardQuery.data,
     isLoading: dashboardQuery.isLoading,
     isPending: dashboardQuery.isPending,
+    isFetching: dashboardQuery.isFetching,
     isError: dashboardQuery.isError,
     error: dashboardQuery.error,
     refetch: dashboardQuery.refetch,

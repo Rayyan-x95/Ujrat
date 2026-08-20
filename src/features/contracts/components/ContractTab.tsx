@@ -9,7 +9,8 @@ interface ContractTabProps {
   contract: any;
   projectStatus: string;
   budget: number;
-  emailLogs: any[];
+  emailLogs?: any[];
+  projectId?: string;
   onSave: (content: string, status: 'draft' | 'sent') => Promise<void>;
   onViewProposal: () => void;
 }
@@ -19,9 +20,10 @@ export const ContractTab: React.FC<ContractTabProps> = ({
   projectStatus,
   budget,
   emailLogs: _emailLogs = [],
+  projectId,
   onSave,
   onViewProposal,
-}: ContractTabProps & { emailLogs?: any[] }) => {
+}: ContractTabProps) => {
   const [contractContent, setContractContent] = useState<string>('');
   const [loadingDraft, setLoadingDraft] = useState(false);
   const [loadingSent, setLoadingSent] = useState(false);
@@ -34,18 +36,22 @@ export const ContractTab: React.FC<ContractTabProps> = ({
     '3. Intellectual Property: Upon final payment, IP transfers to the Client.'
   ), [budget]);
 
+  const projectIdentifier = projectId || contract?.project_id || contract?.id;
+
   useEffect(() => {
-    if (contract) {
-      setContractContent(contract.introduction || '');
+    if (contract?.introduction != null) {
+      setContractContent(contract.introduction);
+    } else if (contract?.content != null) {
+      setContractContent(contract.content);
     } else {
-      setContractContent(prev => prev || defaultContractText);
+      setContractContent(defaultContractText);
     }
-  }, [contract?.id]);
+  }, [projectIdentifier, contract?.id, defaultContractText]);
 
   const isDirty = useMemo(() => {
-    const saved = contract?.introduction ?? defaultContractText;
+    const saved = contract?.introduction ?? contract?.content ?? defaultContractText;
     return contractContent.trim() !== saved.trim();
-  }, [contract?.introduction, contractContent, defaultContractText]);
+  }, [contract?.introduction, contract?.content, contractContent, defaultContractText]);
 
   const handleAction = async (status: 'draft' | 'sent') => {
     if (status === 'draft') setLoadingDraft(true);

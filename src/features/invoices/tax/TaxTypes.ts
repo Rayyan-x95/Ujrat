@@ -296,8 +296,8 @@ export const TDS_SECTIONS: Record<string, TDSSectionInfo> = {
     code: '194H',
     name: 'Commission or Brokerage',
     defaultRate: 2,
-    description: '2% on commission/brokerage payments above ₹15,000 threshold (Finance Act 2024).',
-    cbdTCircular: 'Section 194H of Income Tax Act 1961 (amended by Finance Act 2024)',
+    description: '2% on commission/brokerage payments above ₹20,000 threshold (Finance (No. 2) Act, 2024).',
+    cbdTCircular: 'Section 194H of Income Tax Act 1961 (amended by Finance (No. 2) Act, 2024)',
   },
   '194Q': {
     code: '194Q',

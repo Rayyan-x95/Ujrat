@@ -4,7 +4,9 @@ export function initSentry() {
   const dsn = import.meta.env.VITE_SENTRY_DSN;
   
   if (!dsn) {
-    console.warn('[Sentry] DSN not configured, skipping initialization');
+    if (import.meta.env.DEV) {
+      console.debug('[Sentry] DSN not configured, skipping initialization');
+    }
     return;
   }
 
@@ -23,7 +25,7 @@ export function initSentry() {
     beforeSend(event) {
       // Filter out development errors
       if (import.meta.env.DEV) {
-        console.warn('[Sentry] Event captured:', event);
+        console.debug('[Sentry] Event captured:', event);
       }
       
       // Don't send cancelled requests
@@ -55,7 +57,9 @@ export function initSentry() {
     });
   }
 
-  console.warn('[Sentry] Initialized');
+  if (import.meta.env.DEV) {
+    console.debug('[Sentry] Initialized');
+  }
 }
 
 export { Sentry };

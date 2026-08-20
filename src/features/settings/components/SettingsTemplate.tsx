@@ -9,7 +9,7 @@ import { PageHeader } from '@/shared/ui/PageHeader';
 import { Section } from '@/shared/ui/Section';
 import { useWorkspaceSettings } from '@/features/settings';
 import { ProfileSchema, WorkspaceSettingsSchema } from '@/shared/validation/schemas';
-import { AuthService } from '@/features/auth';
+import { AuthService, useAuth } from '@/features/auth';
 import { exportWorkspaceJson } from '@/shared/utils/csvExport';
 import { supabase } from '@/shared/lib/supabaseClient';
 import { Database, HardDriveDownload } from 'lucide-react';
@@ -28,6 +28,7 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
   activeTab,
 }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [saving, setSaving] = useState(false);
   const [exportingData, setExportingData] = useState(false);
   
@@ -59,10 +60,13 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
 
   useEffect(() => {
     if (profile) {
-      setFullName(profile.full_name || '');
-      setProfileEmail(profile.email || '');
+      setFullName(profile.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || '');
+      setProfileEmail(profile.email || user?.email || '');
+    } else if (user) {
+      setFullName(user.user_metadata?.full_name || user.email?.split('@')[0] || '');
+      setProfileEmail(user.email || '');
     }
-  }, [profile]);
+  }, [profile, user]);
 
   useEffect(() => {
     if (settings) {
@@ -84,14 +88,26 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
     try {
       setSaving(true);
       
-      const validated = ProfileSchema.pick({ full_name: true }).parse({
-        full_name: fullName,
+      const validated = ProfileSchema.pick({ full_name: true, email: true }).parse({
+        full_name: fullName.trim() || undefined,
+        email: profileEmail.trim(),
       });
       
       await updateProfile({
         full_name: validated.full_name ?? null,
+        email: validated.email,
       });
-      addToast('success', 'Profile Updated Successfully');
+
+      if (user?.email && validated.email && validated.email.toLowerCase() !== user.email.toLowerCase()) {
+        const authRes = await AuthService.updateEmail(validated.email);
+        if (!authRes.success) {
+          addToast('warning', 'Email Confirmation Required', 'A verification link was sent to your new email address to complete the change.');
+        } else {
+          addToast('success', 'Profile & Email Updated', 'Your profile details and primary email have been updated.');
+        }
+      } else {
+        addToast('success', 'Profile Updated Successfully', 'Your profile details have been saved.');
+      }
     } catch (e: any) {
       addToast('error', 'Profile Update Failed', e.message || 'Validation failed');
     } finally {
@@ -231,20 +247,26 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
           <Section title="Profile Details" description="This information will appear on client proposals and agreements.">
             <div className="space-y-6 pt-1">
               <div className="flex items-center gap-4 border border-border p-4 rounded-lg bg-surface/30">
-                <Avatar name={fullName} size="xl" />
+                <Avatar name={fullName || 'Freelancer'} size="xl" />
                 <div className="min-w-0">
                   <p className="text-small font-bold text-foreground m-0">{fullName || 'Freelancer'}</p>
-                  <p className="text-[11px] text-muted-foreground m-0 font-medium">{profileEmail}</p>
+                  <p className="text-[11px] text-muted-foreground m-0 font-medium">{profileEmail || 'No email configured'}</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input label="Display Full Name" value={fullName} onChange={e => setFullName(e.target.value)} />
+                <Input 
+                  label="Display Full Name" 
+                  placeholder="e.g. Mohammed Rayyan"
+                  value={fullName} 
+                  onChange={e => setFullName(e.target.value)} 
+                />
                 <Input 
                   label="Primary Account Email" 
                   type="email" 
+                  placeholder="you@example.com"
                   value={profileEmail} 
-                  readOnly={true} 
-                  hint="Primary email address is managed via account authentication." 
+                  onChange={e => setProfileEmail(e.target.value)}
+                  hint="Used for authentication, notifications, and client communication." 
                 />
               </div>
               <div className="flex justify-end pt-2 border-t border-border mt-4">

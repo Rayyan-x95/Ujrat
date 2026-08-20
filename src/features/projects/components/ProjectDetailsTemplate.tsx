@@ -425,6 +425,7 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
         {activeTab === 'contract' && (
           <ContractTab
             contract={contract}
+            projectId={project.id}
             projectStatus={project.status}
             budget={project.budget}
             emailLogs={emailLogs}

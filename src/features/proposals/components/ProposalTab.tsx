@@ -14,8 +14,16 @@ interface ProposalTabProps {
   onSave: (data: { pricing: number; scope: string; timeline: string; terms: string }, status: 'draft' | 'sent') => Promise<void>;
 }
 
-function formatDeadline(deadlineStr: string): string {
+export function formatDeadline(deadlineStr: string): string {
   if (!deadlineStr) return '';
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(deadlineStr.trim());
+  if (dateOnlyMatch && dateOnlyMatch[1] && dateOnlyMatch[2] && dateOnlyMatch[3]) {
+    const year = parseInt(dateOnlyMatch[1], 10);
+    const month = parseInt(dateOnlyMatch[2], 10) - 1;
+    const day = parseInt(dateOnlyMatch[3], 10);
+    const d = new Date(Date.UTC(year, month, day));
+    return `Target Delivery: ${d.toLocaleDateString('en-IN', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' })}`;
+  }
   const d = new Date(deadlineStr);
   if (!isNaN(d.getTime())) {
     return `Target Delivery: ${d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;

@@ -123,7 +123,7 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, sub, icon: Icon, icon
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceId, profileId }) => {
-  const { metrics, isLoading, isError, error, refetch } = useDashboard(workspaceId, profileId);
+  const { metrics, isLoading, isPending, isError, error, refetch } = useDashboard(workspaceId, profileId);
   const navigate = useNavigate();
   const [chartRange, setChartRange] = useState<'month' | 'week'>('month');
   const [hoveredChartIdx, setHoveredChartIdx] = useState<number | null>(null);
@@ -240,9 +240,11 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
   }, [metrics?.monthlyRevenue, metrics?.earnedThisMonth]);
 
   // ─── Loading / Error States ─────────────────────────────────────────────────
-  if (isLoading) return <DashboardSkeleton />;
+  if (isLoading || isPending || !workspaceId || (!metrics && !isError)) {
+    return <DashboardSkeleton />;
+  }
 
-  if (isError || !metrics) {
+  if (isError && !metrics) {
     return (
       <div className="flex flex-col items-center justify-center p-12 border border-border rounded-xl bg-card text-center space-y-4 my-8">
         <div className="p-3 bg-destructive/10 rounded-full text-destructive">
@@ -257,6 +259,10 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
         <Button variant="outline" size="sm" onClick={() => refetch()}>Retry Loading</Button>
       </div>
     );
+  }
+
+  if (!metrics) {
+    return <DashboardSkeleton />;
   }
 
   // ─── Derived Values ─────────────────────────────────────────────────────────

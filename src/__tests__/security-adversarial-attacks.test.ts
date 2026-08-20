@@ -52,8 +52,8 @@ describe('🔒 BRUTAL SECURITY & ADVERSARIAL ATTACK SUITE', () => {
         expect(sanitized).not.toContain('<script>');
         expect(sanitized).not.toContain('<svg/onload');
         expect(sanitized).not.toContain('<iframe');
-        expect(sanitized.toLowerCase()).not.toMatch(/^javascript:/);
-        expect(sanitized.toLowerCase()).not.toMatch(/^vbscript:/);
+        expect(sanitized.toLowerCase()).not.toContain('javascript:');
+        expect(sanitized.toLowerCase()).not.toContain('vbscript:');
       });
     });
 
@@ -136,7 +136,7 @@ describe('🔒 BRUTAL SECURITY & ADVERSARIAL ATTACK SUITE', () => {
     });
   });
 
-  describe('6. Timing Attack Resistance & Constant Time Comparisons', () => {
+  describe('6. Token Equality Validation', () => {
     it('validates tokens with deterministic equality matching', () => {
       const validToken = 'a'.repeat(64);
       const wrongTokenAtStart = 'z' + 'a'.repeat(63);

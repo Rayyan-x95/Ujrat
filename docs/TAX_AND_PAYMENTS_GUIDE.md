@@ -8,11 +8,11 @@ This guide details the mathematical and legal standards implemented in Ujrat's *
 
 ### 1.1 Interstate vs Intrastate Determination & Place of Supply Rules
 Under the Indian Integrated Goods and Services Tax (IGST) Act, 2017 (specifically Section 12 for domestic service supplies), the tax type depends on the **Location of the Supplier** vs the **Place of Supply (Recipient's Location)**:
-* **B2B Registered Clients**: The place of supply is the location of the registered recipient (identified by the client's 2-digit GSTIN state prefix).
-* **B2C / Unregistered Clients**: The place of supply is the recipient's address on record (or the supplier's state if client location is absent).
+* **B2B Registered Clients**: The place of supply (`place_of_supply_state`) is the location of the registered recipient, derived from the first 2 digits of the client's GSTIN (e.g., `'27'` for Maharashtra).
+* **B2C / Unregistered Clients**: The place of supply (`place_of_supply_state`) is the recipient's recorded address state, falling back to the supplier's state (`supplier.state_code`) when client location is absent.
 
 ```
-IF supplier.state_code == client.state_code THEN
+IF place_of_supply_state == supplier.state_code THEN
     TAX = CGST (Central GST) + SGST/UTGST (State/Union Territory GST)
     Rate Split = Standard GST Rate / 2  (e.g., 18% -> 9% CGST + 9% SGST)
 ELSE
@@ -29,10 +29,10 @@ END IF
 * **`998431`**: On-line content provision and copywriting services
 
 ### 1.3 Tax Deduction at Source (TDS)
-For corporate clients deducting TDS before invoice settlement under the Income-tax Act, 1961:
-* **Section 194J (Fees for Professional / Technical Services)**: **10%** for professional fees; **2%** for technical/FTS services.
-* **Section 194C (Payments to Contractors / Deliverables)**: **1%** for Individuals/HUF, **2%** for Companies/LLPs.
-* **Section 194H (Commission or Brokerage)**: **2%** (reduced from 5% under Finance Act (No. 2), 2024, effective October 1, 2024).
+For corporate clients and specified payers deducting TDS before invoice settlement under the Income-tax Act, 1961:
+* **Section 194J (Fees for Professional / Technical Services)**: Applies to payments exceeding ₹30,000 annually (revised to **₹50,000** per financial year effective April 1, 2025). Deductible by companies, firms, and individuals/HUFs liable to tax audit under Section 44AB. Rate is **10%** for professional fees, **2%** for technical/FTS services.
+* **Section 194C (Payments to Contractors / Deliverables)**: Applies when a single contract payment exceeds **₹30,000** or aggregate annual payments exceed **₹1,00,000**. Deductible by specified business entities and tax-audit-liable individuals/HUFs. Rate is **1%** for Individuals/HUF contractors, **2%** for Companies/LLPs.
+* **Section 194H (Commission or Brokerage)**: Applies to aggregate payments exceeding **₹20,000** per financial year by specified payers. Rate is **2%** (reduced from 5% under Finance (No. 2) Act, 2024, effective October 1, 2024).
 * **Net Payable Calculation**:
   $$\text{Net Payable} = (\text{Subtotal} + \text{CGST} + \text{SGST} + \text{IGST}) - \text{TDS Amount}$$
 

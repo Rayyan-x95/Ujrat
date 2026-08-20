@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { formatIndianDate, formatFriendlyDate, isPastDate } from '@/shared/utils/date';
+import { formatDeadline } from '@/features/proposals/components/ProposalTab';
 
 describe('Date Utility Functions', () => {
   describe('formatIndianDate', () => {
@@ -31,6 +32,27 @@ describe('Date Utility Functions', () => {
       const futureDate = new Date();
       futureDate.setFullYear(futureDate.getFullYear() + 5);
       expect(isPastDate(futureDate)).toBe(false);
+    });
+  });
+
+  describe('formatDeadline', () => {
+    it('formats YYYY-MM-DD date-only values preserving exact calendar date without timezone shift', () => {
+      const res = formatDeadline('2026-10-31');
+      expect(res).toContain('31');
+      expect(res).toContain('Oct');
+      expect(res).toContain('2026');
+      expect(res).toContain('Target Delivery:');
+    });
+
+    it('handles empty and invalid date strings gracefully', () => {
+      expect(formatDeadline('')).toBe('');
+      expect(formatDeadline('not-a-date')).toBe('not-a-date');
+    });
+
+    it('formats valid ISO datetime strings', () => {
+      const res = formatDeadline('2026-12-15T10:00:00Z');
+      expect(res).toContain('Target Delivery:');
+      expect(res).toContain('2026');
     });
   });
 });

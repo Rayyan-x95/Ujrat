@@ -67,13 +67,15 @@ export function sanitizeObject<T>(obj: T, depth = 0): T {
 
   for (const [key, value] of Object.entries(obj as Record<string, any>)) {
     if (dangerousKeys.has(key)) continue;
+    const sanitizedKey = typeof key === 'string' ? sanitizeString(key) : key;
+    if (!sanitizedKey || dangerousKeys.has(sanitizedKey)) continue;
 
     if (typeof value === 'string') {
-      cleanObj[key] = sanitizeString(value);
+      cleanObj[sanitizedKey] = sanitizeString(value);
     } else if (value && typeof value === 'object') {
-      cleanObj[key] = sanitizeObject(value, depth + 1);
+      cleanObj[sanitizedKey] = sanitizeObject(value, depth + 1);
     } else {
-      cleanObj[key] = value;
+      cleanObj[sanitizedKey] = value;
     }
   }
 

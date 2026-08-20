@@ -7,6 +7,7 @@ import { supabase } from '@/shared/lib/supabaseClient';
 import { PaymentRepository } from '@/features/payments/repositories/PaymentRepository';
 import { InvoiceRepository } from '@/features/invoices/repositories/InvoiceRepository';
 import type { Result, QueryOptions, PaginatedResult, Payment, InvoiceStatus } from '@/shared/types';
+import type { SupportedCurrency } from '@/features/invoices/tax/TaxTypes';
 import type { PaymentReceiptData } from '../types/PaymentTypes';
 import { UTR_REGEX } from '../constants/PaymentConstants';
 import { PaymentStateMachine, InvoiceStateMachine, PaymentRequestStateMachine } from '@/shared/utils/StateMachine';
@@ -77,6 +78,7 @@ export class PaymentService {
       clientName: string;
       clientEmail?: string;
       notes?: string;
+      currency?: SupportedCurrency | string;
     }
   ): Promise<Result<PaymentReceiptData>> {
     try {
@@ -90,6 +92,7 @@ export class PaymentService {
       const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
       const uniqueSuffix = id.replace(/-/g, '').slice(0, 8).toUpperCase();
       const receiptNumber = `REC-${dateStr}-${uniqueSuffix}`;
+      const currency = params.currency || 'INR';
 
       const receipt: PaymentReceiptData = {
         id,
@@ -97,7 +100,7 @@ export class PaymentService {
         workspaceId,
         invoiceId: params.invoiceId,
         amount: params.amount,
-        currency: 'INR',
+        currency,
         paymentMethod: 'UPI',
         utrNumber: params.utrNumber.trim(),
         clientName: params.clientName,
@@ -378,12 +381,21 @@ export class PaymentService {
               },
             };
           }
+          try {
+            await (supabase as any).from('payment_attempts').delete().eq('id', attemptId).eq('workspace_id', workspaceId);
+          } catch (_) {}
           throw new Error('This 12-digit UTR Number has already been submitted.');
         }
+        try {
+          await (supabase as any).from('payment_attempts').delete().eq('id', attemptId).eq('workspace_id', workspaceId);
+        } catch (_) {}
         throw err;
       }
 
       if (!createdPayment) {
+        try {
+          await (supabase as any).from('payment_attempts').delete().eq('id', attemptId).eq('workspace_id', workspaceId);
+        } catch (_) {}
         throw new Error('Failed to create payment record');
       }
 
@@ -521,6 +533,7 @@ export class PaymentService {
         const receiptRes = await this.generateReceipt(workspaceId, {
           invoiceId: invoice.id,
           amount: Number(payment.amount),
+          currency: (invoice as any).currency || 'INR',
           utrNumber: payment.transaction_reference || '',
           clientName: invoice.projects?.clients?.name || 'Client',
         });

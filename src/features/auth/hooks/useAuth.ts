@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useNavigate } from 'react-router-dom';
 import { AuthService } from '@/features/auth';
 import { WorkspaceService } from '@/features/workspace';
+import { supabase } from '@/shared/lib/supabaseClient';
 import type { User } from '@supabase/supabase-js';
 import { useToastStore } from '@/shared/hooks/useToastStore';
 import type { Result } from '@/shared/types';
@@ -43,11 +44,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const workspacesRes = await WorkspaceService.getWorkspaces(userId);
         if (workspacesRes.success && workspacesRes.data.length > 0) {
           return workspacesRes.data[0]?.id || '';
-        } else if (workspacesRes.success && workspacesRes.data.length === 0) {
-          const createRes = await WorkspaceService.createWorkspace(userId, 'My Workspace');
-          if (createRes.success && createRes.data) {
-            return createRes.data.id;
+        }
+
+        try {
+          const { data: memberData } = await (supabase as any)
+            .from('workspace_members')
+            .select('workspace_id')
+            .eq('user_id', userId)
+            .limit(1)
+            .maybeSingle();
+
+          if (memberData?.workspace_id) {
+            return memberData.workspace_id;
           }
+        } catch {
+          // ignore member lookup error
+        }
+
+        const createRes = await WorkspaceService.createWorkspace(userId, 'My Workspace');
+        if (createRes.success && createRes.data) {
+          return createRes.data.id;
         }
         return '';
       } catch {

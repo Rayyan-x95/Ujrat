@@ -115,7 +115,7 @@ export const PrivacyPage: React.FC = () => (
       <section className="space-y-3">
         <h2 className="text-title font-semibold text-foreground">3. User Rights, Erasure & Database Security</h2>
         <p className="text-body text-muted-foreground leading-relaxed">
-          All workspace data is strictly isolated using PostgreSQL Row-Level Security (RLS) policies. Users retain rights to access, rectify, export, or erase their personal data via workspace Settings. Deliverables uploaded to storage buckets remain encrypted and inaccessible to unauthorized parties.
+          All workspace data is strictly isolated using PostgreSQL Row-Level Security (RLS) policies. Users retain rights to access, rectify, export, or erase their personal data (such as profile details and non-statutory account information) via workspace Settings. Invoice and other legally required GST billing records are retained for the applicable statutory retention period (e.g., up to 6 years under Indian GST laws). Retained records remain access-restricted and are anonymized or deleted once statutory retention requirements expire. Deliverables uploaded to storage buckets remain encrypted and inaccessible to unauthorized parties.
         </p>
       </section>
 

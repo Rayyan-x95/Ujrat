@@ -7,7 +7,9 @@ export function initPostHog() {
   const host = import.meta.env.VITE_POSTHOG_HOST || 'https://app.posthog.com';
   
   if (!apiKey || initialized) {
-    console.warn('[PostHog] Not initialized - missing API key or already initialized');
+    if (!apiKey && import.meta.env.DEV && !initialized) {
+      console.debug('[PostHog] API key not configured, skipping initialization');
+    }
     return;
   }
 
@@ -20,7 +22,7 @@ export function initPostHog() {
     loaded: (posthog) => {
       if (import.meta.env.DEV) {
         posthog.debug(true);
-        console.warn('[PostHog] Initialized');
+        console.debug('[PostHog] Initialized');
       }
     },
     disable_session_recording: true,
@@ -34,7 +36,6 @@ export function initPostHog() {
 
 export function identifyUser(userId: string, traits?: Record<string, unknown>) {
   if (!initialized) {
-    console.warn('[PostHog] Not initialized, cannot identify user');
     return;
   }
   
@@ -46,7 +47,6 @@ export function identifyUser(userId: string, traits?: Record<string, unknown>) {
 
 export function trackEvent(eventName: string, properties?: Record<string, unknown>) {
   if (!initialized) {
-    console.warn('[PostHog] Not initialized, cannot track event');
     return;
   }
   

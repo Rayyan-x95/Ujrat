@@ -4,6 +4,7 @@
  */
 
 import { supabase } from '@/shared/lib/supabaseClient';
+import { LoggingService } from '@/features/auth/services/LoggingService';
 import {
   GST_STATE_CODES,
   STATE_NAME_TO_CODE,
@@ -521,6 +522,7 @@ export function calculateInvoiceTax(input: InvoiceTaxCalculationInput): InvoiceT
 
   const taxablePaise = toPaise(gstRes.taxableSubtotal);
   const totalGstPaise = toPaise(gstRes.totalGst);
+  postTaxDiscountPaise = Math.min(postTaxDiscountPaise, taxablePaise + totalGstPaise);
   const totalDiscountPaise = toPaise(gstRes.lineDiscountsTotal + gstRes.allocatedInvoiceDiscount) + postTaxDiscountPaise;
 
   const rawGrandTotalPaise = taxablePaise + totalGstPaise - postTaxDiscountPaise;
@@ -642,6 +644,12 @@ export function validateTaxCalculation(
       if (!Number.isFinite(it.rate) || it.rate < 0) {
         errors.push(`Line item #${idx + 1}: rate must be non-negative`);
       }
+      if (it.gst_rate !== undefined && (!Number.isFinite(it.gst_rate) || it.gst_rate < 0)) {
+        errors.push(`Line item #${idx + 1}: gst_rate must be non-negative`);
+      }
+      if (it.cess_rate !== undefined && (!Number.isFinite(it.cess_rate) || it.cess_rate < 0)) {
+        errors.push(`Line item #${idx + 1}: cess_rate must be non-negative`);
+      }
     });
 
     return {
@@ -708,15 +716,28 @@ export class TaxRepository {
     userId?: string
   ): Promise<void> {
     try {
-      await (supabase as any).from('tax_audit_logs').insert({
+      const { error } = await (supabase as any).from('tax_audit_logs').insert({
         workspace_id: workspaceId,
         invoice_id: invoiceId,
         event_type: eventType,
         payload,
         performed_by: userId || null,
       });
-    } catch {
-      // Safely ignore audit log insert failures
+      if (error) {
+        LoggingService.logWarning(`Tax audit log insert failed: ${error.message}`, {
+          workspaceId,
+          invoiceId,
+          eventType,
+          error: error.message,
+        });
+      }
+    } catch (err: any) {
+      LoggingService.logWarning(`Tax audit log exception: ${err?.message || String(err)}`, {
+        workspaceId,
+        invoiceId,
+        eventType,
+        error: err?.message || String(err),
+      });
     }
   }
 

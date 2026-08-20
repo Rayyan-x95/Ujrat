@@ -13,11 +13,28 @@ export interface DashboardMetrics {
 }
 
 export class DashboardService {
+  static getEmptyMetrics(profileName: string = 'Freelancer'): DashboardMetrics {
+    return {
+      profileName,
+      activeProjects: 0,
+      outstanding: 0,
+      earnedThisMonth: 0,
+      totalClients: 0,
+      pipeline: [],
+      activities: [],
+      monthlyRevenue: new Array(12).fill(0),
+    };
+  }
+
   static async getDashboardData(workspaceId: string, profileId: string): Promise<Result<DashboardMetrics>> {
+    if (!workspaceId) {
+      return { success: true, data: this.getEmptyMetrics('Freelancer') };
+    }
+
     try {
       const { data: rpcData, error: rpcError } = await supabase.rpc('get_dashboard_data', {
         p_workspace_id: workspaceId,
-        p_profile_id: profileId,
+        p_profile_id: profileId || '',
       });
 
       if (!rpcError && rpcData) {
@@ -49,29 +66,36 @@ export class DashboardService {
     profileId: string
   ): Promise<Result<DashboardMetrics>> {
     try {
-      const [profileRes, clientsRes, projectsRes, invoicesRes, activitiesRes] = await Promise.all([
-        supabase.from('profiles').select('full_name').eq('id', profileId).maybeSingle(),
+      const [profileRes, clientsRes, projectsRes, invoicesRes, activitiesRes] = await Promise.allSettled([
+        profileId ? supabase.from('profiles').select('full_name').eq('id', profileId).maybeSingle() : Promise.resolve({ data: null, error: null }),
         supabase.from('clients').select('id', { count: 'exact' }).eq('workspace_id', workspaceId).is('deleted_at', null),
         supabase.from('projects').select('status').eq('workspace_id', workspaceId).is('deleted_at', null),
         supabase.from('invoices').select('total, status, created_at').eq('workspace_id', workspaceId).is('deleted_at', null),
-        supabase
-          .from('activity_logs')
-          .select('id, workspace_id, profile_id, project_id, action, details, created_at')
-          .eq('workspace_id', workspaceId)
-          .eq('profile_id', profileId)
-          .order('created_at', { ascending: false })
-          .limit(5),
+        profileId
+          ? supabase
+              .from('activity_logs')
+              .select('id, workspace_id, profile_id, project_id, action, details, created_at')
+              .eq('workspace_id', workspaceId)
+              .eq('profile_id', profileId)
+              .order('created_at', { ascending: false })
+              .limit(5)
+          : supabase
+              .from('activity_logs')
+              .select('id, workspace_id, profile_id, project_id, action, details, created_at')
+              .eq('workspace_id', workspaceId)
+              .order('created_at', { ascending: false })
+              .limit(5),
       ]);
 
-      const profileName = profileRes.data?.full_name || 'Freelancer';
-      const totalClients = clientsRes.count || 0;
-      const projects = (projectsRes.data || []) as { status: string }[];
-      const invoiceData = (invoicesRes.data || []) as { total: number | null; status: string; created_at: string }[];
-      const activities = (activitiesRes.data || []) as ActivityLog[];
+      const profileName = (profileRes.status === 'fulfilled' && (profileRes.value as any)?.data?.full_name) || 'Freelancer';
+      const totalClients = (clientsRes.status === 'fulfilled' && (clientsRes.value as any)?.count) || 0;
+      const projects = (projectsRes.status === 'fulfilled' && ((projectsRes.value as any)?.data || [])) as { status: string }[];
+      const invoiceData = (invoicesRes.status === 'fulfilled' && ((invoicesRes.value as any)?.data || [])) as { total: number | null; status: string; created_at: string }[];
+      const activities = (activitiesRes.status === 'fulfilled' && ((activitiesRes.value as any)?.data || [])) as ActivityLog[];
 
       return this.calculateMetrics(profileName, totalClients, projects, invoiceData, activities);
-    } catch (e) {
-      return { success: false, error: e as Error };
+    } catch {
+      return { success: true, data: this.getEmptyMetrics('Freelancer') };
     }
   }
 
@@ -88,7 +112,8 @@ export class DashboardService {
     const pipelineMap = new Map<string, number>();
     const monthlyRevenue = new Array(12).fill(0);
 
-    projects.forEach((p) => {
+    (projects || []).forEach((p) => {
+      if (!p) return;
       const status = p.status;
       if (['proposal', 'approved', 'contract_signed', 'advance_paid', 'in_progress', 'delivered', 'invoice_sent'].includes(status)) {
         activeProjects++;
@@ -99,7 +124,8 @@ export class DashboardService {
       if (status === 'invoice_sent') pipelineMap.set('Invoice Shared', (pipelineMap.get('Invoice Shared') || 0) + 1);
     });
 
-    invoiceData.forEach((inv) => {
+    (invoiceData || []).forEach((inv) => {
+      if (!inv) return;
       const amount = Number(inv.total) || 0;
       if (inv.status === 'paid') {
         earnedThisMonth += amount;
@@ -130,13 +156,13 @@ export class DashboardService {
     return {
       success: true,
       data: {
-        profileName,
+        profileName: profileName || 'Freelancer',
         activeProjects,
         outstanding,
         earnedThisMonth,
         totalClients,
         pipeline,
-        activities,
+        activities: activities || [],
         monthlyRevenue,
       },
     };

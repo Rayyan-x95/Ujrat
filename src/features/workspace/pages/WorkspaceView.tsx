@@ -89,7 +89,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ view }) => {
     }
   }, [workspaceId, navigate, addToast]);
 
-  if (authLoading) {
+  if (authLoading || (user && !workspaceId)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Spinner size="lg" />
@@ -107,7 +107,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ view }) => {
         workspaceId={workspaceId}
         profileId={profileId}
       >
-        <ErrorBoundary key={view}>
+        <ErrorBoundary key={`${view}-${projectId || ''}`}>
           <React.Suspense fallback={<div className="flex items-center justify-center p-24"><Spinner size="lg" /></div>}>
             {view === 'project-details' && projectId ? (
               <ProjectDetailsTemplate

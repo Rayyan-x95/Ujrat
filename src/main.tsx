@@ -17,7 +17,9 @@ const initMonitoringAndSW = () => {
   // Register PWA service worker
   if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('/sw.js').catch((err) => {
-      console.warn('[PWA] ServiceWorker registration failed:', err);
+      if (import.meta.env.DEV) {
+        console.debug('[PWA] ServiceWorker registration skipped or failed:', err);
+      }
     });
   }
 };

@@ -17,12 +17,53 @@ export class AuthService {
 
   static async getProfile(profileId: string): Promise<Result<Profile | null>> {
     try {
+      if (!profileId) {
+        return { success: true, data: null };
+      }
+
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', profileId)
         .is('deleted_at', null)
         .maybeSingle();
+
+      // If profile record is missing or email/full_name is missing, enrich from auth user
+      if (!data || !data.full_name || !data.email) {
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const authUser = sessionData?.session?.user;
+          if (authUser && (authUser.id === profileId || !profileId)) {
+            const fullName = data?.full_name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Freelancer';
+            const email = data?.email || authUser.email || '';
+
+            const enriched: Profile = {
+              id: profileId || authUser.id,
+              full_name: fullName,
+              email: email,
+              avatar_url: data?.avatar_url || null,
+              created_at: data?.created_at || new Date().toISOString(),
+              updated_at: data?.updated_at || new Date().toISOString(),
+              deleted_at: null,
+            };
+
+            // Self-heal/upsert in the background
+            (supabase.from('profiles') as any)
+              .upsert({
+                id: profileId || authUser.id,
+                full_name: fullName,
+                email: email,
+                updated_at: new Date().toISOString(),
+              }, { onConflict: 'id' })
+              .then(() => {})
+              .catch(() => {});
+
+            return { success: true, data: enriched };
+          }
+        } catch {
+          // session fallback error ignored
+        }
+      }
 
       if (error) return { success: false, error: new Error(error.message) };
       return { success: true, data };
@@ -35,8 +76,15 @@ export class AuthService {
     try {
       const payload: Record<string, any> = {};
       if (profileData.full_name !== undefined) payload.full_name = profileData.full_name ?? null;
+      if (profileData.email !== undefined) payload.email = profileData.email ?? null;
       if (profileData.avatar_url !== undefined) payload.avatar_url = profileData.avatar_url ?? null;
       payload.updated_at = new Date().toISOString();
+
+      if (profileData.full_name) {
+        supabase.auth.updateUser({
+          data: { full_name: profileData.full_name }
+        }).catch(() => {});
+      }
 
       const { data, error } = await (supabase
         .from('profiles') as any)
@@ -50,7 +98,7 @@ export class AuthService {
       if (!data) {
         // If 0 rows were updated (profile record did not exist in profiles table yet), perform an upsert fallback
         const { data: authUserData } = await supabase.auth.getUser();
-        const userEmail = authUserData?.user?.email || profileData.email || '';
+        const userEmail = profileData.email || authUserData?.user?.email || '';
 
         const upsertPayload: Record<string, any> = {
           id: profileId,
@@ -73,6 +121,19 @@ export class AuthService {
       }
 
       return { success: true, data: data as Profile };
+    } catch (e) {
+      return { success: false, error: e as Error };
+    }
+  }
+
+  static async updateEmail(email: string): Promise<Result<any>> {
+    try {
+      if (!email || !email.includes('@')) {
+        return { success: false, error: new Error('Valid email address is required') };
+      }
+      const { data, error } = await supabase.auth.updateUser({ email });
+      if (error) return { success: false, error: new Error(error.message) };
+      return { success: true, data };
     } catch (e) {
       return { success: false, error: e as Error };
     }

@@ -150,8 +150,26 @@ export class ContractService {
         ip_address: validated.ip_address ?? '0.0.0.0',
       });
 
-      await ContractRepository.update(workspaceId, contractId, { status: 'signed' });
-      await ProjectRepository.update(workspaceId, projectId, { status: 'contract_signed' });
+      let contractUpdated = false;
+      try {
+        await ContractRepository.update(workspaceId, contractId, { status: 'signed' });
+        contractUpdated = true;
+        await ProjectRepository.update(workspaceId, projectId, { status: 'contract_signed' });
+      } catch (updateErr) {
+        if (contractUpdated) {
+          try {
+            await ContractRepository.update(workspaceId, contractId, { status: contract.status as ContractStatus });
+          } catch (_) {}
+        }
+        try {
+          await (supabase as any)
+            .from('contract_signatures')
+            .delete()
+            .eq('id', signature.id)
+            .eq('workspace_id', workspaceId);
+        } catch (_) {}
+        throw updateErr;
+      }
 
       await LoggingService.logActivity({
         workspaceId,

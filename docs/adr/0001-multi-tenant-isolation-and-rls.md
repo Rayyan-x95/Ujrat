@@ -7,7 +7,7 @@
 Ujrat hosts freelancers and boutique agencies who manage sensitive client contracts, GST invoices, and financial records. Cross-tenant data leakage is a critical threat.
 
 ## Decision
-1. Every relational table contains a `workspace_id` foreign key.
+1. Every tenant-owned relational table contains a `workspace_id` foreign key. Global tables such as `profiles` and `workspaces` are protected through their defined relationships and appropriate RLS policies, with `workspace_members` representing user-to-workspace membership.
 2. PostgreSQL Row-Level Security (RLS) is enforced at the database level using `auth.uid()` and `workspace_members`.
 3. Client portal access is strictly mediated via database `SECURITY DEFINER` RPC stored procedures (e.g. `get_portal_project`, `sign_portal_contract`) with token verification, rather than direct client-side table selects or broad anonymous RLS policies.
 

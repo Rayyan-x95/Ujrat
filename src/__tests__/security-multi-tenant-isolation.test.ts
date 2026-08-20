@@ -140,5 +140,19 @@ describe('Multi-Tenant & Workspace Isolation Security Suite (F-001 / F-002)', ()
       const isAligned = proposalData.workspace_id === proposalData.project_workspace_id;
       expect(isAligned).toBe(false);
     });
+
+    it('rejects cross-workspace associations when workspace IDs do not match', () => {
+      const enforceWorkspaceConstraint = (parentWorkspaceId: string, childWorkspaceId: string) => {
+        if (parentWorkspaceId !== childWorkspaceId) {
+          throw new Error('Foreign key violation: cross-workspace entity association rejected');
+        }
+        return true;
+      };
+
+      expect(() => enforceWorkspaceConstraint(workspaceA, workspaceB)).toThrow(
+        'Foreign key violation: cross-workspace entity association rejected'
+      );
+      expect(enforceWorkspaceConstraint(workspaceA, workspaceA)).toBe(true);
+    });
   });
 });

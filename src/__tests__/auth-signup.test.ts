@@ -35,7 +35,10 @@ describe('Auth Signup Verification', () => {
   });
 
   it('rejects short passwords before invoking backend', async () => {
-    const signUpSpy = vi.spyOn(supabase.auth, 'signUp');
+    const signUpSpy = vi.spyOn(supabase.auth, 'signUp').mockResolvedValue({
+      data: { user: null, session: null },
+      error: null,
+    } as any);
     const signupRes = await AuthService.signUp('test@example.com', 'short', 'Test User');
 
     expect(signupRes.success).toBe(false);
