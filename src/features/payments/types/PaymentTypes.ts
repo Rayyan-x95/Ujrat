@@ -70,5 +70,7 @@ export interface PaymentReceiptData {
   paymentMethod: string;
   utrNumber: string;
   clientName: string;
+  clientEmail?: string | undefined;
+  notes?: string | undefined;
   issuedAt: string;
 }

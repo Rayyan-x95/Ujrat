@@ -201,7 +201,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
       >
         {MOBILE_NAV_ITEMS.slice(0, 5).map(item => {
           const Icon = item.icon;
-          const isActive = currentView === item.id;
+          const isActive = currentView === item.id || (item.id === 'projects' && currentView === 'project-details');
           return (
             <button
               key={item.id}
@@ -263,7 +263,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
                 <nav className="space-y-1">
                   {MOBILE_NAV_ITEMS.map(item => {
                     const Icon = item.icon;
-                    const isActive = currentView === item.id;
+                    const isActive = currentView === item.id || (item.id === 'projects' && currentView === 'project-details');
                     return (
                       <button
                         key={item.id}

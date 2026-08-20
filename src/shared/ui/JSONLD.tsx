@@ -92,41 +92,46 @@ export const getTechArticleSchema = (
   headline: string,
   description: string,
   urlPath: string,
-  datePublished = '2026-01-01',
-  dateModified = '2026-08-20'
-) => ({
-  '@context': 'https://schema.org',
-  '@type': 'TechArticle',
-  'headline': headline,
-  'description': description,
-  'url': `https://ujrat.ninety5.in${urlPath}`,
-  'datePublished': datePublished,
-  'dateModified': dateModified,
-  'inLanguage': 'en-IN',
-  'spatialCoverage': {
-    '@type': 'Place',
-    'name': 'India',
-    'geo': {
-      '@type': 'GeoCoordinates',
-      'latitude': 20.593684,
-      'longitude': 78.96288
-    }
-  },
-  'author': {
-    '@type': 'Organization',
-    'name': 'Ujrat Legal & Taxation Engineering Team',
-    'url': 'https://ujrat.ninety5.in'
-  },
-  'publisher': {
-    '@type': 'Organization',
-    'name': 'Ujrat',
-    'logo': {
-      '@type': 'ImageObject',
-      'url': 'https://ujrat.ninety5.in/favicon-transparent.png'
-    }
-  },
-  'mainEntityOfPage': `https://ujrat.ninety5.in${urlPath}`
-});
+  datePublished?: string,
+  dateModified?: string
+) => {
+  const schema: Record<string, any> = {
+    '@context': 'https://schema.org',
+    '@type': 'TechArticle',
+    'headline': headline,
+    'description': description,
+    'url': `https://ujrat.ninety5.in${urlPath}`,
+    'inLanguage': 'en-IN',
+    'spatialCoverage': {
+      '@type': 'Place',
+      'name': 'India',
+      'geo': {
+        '@type': 'GeoCoordinates',
+        'latitude': 20.593684,
+        'longitude': 78.96288
+      }
+    },
+    'author': {
+      '@type': 'Organization',
+      'name': 'Ujrat Legal & Taxation Engineering Team',
+      'url': 'https://ujrat.ninety5.in'
+    },
+    'publisher': {
+      '@type': 'Organization',
+      'name': 'Ujrat',
+      'logo': {
+        '@type': 'ImageObject',
+        'url': 'https://ujrat.ninety5.in/favicon-transparent.png'
+      }
+    },
+    'mainEntityOfPage': `https://ujrat.ninety5.in${urlPath}`
+  };
+
+  if (datePublished) schema['datePublished'] = datePublished;
+  if (dateModified) schema['dateModified'] = dateModified;
+
+  return schema;
+};
 
 export const getLegalLegislationSchema = (
   lawName: string,

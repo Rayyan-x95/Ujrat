@@ -72,7 +72,8 @@ export class ProposalService {
 
       let proposal;
       if (resolvedProposalId) {
-        proposal = await ProposalRepository.update(workspaceId, resolvedProposalId, fullProposalData);
+        const { client_feedback: _cf, ...updatePayload } = fullProposalData;
+        proposal = await ProposalRepository.update(workspaceId, resolvedProposalId, updatePayload);
       } else {
         proposal = await ProposalRepository.create(workspaceId, fullProposalData);
       }

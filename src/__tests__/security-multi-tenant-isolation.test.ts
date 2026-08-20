@@ -18,10 +18,18 @@ describe('Multi-Tenant & Workspace Isolation Security Suite (F-001 / F-002)', ()
 
   describe('Repository-Level Workspace ID Enforcement', () => {
     it('ClientRepository scopes all queries strictly by workspaceId', async () => {
-      const fromSpy = vi.spyOn(supabase, 'from');
+      const eqMock = vi.fn().mockReturnThis();
+      const fromSpy = vi.spyOn(supabase, 'from').mockReturnValue({
+        select: vi.fn().mockReturnThis(),
+        eq: eqMock,
+        is: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        range: vi.fn().mockResolvedValue({ data: [], error: null, count: 0 }),
+      } as any);
 
-      await ClientRepository.getAll(workspaceA).catch(() => {});
+      await ClientRepository.getAll(workspaceA);
       expect(fromSpy).toHaveBeenCalledWith('clients');
+      expect(eqMock).toHaveBeenCalledWith('workspace_id', workspaceA);
 
       // Attempting to query with empty workspaceId throws
       await expect(ClientRepository.getAll('')).rejects.toThrow();

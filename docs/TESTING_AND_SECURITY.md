@@ -24,20 +24,20 @@ PostgreSQL Row-Level Security ensures that tenant queries cannot leak cross-work
 
 ---
 
-## 2. Automated Test Suite (22 Suites / 157 Tests Passing)
+## 2. Automated Test Suite (22 Suites / 160 Tests Passing)
 
 Ujrat maintains an exhaustive, domain-organized test harness using **Vitest**:
 
 ```text
-Domain Test Suite Organization (22 Test Files / 157 Tests Passing):
+Domain Test Suite Organization (22 Test Files / 160 Tests Passing):
 
 🔐 Authentication & Access Control
-✓ src/__tests__/auth-signup.test.ts (1 test) - Registration bootstrap, workspace auto-provisioning
+✓ src/__tests__/auth-signup.test.ts (3 tests) - Registration bootstrap, mock validation, error handling
 ✓ src/__tests__/auth-otp-zero-trust.test.ts (5 tests) - Brute-force resistance, timing attack defense
 
 💰 Finance, Tax & Invoicing Engine
 ✓ src/__tests__/finance-tax-engine.test.ts (20 tests) - GST, CGST/SGST/IGST, interstate splits, rounding
-✓ src/__tests__/finance-stress-precision.test.ts (10 tests) - 100k transaction paise invariant, ₹100 Cr invoices, TDS cliffs
+✓ src/__tests__/finance-stress-precision.test.ts (11 tests) - 100k transaction paise invariant, ₹100 Cr invoices, TDS cliffs, discounts
 ✓ src/__tests__/finance-milestones-advance.test.ts (8 tests) - Milestone breakdown, advance calculations
 ✓ src/__tests__/finance-invariants-race.test.ts (10 tests) - Payment settlement & multi-installment reconciliations
 

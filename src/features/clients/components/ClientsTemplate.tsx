@@ -206,7 +206,7 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
           ),
           tips: [
             "Adding client WhatsApp numbers enables 1-click invoice sharing.",
-            "Client company names automatically populate into GST Place-of-Supply invoices.",
+            "Client billing addresses and GST details automatically populate into invoices.",
             "Each client gets a secure, passwordless portal link to sign agreements."
           ]
         }}

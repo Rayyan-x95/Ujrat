@@ -64,11 +64,25 @@ export class DeliverableService {
       const project = await ProjectRepository.getById(workspaceId, projectId);
       if (!project) throw new Error('Unauthorized project workspace access');
 
+      if (!linkUrl || typeof linkUrl !== 'string') {
+        throw new Error('Link URL is required');
+      }
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(linkUrl.trim());
+      } catch {
+        throw new Error('Invalid URL format');
+      }
+      if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+        throw new Error('Only HTTP and HTTPS links are allowed');
+      }
+      const validatedUrl = parsedUrl.toString();
+
       const deliverable = await DeliverableRepository.addDeliverable(workspaceId, {
         workspace_id: workspaceId,
         project_id: projectId,
         name,
-        file_url: linkUrl,
+        file_url: validatedUrl,
         file_type: 'link',
         file_size: 0,
         uploaded_at: new Date().toISOString(),
@@ -80,7 +94,7 @@ export class DeliverableService {
         profileId,
         projectId,
         action: 'Deliverable Link Added',
-        details: { deliverableId: deliverable.id, name, linkUrl },
+        details: { deliverableId: deliverable.id, name, linkUrl: validatedUrl },
       });
 
       return { success: true, data: deliverable };

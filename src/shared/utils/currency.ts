@@ -69,11 +69,11 @@ export function numberToIndianRupeeWords(num: number): string {
 
   let words = formatIndianNumberGroup(integerPart);
   if (!words) words = 'Zero';
-  words += ' Rupees';
+  words += integerPart === 1 ? ' Rupee' : ' Rupees';
 
   if (decimalPart > 0) {
     const decStr = formatIndianNumberGroup(decimalPart) || 'Zero';
-    words += ' and ' + decStr + ' Paise';
+    words += ' and ' + (decimalPart === 1 ? decStr + ' Paisa' : decStr + ' Paise');
   }
 
   const result = words + ' Only';

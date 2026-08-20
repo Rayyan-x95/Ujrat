@@ -35,11 +35,19 @@ The app will be available at `http://localhost:5173`.
 
 ## 3. Environment Variables (`.env`)
 
+### Client-Side Variables (Vite Bundled)
 | Variable | Description | Required | Example |
 | :--- | :--- | :--- | :--- |
 | `VITE_SUPABASE_URL` | Supabase project API URL | Yes | `https://xxxx.supabase.co` |
 | `VITE_SUPABASE_ANON_KEY` | Public anonymous client API key | Yes | `eyJhbGciOi...` |
-| `VITE_APP_URL` | Production application base URL | Yes | `https://ujrat.in` |
+| `VITE_APP_URL` | Application base URL | Yes | `https://ujrat.ninety5.in` |
+| `VITE_SENTRY_DSN` | Sentry Error Tracking DSN | No | `https://xxx@sentry.io/xxx` |
+
+### Server-Side Edge Function Secrets (Never bundle with `VITE_`)
+| Secret | Description | Required | Scope |
+| :--- | :--- | :--- | :--- |
+| `SUPABASE_SERVICE_ROLE_KEY` | Administrative service role key | For migrations/admin scripts | Edge Functions / CI |
+| `PLUNK_API_KEY` | Plunk transactional email API key | For email notifications | Edge Functions |
 
 ---
 
@@ -48,8 +56,8 @@ The app will be available at `http://localhost:5173`.
 * **`npm run dev`**: Starts Vite development server with Hot Module Replacement (HMR).
 * **`npm run build`**: Builds production bundle into `dist/` folder with minification and tree shaking.
 * **`npm run preview`**: Serves the local production build for pre-deployment inspection.
-* **`npm test`**: Runs the Vitest test runner.
-* **`npm test -- --run`**: Runs all 18 Vitest test suites once in headless CI mode.
+* **`npm test`**: Runs the Vitest test runner in watch mode.
+* **`npm test -- --run`**: Runs all 22 Vitest test suites once in headless CI mode.
 * **`npx tsc --noEmit`**: Type checks all TypeScript files without generating output files.
 * **`npx playwright test`**: Executes end-to-end browser tests.
 

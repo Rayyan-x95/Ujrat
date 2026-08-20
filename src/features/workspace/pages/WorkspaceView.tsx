@@ -107,7 +107,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ view }) => {
         workspaceId={workspaceId}
         profileId={profileId}
       >
-        <ErrorBoundary fallback={<div className="p-24 text-center"><p className="text-destructive">Failed to load this view. Please try refreshing or contact support.</p></div>}>
+        <ErrorBoundary key={view}>
           <React.Suspense fallback={<div className="flex items-center justify-center p-24"><Spinner size="lg" /></div>}>
             {view === 'project-details' && projectId ? (
               <ProjectDetailsTemplate

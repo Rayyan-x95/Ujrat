@@ -57,7 +57,14 @@ export function extractStateCode(gstin?: string | null, stateName?: string | nul
     for (const [name, code] of Object.entries(STATE_NAME_TO_CODE)) {
       if (name.includes('(legacy)') || name.includes('(old)')) continue;
       const cleanName = name.replace(/\s*\([^)]*\)/g, '').trim();
-      if (normalized.startsWith(cleanName) || cleanName.startsWith(normalized) || normalized.includes(cleanName) || cleanName.includes(normalized)) {
+      const isMatch =
+        normalized === cleanName ||
+        normalized.startsWith(cleanName + ' ') ||
+        cleanName.startsWith(normalized + ' ') ||
+        new RegExp(`\\b${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(normalized) ||
+        new RegExp(`\\b${normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(cleanName);
+
+      if (isMatch) {
         if (cleanName.length > maxMatchLen) {
           maxMatchLen = cleanName.length;
           bestMatchCode = code;
@@ -463,6 +470,7 @@ export type InvoiceTaxResult = TaxBreakdownResult & {
   breakdown: TaxBreakdownResult;
   lineItems: CalculatedLineItem[];
   line_items: CalculatedLineItem[];
+  rules?: any;
 };
 
 export function calculateInvoiceTax(input: InvoiceTaxCalculationInput): InvoiceTaxResult {
@@ -538,6 +546,7 @@ export function calculateInvoiceTax(input: InvoiceTaxCalculationInput): InvoiceT
     discount_amount: fromPaise(totalDiscountPaise),
     discount_type: discountType,
     discount_scope: discountScope,
+    post_tax_discount: fromPaise(postTaxDiscountPaise),
     taxable_amount: gstRes.taxableSubtotal,
     cgst: gstRes.cgstTotal,
     sgst: gstRes.sgstTotal,
@@ -581,6 +590,7 @@ export function calculateInvoiceTax(input: InvoiceTaxCalculationInput): InvoiceT
     breakdown,
     lineItems: gstRes.lineItems,
     line_items: gstRes.lineItems,
+    rules,
   };
 }
 
@@ -611,7 +621,7 @@ export function calculateInvoiceWithTax(
 }
 
 // ==========================================
-// 6. Tax Invariant Validation
+// 6. Tax Invariant Validation Guard
 // ==========================================
 
 export function validateTaxCalculation(
@@ -620,22 +630,20 @@ export function validateTaxCalculation(
 ): { isValid: boolean; errors: string[] } {
   const errors: string[] = [];
 
-  if ('items' in inputOrBreakdown && Array.isArray((inputOrBreakdown as any).items)) {
+  if ('freelancer' in inputOrBreakdown) {
     const input = inputOrBreakdown as InvoiceTaxCalculationInput;
     if (!input.items || input.items.length === 0) {
-      errors.push('Invoice items list cannot be empty');
+      errors.push('Invoice must contain at least one line item');
     }
-    for (const it of input.items || []) {
-      if (it.quantity <= 0) {
-        errors.push(`Invalid item quantity for "${it.description || 'item'}": must be > 0`);
+    (input.items || []).forEach((it: InvoiceItemTaxInput, idx: number) => {
+      if (!Number.isFinite(it.quantity) || it.quantity < 0) {
+        errors.push(`Line item #${idx + 1}: quantity must be non-negative`);
       }
-      if (it.rate < 0) {
-        errors.push(`Invalid item rate for "${it.description || 'item'}": cannot be negative`);
+      if (!Number.isFinite(it.rate) || it.rate < 0) {
+        errors.push(`Line item #${idx + 1}: rate must be non-negative`);
       }
-      if (it.gst_rate < 0 || it.gst_rate > 100) {
-        errors.push(`Invalid GST rate for "${it.description || 'item'}": ${it.gst_rate}%`);
-      }
-    }
+    });
+
     return {
       isValid: errors.length === 0,
       errors,
@@ -644,9 +652,9 @@ export function validateTaxCalculation(
 
   const breakdown = inputOrBreakdown as TaxBreakdownResult;
   const items = lineItems || (breakdown as any).lineItems || (breakdown as any).line_items || [];
+  const headerTaxablePaise = toPaise(breakdown.taxable_amount);
 
   const lineSumPaise = items.reduce((acc: number, it: any) => acc + toPaise(it.taxable_amount), 0);
-  const headerTaxablePaise = toPaise(breakdown.taxable_amount);
   if (items.length > 0 && Math.abs(lineSumPaise - headerTaxablePaise) > 1) {
     errors.push(`Taxable subtotal mismatch: lines sum to ₹${fromPaise(lineSumPaise)} but header reports ₹${breakdown.taxable_amount}`);
   }
@@ -666,7 +674,8 @@ export function validateTaxCalculation(
     }
   }
 
-  const calculatedGrandUnroundedPaise = headerTaxablePaise + toPaise(breakdown.total_gst);
+  const postTaxDiscountPaise = toPaise(breakdown.post_tax_discount || 0);
+  const calculatedGrandUnroundedPaise = Math.max(0, headerTaxablePaise + toPaise(breakdown.total_gst) - postTaxDiscountPaise);
   const diffGrand = Math.abs(calculatedGrandUnroundedPaise - toPaise(breakdown.grand_total_unrounded));
   if (diffGrand > 2) {
     errors.push(`Grand total arithmetic divergence: expected ₹${fromPaise(calculatedGrandUnroundedPaise)}, got ₹${breakdown.grand_total_unrounded}`);
@@ -698,13 +707,17 @@ export class TaxRepository {
     payload: Record<string, unknown>,
     userId?: string
   ): Promise<void> {
-    await (supabase as any).from('tax_audit_logs').insert({
-      workspace_id: workspaceId,
-      invoice_id: invoiceId,
-      event_type: eventType,
-      payload,
-      performed_by: userId || null,
-    }).catch(() => {});
+    try {
+      await (supabase as any).from('tax_audit_logs').insert({
+        workspace_id: workspaceId,
+        invoice_id: invoiceId,
+        event_type: eventType,
+        payload,
+        performed_by: userId || null,
+      });
+    } catch {
+      // Safely ignore audit log insert failures
+    }
   }
 
   static async getGSTR1Summary(
@@ -714,16 +727,38 @@ export class TaxRepository {
   ): Promise<GSTR1Summary> {
     const fyLabel = computeFinancialYearLabel(startDate);
 
-    const { data: allInvoices, error } = await (supabase.from('invoices') as any)
-      .select('id, taxable_amount, subtotal, cgst, sgst, igst, cess_amount, supply_type, client_state, client_gstin')
-      .eq('workspace_id', workspaceId)
-      .is('deleted_at', null)
-      .gte('invoice_date', startDate)
-      .lte('invoice_date', endDate)
-      .order('id', { ascending: true });
+    const pageSize = 1000;
+    let page = 0;
+    let hasMore = true;
+    const allInvoices: any[] = [];
 
-    if (error) {
-      throw new Error(`Database error aggregating GSTR-1 summary: ${error.message}`);
+    while (hasMore) {
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data, error } = await (supabase.from('invoices') as any)
+        .select('id, taxable_amount, subtotal, cgst, sgst, igst, cess_amount, supply_type, client_state, client_gstin')
+        .eq('workspace_id', workspaceId)
+        .is('deleted_at', null)
+        .gte('invoice_date', startDate)
+        .lte('invoice_date', endDate)
+        .order('id', { ascending: true })
+        .range(from, to);
+
+      if (error) {
+        throw new Error(`Database error aggregating GSTR-1 summary: ${error.message}`);
+      }
+
+      if (data && data.length > 0) {
+        allInvoices.push(...data);
+        if (data.length < pageSize) {
+          hasMore = false;
+        } else {
+          page++;
+        }
+      } else {
+        hasMore = false;
+      }
     }
 
     if (!allInvoices || allInvoices.length === 0) {

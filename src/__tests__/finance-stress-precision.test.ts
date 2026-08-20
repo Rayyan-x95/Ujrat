@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   toPaise,
   fromPaise,
-  safePercentage,
   calculateInvoiceTax,
   calculateTDSBreakdown,
   numberToIndianRupeeWords,
@@ -13,17 +12,18 @@ describe('🔥 BRUTAL FINANCIAL STRESS & PRECISION SUITE', () => {
   describe('1. 100,000 Transaction Paise Invariant & Micro-Drift Verification', () => {
     it('guarantees zero floating point drift across 100,000 random decimal sums', () => {
       let cumulativePaise = 0;
-      let cumulativeCalculated = 0;
+      let calculatedPaiseSum = 0;
 
-      for (let i = 1; i <= 1000; i++) {
+      for (let i = 1; i <= 100000; i++) {
         // Generate pseudo-random fractional float amounts
         const floatAmount = (i * 13.37) % 9999.99;
         const paise = toPaise(floatAmount);
         cumulativePaise += paise;
-        cumulativeCalculated += fromPaise(paise);
+        calculatedPaiseSum += toPaise(fromPaise(paise));
       }
 
-      expect(fromPaise(cumulativePaise)).toBeCloseTo(cumulativeCalculated, 2);
+      expect(cumulativePaise).toBe(calculatedPaiseSum);
+      expect(fromPaise(cumulativePaise)).toBe(fromPaise(calculatedPaiseSum));
     });
 
     it('guarantees exact statutory CGST + SGST split balance to the exact paise', () => {
@@ -104,7 +104,7 @@ describe('🔥 BRUTAL FINANCIAL STRESS & PRECISION SUITE', () => {
           quantity: 2,
           rate: 5000 + i * 250,
           discount_amount: 500, // ₹500 line discount
-          gst_rate: rates[i % rates.length],
+          gst_rate: rates[i % rates.length] ?? 18,
         });
       }
 
@@ -112,13 +112,40 @@ describe('🔥 BRUTAL FINANCIAL STRESS & PRECISION SUITE', () => {
         freelancer: { is_gst_registered: true, state: 'Karnataka', gstin: '29AAAAA1111A1Z1' },
         client: { state: 'Karnataka', gstin: '29BBBBB2222B1Z2' },
         items,
-        discount: { type: 'fixed', value: 2000, scope: 'before_tax' },
+        invoiceDiscount: { type: 'fixed', value: 2000, scope: 'before_tax' },
       });
 
       expect(res.line_items.length).toBe(20);
       expect(res.taxable_amount).toBeGreaterThan(0);
       expect(res.cgst).toBe(res.sgst);
       expect(res.grand_total_unrounded).toBe(fromPaise(toPaise(res.taxable_amount) + toPaise(res.total_gst)));
+    });
+
+    it('correctly applies and validates post-tax and pre-tax invoiceDiscount options', () => {
+      const preTaxRes = calculateInvoiceTax({
+        freelancer: { is_gst_registered: true, state: 'Karnataka', gstin: '29AAAAA1111A1Z1' },
+        client: { state: 'Karnataka', gstin: '29BBBBB2222B1Z2' },
+        items: [{ description: 'Dev Work', quantity: 1, rate: 10000, gst_rate: 18 }],
+        invoiceDiscount: { type: 'fixed', value: 1000, scope: 'before_tax' },
+      });
+
+      expect(preTaxRes.subtotal).toBe(10000);
+      expect(preTaxRes.taxable_amount).toBe(9000); // 10000 - 1000 discount
+      expect(preTaxRes.total_gst).toBe(1620); // 18% of 9000
+      expect(preTaxRes.grand_total).toBe(10620);
+
+      const postTaxRes = calculateInvoiceTax({
+        freelancer: { is_gst_registered: true, state: 'Karnataka', gstin: '29AAAAA1111A1Z1' },
+        client: { state: 'Karnataka', gstin: '29BBBBB2222B1Z2' },
+        items: [{ description: 'Dev Work', quantity: 1, rate: 10000, gst_rate: 18 }],
+        invoiceDiscount: { type: 'fixed', value: 500, scope: 'after_tax' },
+      });
+
+      expect(postTaxRes.subtotal).toBe(10000);
+      expect(postTaxRes.taxable_amount).toBe(10000);
+      expect(postTaxRes.total_gst).toBe(1800);
+      expect(postTaxRes.grand_total).toBe(11300); // 10000 + 1800 - 500
+      expect(postTaxRes.breakdown.post_tax_discount).toBe(500);
     });
   });
 
@@ -148,7 +175,7 @@ describe('🔥 BRUTAL FINANCIAL STRESS & PRECISION SUITE', () => {
   describe('5. Number to Indian Rupee Words Exhaustive Boundary Suite', () => {
     it('converts exact zeros, single digits, thousands, lakhs, and crores accurately', () => {
       expect(numberToIndianRupeeWords(0)).toBe('Zero Rupees Only');
-      expect(numberToIndianRupeeWords(1)).toBe('One Rupees Only');
+      expect(numberToIndianRupeeWords(1)).toBe('One Rupee Only');
       expect(numberToIndianRupeeWords(100)).toBe('One Hundred Rupees Only');
       expect(numberToIndianRupeeWords(1000)).toBe('One Thousand Rupees Only');
       expect(numberToIndianRupeeWords(100000)).toBe('One Lakh Rupees Only');

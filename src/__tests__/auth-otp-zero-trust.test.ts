@@ -7,7 +7,7 @@ describe('OTP Zero-Knowledge & Brute-Force Defense Suite (F-006 / F-008)', () =>
   const projectId = '22222222-2222-4222-a222-222222222222';
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('Zero-Exposure in Freelancer Logs (F-006)', () => {

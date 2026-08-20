@@ -4,6 +4,7 @@ import { ContractSchema, ContractSignatureSchema } from '@/shared/validation/sch
 import type { Result, Contract, ContractStatus, ContractSignature } from '@/shared/types';
 import { LoggingService } from '@/features/auth/services/LoggingService';
 import { ContractStateMachine } from '@/shared/utils/StateMachine';
+import { supabase } from '@/shared/lib/supabaseClient';
 
 export class ContractService {
   static async getContract(workspaceId: string, projectId: string): Promise<Result<Contract | null>> {
@@ -27,15 +28,6 @@ export class ContractService {
       const project = await ProjectRepository.getById(workspaceId, projectId);
       if (!project) throw new Error('Unauthorized project workspace access');
 
-      const validated = ContractSchema.parse({
-        workspace_id: workspaceId,
-        project_id: projectId,
-        introduction: content,
-        payment_schedule: '',
-        terms: '',
-        status,
-      });
-
       let resolvedContractId = contractId;
       let currentStatus: ContractStatus = 'draft';
 
@@ -45,13 +37,27 @@ export class ContractService {
         currentStatus = existingContract.status as ContractStatus;
       }
 
+      // Transition check ahead of persistence
+      const transition = ContractStateMachine.transition(currentStatus, status as ContractStatus, {
+        contractId: resolvedContractId || 'new-contract',
+      });
+
+      const validated = ContractSchema.parse({
+        workspace_id: workspaceId,
+        project_id: projectId,
+        introduction: content,
+        payment_schedule: existingContract?.payment_schedule ?? '',
+        terms: existingContract?.terms ?? '',
+        status,
+      });
+
       let contract: Contract;
       if (resolvedContractId) {
         contract = await ContractRepository.update(workspaceId, resolvedContractId, {
           introduction: validated.introduction,
-          payment_schedule: validated.payment_schedule ?? null,
-          terms: validated.terms ?? null,
           status: validated.status,
+          ...(existingContract?.payment_schedule !== undefined ? { payment_schedule: existingContract.payment_schedule } : {}),
+          ...(existingContract?.terms !== undefined ? { terms: existingContract.terms } : {}),
         });
       } else {
         contract = await ContractRepository.create(workspaceId, {
@@ -63,10 +69,6 @@ export class ContractService {
           status: validated.status,
         });
       }
-
-      const transition = ContractStateMachine.transition(currentStatus, status as ContractStatus, {
-        contractId: contract.id
-      });
 
       await LoggingService.logActivity({
         workspaceId,
@@ -94,6 +96,47 @@ export class ContractService {
     signatureData: { signature_name: string; ip_address?: string | null }
   ): Promise<Result<ContractSignature>> {
     try {
+      const project = await ProjectRepository.getById(workspaceId, projectId);
+      if (!project) throw new Error('Unauthorized project workspace access');
+
+      const contract = await ContractRepository.getByProjectId(workspaceId, projectId);
+      if (!contract || contract.id !== contractId) {
+        throw new Error('Contract not found for specified project');
+      }
+
+      if (contract.status === 'signed') {
+        if (contract.contract_signatures) {
+          return {
+            success: true,
+            data: contract.contract_signatures,
+          };
+        }
+
+        const { data: persistedSig, error: sigError } = await (supabase as any)
+          .from('contract_signatures')
+          .select('*')
+          .eq('contract_id', contractId)
+          .eq('workspace_id', workspaceId)
+          .maybeSingle();
+
+        if (sigError) {
+          throw new Error(`Failed to query contract signature: ${sigError.message}`);
+        }
+
+        if (persistedSig) {
+          return {
+            success: true,
+            data: persistedSig,
+          };
+        }
+
+        throw new Error('Contract is marked signed but no persisted signature record was found');
+      }
+
+      ContractStateMachine.transition(contract.status as ContractStatus, 'signed', {
+        contractId,
+      });
+
       const validated = ContractSignatureSchema.parse({
         signature_name: signatureData.signature_name,
         ip_address: signatureData.ip_address || '0.0.0.0',

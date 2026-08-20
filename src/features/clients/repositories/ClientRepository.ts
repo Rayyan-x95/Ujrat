@@ -6,6 +6,10 @@ export class ClientRepository {
     workspaceId: string,
     options: QueryOptions = {}
   ): Promise<PaginatedResult<Client>> {
+    if (!workspaceId) {
+      throw new Error('Workspace ID is required');
+    }
+
     const page = options.page || 1;
     const pageSize = options.pageSize || 10;
     const from = (page - 1) * pageSize;

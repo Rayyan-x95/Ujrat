@@ -24,7 +24,7 @@ export const PortalView: React.FC = () => {
           </Button>
         </div>
       )}
-      <ErrorBoundary fallback={<div className="flex items-center justify-center p-24"><p className="text-destructive">Failed to load client portal. Please try refreshing or contact support.</p></div>}>
+      <ErrorBoundary key={portalToken}>
         <React.Suspense fallback={<div className="flex items-center justify-center p-24"><Spinner size="lg" /></div>}>
           <ClientPortalTemplate portalToken={portalToken} />
         </React.Suspense>

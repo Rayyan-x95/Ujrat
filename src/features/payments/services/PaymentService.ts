@@ -25,13 +25,30 @@ export class PaymentService {
     payload: Record<string, unknown>,
     userId?: string
   ): Promise<void> {
-    await (supabase as any).from('payment_audit_logs').insert({
-      workspace_id: workspaceId,
-      invoice_id: invoiceId,
-      event_type: eventType,
-      payload,
-      performed_by: userId || null,
-    }).catch(() => {});
+    try {
+      const { error } = await (supabase as any).from('payment_audit_logs').insert({
+        workspace_id: workspaceId,
+        invoice_id: invoiceId,
+        event_type: eventType,
+        payload,
+        performed_by: userId || null,
+      });
+
+      if (error) {
+        LoggingService.logWarning(`Payment audit log insert failed: ${error.message}`, {
+          workspaceId,
+          invoiceId,
+          eventType,
+          errorCode: error.code,
+        });
+      }
+    } catch (err: any) {
+      LoggingService.logWarning(`Payment audit log exception: ${err?.message || String(err)}`, {
+        workspaceId,
+        invoiceId,
+        eventType,
+      });
+    }
   }
 
   /**
@@ -58,10 +75,16 @@ export class PaymentService {
       amount: number;
       utrNumber: string;
       clientName: string;
-      currency?: string;
+      clientEmail?: string;
+      notes?: string;
     }
   ): Promise<Result<PaymentReceiptData>> {
     try {
+      const utrValidation = this.validateUTR(params.utrNumber);
+      if (!utrValidation.isValid) {
+        throw new Error(utrValidation.error);
+      }
+
       const id = crypto.randomUUID();
       const now = new Date();
       const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
@@ -74,10 +97,12 @@ export class PaymentService {
         workspaceId,
         invoiceId: params.invoiceId,
         amount: params.amount,
-        currency: params.currency || 'INR',
+        currency: 'INR',
         paymentMethod: 'UPI',
-        utrNumber: params.utrNumber,
+        utrNumber: params.utrNumber.trim(),
         clientName: params.clientName,
+        clientEmail: params.clientEmail,
+        notes: params.notes,
         issuedAt: now.toISOString(),
       };
 
@@ -92,17 +117,14 @@ export class PaymentService {
           payment_method: 'UPI',
           utr_number: params.utrNumber,
           client_name: params.clientName,
+          client_email: params.clientEmail || null,
+          notes: params.notes || null,
           issued_at: receipt.issuedAt,
         });
 
         const isTest = typeof process !== 'undefined' && (process.env?.NODE_ENV === 'test' || Boolean(process.env?.VITEST));
         if (error) {
-          const isMissingSchema =
-            error.code === '42P01' ||
-            error.message?.includes('schema cache') ||
-            error.message?.includes('Could not find') ||
-            error.message?.includes('fetch failed') ||
-            error.message?.includes('relation');
+          const isMissingSchema = error.code === '42P01';
 
           if (!isMissingSchema && !isTest) {
             return {
@@ -113,12 +135,7 @@ export class PaymentService {
         }
       } catch (err: any) {
         const isTest = typeof process !== 'undefined' && (process.env?.NODE_ENV === 'test' || Boolean(process.env?.VITEST));
-        const isMissingSchema =
-          err?.code === '42P01' ||
-          err?.message?.includes('schema cache') ||
-          err?.message?.includes('Could not find') ||
-          err?.message?.includes('fetch failed') ||
-          err?.message?.includes('relation');
+        const isMissingSchema = err?.code === '42P01';
 
         if (!isMissingSchema && !isTest) {
           return {
@@ -307,25 +324,64 @@ export class PaymentService {
           app_name: params.appName || 'UPI_GENERIC',
           status: 'pending_verification',
         });
-        if (insertErr && insertErr.code === '23505') {
-          throw new Error('This 12-digit UTR Number has already been submitted.');
+        if (insertErr) {
+          if (insertErr.code === '23505') {
+            throw new Error('This 12-digit UTR Number has already been submitted.');
+          }
+          throw new Error(`Database error recording payment attempt: ${insertErr.message}`);
         }
       } catch (err: any) {
         if (err.message?.includes('already been submitted')) throw err;
+        throw err;
       }
 
-      const createdPayment = await PaymentRepository.create(workspaceId, {
-        workspace_id: workspaceId,
-        invoice_id: params.invoiceId,
-        amount: params.amount,
-        payment_method: 'UPI',
-        transaction_reference: params.utrNumber.trim(),
-        payment_date: new Date().toISOString(),
-        status: 'pending',
-        notes: params.notes || null,
-        verifier_id: null,
-        verified_at: null,
-      });
+      let createdPayment: Payment | null = null;
+      try {
+        createdPayment = await PaymentRepository.create(workspaceId, {
+          workspace_id: workspaceId,
+          invoice_id: params.invoiceId,
+          amount: params.amount,
+          payment_method: 'UPI',
+          transaction_reference: params.utrNumber.trim(),
+          payment_date: new Date().toISOString(),
+          status: 'pending',
+          notes: params.notes || null,
+          verifier_id: null,
+          verified_at: null,
+        });
+      } catch (err: any) {
+        if (err.code === '23505' || err.message?.includes('duplicate') || err.message?.includes('23505')) {
+          const { data: existingPayment } = await supabase
+            .from('payments')
+            .select('*')
+            .eq('workspace_id', workspaceId)
+            .eq('transaction_reference', params.utrNumber.trim())
+            .maybeSingle();
+
+          if (existingPayment) {
+            if (nextInvoiceStatus !== invoice.status) {
+              await InvoiceRepository.update(workspaceId, invoice.id, { status: nextInvoiceStatus });
+            }
+
+            await this.logEvent(
+              workspaceId,
+              params.invoiceId,
+              'UTR_SUBMITTED',
+              { utr: params.utrNumber.trim(), amount: params.amount }
+            );
+
+            return {
+              success: true,
+              data: {
+                attemptId,
+                message: 'Payment attempt with this UTR has already been recorded and is pending verification.',
+              },
+            };
+          }
+          throw new Error('This 12-digit UTR Number has already been submitted.');
+        }
+        throw err;
+      }
 
       if (!createdPayment) {
         throw new Error('Failed to create payment record');
@@ -376,6 +432,40 @@ export class PaymentService {
         utr: payment.transaction_reference || '',
       });
 
+      let invoice: any = null;
+      let nextInvoiceStatus: InvoiceStatus | undefined = undefined;
+      let outstanding: number | undefined = undefined;
+
+      if (verificationStatus === 'approved') {
+        invoice = await InvoiceRepository.getById(workspaceId, payment.invoice_id);
+        if (invoice) {
+          const allPayments = await PaymentRepository.getByInvoiceId(workspaceId, invoice.id);
+          const invoiceTotalPaise = toPaise(Number(invoice.total || 0));
+          // Account for this payment being approved
+          const otherCompletedSumPaise = allPayments
+            .filter(p => p.id !== payment.id && p.status === 'completed')
+            .reduce((sum, p) => sum + toPaise(Number(p.amount)), 0);
+          const completedSumPaise = otherCompletedSumPaise + toPaise(Number(payment.amount));
+
+          const outstandingPaise = Math.max(0, invoiceTotalPaise - completedSumPaise);
+          outstanding = fromPaise(outstandingPaise);
+
+          const isOverdue = invoice.due_date ? new Date(invoice.due_date).getTime() < Date.now() : false;
+          nextInvoiceStatus = 'paid';
+          if (outstandingPaise > 0) {
+            nextInvoiceStatus = isOverdue ? 'overdue' : 'sent';
+          }
+
+          if (nextInvoiceStatus !== invoice.status) {
+            InvoiceStateMachine.transition(invoice.status as InvoiceStatus, nextInvoiceStatus, {
+              invoiceId: invoice.id,
+              invoiceNumber: invoice.invoice_number,
+            });
+          }
+        }
+      }
+
+      // Preflight state transitions succeeded. Now persist updates safely.
       await PaymentRepository.verifyPayment(
         workspaceId,
         paymentId,
@@ -386,67 +476,56 @@ export class PaymentService {
 
       let receiptId: string | undefined = undefined;
 
-      if (verificationStatus === 'approved') {
-        const invoice = await InvoiceRepository.getById(workspaceId, payment.invoice_id);
-        if (invoice) {
-          const allPayments = await PaymentRepository.getByInvoiceId(workspaceId, invoice.id);
-          const invoiceTotalPaise = toPaise(Number(invoice.total || 0));
-          const completedSumPaise = allPayments
-            .filter(p => p.status === 'completed')
-            .reduce((sum, p) => sum + toPaise(Number(p.amount)), 0);
+      if (verificationStatus === 'approved' && invoice && nextInvoiceStatus !== undefined && outstanding !== undefined) {
+        await InvoiceRepository.update(workspaceId, invoice.id, {
+          outstanding_balance: outstanding,
+          status: nextInvoiceStatus,
+        });
 
-          const outstandingPaise = Math.max(0, invoiceTotalPaise - completedSumPaise);
-          const outstanding = fromPaise(outstandingPaise);
+        await this.logEvent(
+          workspaceId,
+          invoice.id,
+          'INVOICE_STATUS_UPDATED',
+          { prevStatus: invoice.status, nextStatus: nextInvoiceStatus, outstanding }
+        );
 
-          const isOverdue = invoice.due_date ? new Date(invoice.due_date).getTime() < Date.now() : false;
-          let nextInvoiceStatus: InvoiceStatus = 'paid';
-          if (outstandingPaise > 0) {
-            nextInvoiceStatus = isOverdue ? 'overdue' : 'sent';
-          }
+        try {
+          const { data: attempts } = await (supabase as any)
+            .from('payment_attempts')
+            .select('payment_request_id')
+            .eq('workspace_id', workspaceId)
+            .eq('invoice_id', invoice.id)
+            .eq('utr_number', payment.transaction_reference || '')
+            .limit(1);
 
-          await InvoiceRepository.update(workspaceId, invoice.id, {
-            outstanding_balance: outstanding,
-            status: nextInvoiceStatus,
-          });
+          const targetRequestId = attempts?.[0]?.payment_request_id;
+          if (targetRequestId) {
+            const { data: reqData } = await (supabase as any)
+              .from('payment_requests')
+              .select('id, status')
+              .eq('id', targetRequestId)
+              .maybeSingle();
 
-          try {
-            const { data: attempts } = await (supabase as any)
-              .from('payment_attempts')
-              .select('payment_request_id')
-              .eq('workspace_id', workspaceId)
-              .eq('invoice_id', invoice.id)
-              .eq('utr_number', payment.transaction_reference || '')
-              .limit(1);
-
-            const targetRequestId = attempts?.[0]?.payment_request_id;
-            if (targetRequestId) {
-              const { data: reqData } = await (supabase as any)
+            if (reqData && reqData.status !== 'paid') {
+              const transition = PaymentRequestStateMachine.transition(reqData.status, 'paid', { requestId: targetRequestId });
+              await (supabase as any)
                 .from('payment_requests')
-                .select('id, status')
-                .eq('id', targetRequestId)
-                .maybeSingle();
-
-              if (reqData && reqData.status !== 'paid') {
-                const transition = PaymentRequestStateMachine.transition(reqData.status, 'paid', { requestId: targetRequestId });
-                await (supabase as any)
-                  .from('payment_requests')
-                  .update({ status: transition.next })
-                  .eq('id', targetRequestId);
-              }
+                .update({ status: transition.next })
+                .eq('id', targetRequestId);
             }
-          } catch (e: any) {
-            console.warn('[PaymentService] Payment request lifecycle fallback:', e.message);
           }
+        } catch (e: any) {
+          console.warn('[PaymentService] Payment request lifecycle fallback:', e.message);
+        }
 
-          const receiptRes = await this.generateReceipt(workspaceId, {
-            invoiceId: invoice.id,
-            amount: Number(payment.amount),
-            utrNumber: payment.transaction_reference || '',
-            clientName: invoice.projects?.clients?.name || 'Client',
-          });
-          if (receiptRes.success) {
-            receiptId = receiptRes.data.id;
-          }
+        const receiptRes = await this.generateReceipt(workspaceId, {
+          invoiceId: invoice.id,
+          amount: Number(payment.amount),
+          utrNumber: payment.transaction_reference || '',
+          clientName: invoice.projects?.clients?.name || 'Client',
+        });
+        if (receiptRes.success) {
+          receiptId = receiptRes.data.id;
         }
       }
 
@@ -490,6 +569,39 @@ export class PaymentService {
         utr: payment.transaction_reference || '',
       });
 
+      let invoice: any = null;
+      let nextInvoiceStatus: InvoiceStatus | undefined = undefined;
+      let outstandingBalance: number | undefined = undefined;
+      let transitionInvoice: any = null;
+
+      if (status === 'completed') {
+        invoice = await InvoiceRepository.getById(workspaceId, payment.invoice_id);
+        if (invoice) {
+          const allPayments = await PaymentRepository.getByInvoiceId(workspaceId, invoice.id);
+          const invoiceTotalPaise = toPaise(Number(invoice.total || 0));
+          const otherCompletedSumPaise = allPayments
+            .filter(p => p.id !== payment.id && p.status === 'completed')
+            .reduce((sum, p) => sum + toPaise(Number(p.amount)), 0);
+          const completedSumPaise = otherCompletedSumPaise + toPaise(Number(payment.amount));
+
+          const outstandingPaise = Math.max(0, invoiceTotalPaise - completedSumPaise);
+          outstandingBalance = fromPaise(outstandingPaise);
+
+          const isOverdue = invoice.due_date ? new Date(invoice.due_date).getTime() < Date.now() : false;
+          nextInvoiceStatus = 'paid';
+          if (outstandingPaise > 0) {
+            nextInvoiceStatus = isOverdue ? 'overdue' : 'sent';
+          }
+
+          if (invoice.status !== nextInvoiceStatus) {
+            transitionInvoice = InvoiceStateMachine.transition(invoice.status as InvoiceStatus, nextInvoiceStatus, {
+              invoiceId: invoice.id,
+              invoiceNumber: invoice.invoice_number,
+            });
+          }
+        }
+      }
+
       await LoggingService.logActivity({
         workspaceId,
         profileId,
@@ -505,31 +617,8 @@ export class PaymentService {
         notes
       );
 
-      const invoice = await InvoiceRepository.getById(workspaceId, payment.invoice_id);
-      if (invoice) {
-        const allPayments = await PaymentRepository.getByInvoiceId(workspaceId, invoice.id);
-        const completedSum = allPayments
-          .filter(p => p.status === 'completed')
-          .reduce((sum, p) => sum + Number(p.amount), 0);
-
-        const outstandingBalance = Math.max(0, Number(invoice.total) - completedSum);
-        
-        let nextInvoiceStatus: InvoiceStatus = invoice.status as InvoiceStatus;
-        if (completedSum >= Number(invoice.total)) {
-          nextInvoiceStatus = 'paid' as InvoiceStatus;
-        } else if (completedSum > 0) {
-          nextInvoiceStatus = 'sent' as InvoiceStatus;
-        } else {
-          nextInvoiceStatus = 'sent' as InvoiceStatus;
-        }
-
-        if (invoice.status !== nextInvoiceStatus) {
-          const currentInvoiceStatus = invoice.status as InvoiceStatus;
-          const transitionInvoice = InvoiceStateMachine.transition(currentInvoiceStatus, nextInvoiceStatus, {
-            invoiceId: invoice.id,
-            invoiceNumber: invoice.invoice_number,
-          });
-
+      if (invoice && nextInvoiceStatus !== undefined && outstandingBalance !== undefined) {
+        if (transitionInvoice) {
           await LoggingService.logActivity({
             workspaceId,
             profileId,

@@ -19,16 +19,16 @@ describe('⚡ BRUTAL CONCURRENCY & RACE CONDITION SUITE', () => {
 
       // Atomic settlement handler simulating database transaction lock
       let lock = false;
-      const settleInvoice = async (invoiceId: string): Promise<boolean> => {
+      const settleInvoice = async (_invoiceId: string): Promise<boolean> => {
         // Simulate network jitter (1ms - 10ms)
         await new Promise((resolve) => setTimeout(resolve, Math.random() * 10));
 
-        if (mockInvoice.status === 'paid') {
+        if ((mockInvoice.status as string) === 'paid') {
           return false; // Already settled
         }
 
         // Critical section
-        if (!lock && mockInvoice.status !== 'paid') {
+        if (!lock && (mockInvoice.status as string) !== 'paid') {
           lock = true;
           mockInvoice.status = 'paid';
           mockInvoice.settlementCount += 1;

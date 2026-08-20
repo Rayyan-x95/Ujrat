@@ -46,7 +46,7 @@ describe('Financial Invariants, Tax Engine & Payment Race Conditions Suite (F-00
       const installments = [25000, 25000, 30000, 20000];
       let remainingBalance = invoiceTotal;
 
-      installments.forEach((payment, idx) => {
+      installments.forEach((payment) => {
         const prevBalance = remainingBalance;
         remainingBalance -= payment;
         // Invariant: Balance must decrease monotonically

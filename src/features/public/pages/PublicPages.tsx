@@ -96,33 +96,33 @@ export const PrivacyPage: React.FC = () => (
     ]} />
     <article className="space-y-6">
       <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Privacy Policy</h1>
-      <p className="text-muted-foreground text-small">Last updated: August 20, 2026</p>
+      <p className="text-muted-foreground text-small">Last updated: January 15, 2025</p>
       
       <section className="space-y-3">
-        <h2 className="text-title font-semibold text-foreground">1. Commitment to Data Privacy & DPDP Compliance</h2>
+        <h2 className="text-title font-semibold text-foreground">1. Commitment to Data Privacy & DPDP Alignment</h2>
         <p className="text-body text-muted-foreground leading-relaxed">
-          Ujrat operates in full compliance with the Digital Personal Data Protection (DPDP) Act, 2023 of India. We act as a technology facilitator and data fiduciary strictly processing data for your defined workspace workflows. We do not sell, rent, monetize, or disclose your client contacts, financial ledgers, or invoice records to third parties or advertising networks.
+          Ujrat is designed in alignment with the Digital Personal Data Protection (DPDP) Act, 2023 of India. We act strictly as a technology facilitator and data fiduciary processing information necessary for your workspace workflows. Personal data (including authentication emails, business profiles, and invoice metadata) is collected solely for user authentication, statutory GST invoicing, and direct UPI payment facilitation. We do not sell, rent, monetize, or disclose your client contacts or financial ledgers to third-party advertising networks.
         </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-title font-semibold text-foreground">2. Information We Collect</h2>
+        <h2 className="text-title font-semibold text-foreground">2. Information We Collect & Purpose Limitation</h2>
         <p className="text-body text-muted-foreground leading-relaxed">
-          We collect basic authentication information (email address), workspace business profiles (business name, registered state, optional GSTIN), and invoice metadata required to compute statutory GST tax liabilities and render dynamic UPI payment QR codes.
+          We collect basic authentication credentials (email address), workspace business profiles (business name, registered state, optional GSTIN), and invoice details strictly required to compute statutory GST liabilities and render dynamic UPI payment QR codes.
         </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-title font-semibold text-foreground">3. Database Security & Row-Level Isolation</h2>
+        <h2 className="text-title font-semibold text-foreground">3. User Rights, Erasure & Database Security</h2>
         <p className="text-body text-muted-foreground leading-relaxed">
-          All workspace data is strictly isolated using PostgreSQL Row-Level Security (RLS) policies. Only authenticated profile tokens can read or write records associated with their workspace ID. Deliverables uploaded to storage buckets remain encrypted and inaccessible to unauthorized parties.
+          All workspace data is strictly isolated using PostgreSQL Row-Level Security (RLS) policies. Users retain rights to access, rectify, export, or erase their personal data via workspace Settings. Deliverables uploaded to storage buckets remain encrypted and inaccessible to unauthorized parties.
         </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-title font-semibold text-foreground">4. Statutory Grievance Redressal (IT Rules 2021)</h2>
+        <h2 className="text-title font-semibold text-foreground">4. Statutory Grievance Redressal & Escalation</h2>
         <p className="text-body text-muted-foreground leading-relaxed">
-          In accordance with the Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021, you may contact our designated Grievance Officer regarding any data privacy or account integrity concerns at <code className="text-primary text-[12px] bg-primary/5 px-1 py-0.5 rounded">support@ninety5.in</code>.
+          In accordance with the Information Technology Rules, 2021 and DPDP guidelines, you may contact our designated Grievance Officer regarding any data privacy or account integrity concerns at <code className="text-primary text-[12px] bg-primary/5 px-1 py-0.5 rounded">support@ninety5.in</code>. Unresolved grievances may be escalated to the Data Protection Board of India pursuant to applicable rules.
         </p>
       </section>
     </article>
@@ -136,14 +136,14 @@ export const TermsPage: React.FC = () => (
     <JSONLD schema={[
       getOrganizationSchema(),
       getLegalLegislationSchema(
-        'Information Technology Act, 2000',
-        'Section 10A & Section 65B',
-        'Legal recognition of electronic records and contract formation in India.'
+        'Information Technology Act, 2000 & Bharatiya Sakshya Adhiniyam, 2023',
+        'Section 10A (IT Act) & Sections 61, 63 (BSA 2023)',
+        'Legal recognition of electronic agreements and electronic record admissibility standards in India.'
       )
     ]} />
     <article className="space-y-6">
       <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Terms of Service</h1>
-      <p className="text-muted-foreground text-small">Last updated: August 20, 2026</p>
+      <p className="text-muted-foreground text-small">Last updated: January 15, 2025</p>
 
       <section className="space-y-3">
         <h2 className="text-title font-semibold text-foreground">1. Open-Source Platform Usage</h2>
@@ -153,9 +153,9 @@ export const TermsPage: React.FC = () => (
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-title font-semibold text-foreground">2. Digital Signature Verification & IT Act 2000</h2>
+        <h2 className="text-title font-semibold text-foreground">2. Digital Acceptance & Evidentiary Recognition</h2>
         <p className="text-body text-muted-foreground leading-relaxed">
-          Contracts and project proposals signed via Ujrat log cryptographic signatures, IP addresses, and timestamps compliant with Section 10A of the Information Technology (IT) Act, 2000 of India and Section 65B of the Indian Evidence Act, 1872. Users agree to utilize honest and authorized credentials during document execution.
+          Contracts and project proposals executed via Ujrat log electronic acceptance metadata, IP addresses, and timestamps to assist in establishing an evidentiary record under Section 10A of the Information Technology Act, 2000 and Sections 61 and 63 of the Bharatiya Sakshya Adhiniyam, 2023 (formerly Section 65B of the Indian Evidence Act, 1872). The enforceability of any contract remains subject to mutual assent, lawful consideration, and substantive contract law requirements.
         </p>
       </section>
 
@@ -235,10 +235,10 @@ export const PricingPage: React.FC = () => (
       {/* Savings Benchmark */}
       <div className="p-6 border border-border bg-surface/40 rounded-xl text-left space-y-2">
         <h3 className="text-title font-semibold text-foreground flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" /> Save ₹12,000 to ₹36,000 Annually
+          <Sparkles className="h-4 w-4 text-primary" /> Save ₹10,000 to ₹30,000+ Annually
         </h3>
         <p className="text-small text-muted-foreground leading-relaxed">
-          Traditional SaaS billing platforms and payment gateways charge 2% to 4% plus monthly SaaS fees. On ₹5,00,000 of freelance client invoicing, Ujrat saves you over ₹15,000 in payment deductions and ₹12,000+ in software subscription fees every year.
+          Traditional billing platforms and payment gateways charge 2% to 4% (plus 18% GST on processing fees). On ₹5,00,000 of freelance client invoicing, direct UPI settlement avoids ₹10,000 to ₹20,000+ in gateway deductions, alongside an assumed ₹12,000+ in third-party software subscription fees every year.
         </p>
       </div>
     </article>

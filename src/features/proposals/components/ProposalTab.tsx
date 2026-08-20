@@ -14,6 +14,15 @@ interface ProposalTabProps {
   onSave: (data: { pricing: number; scope: string; timeline: string; terms: string }, status: 'draft' | 'sent') => Promise<void>;
 }
 
+function formatDeadline(deadlineStr: string): string {
+  if (!deadlineStr) return '';
+  const d = new Date(deadlineStr);
+  if (!isNaN(d.getTime())) {
+    return `Target Delivery: ${d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  }
+  return deadlineStr;
+}
+
 export const ProposalTab: React.FC<ProposalTabProps> = ({
   proposal,
   projectStatus,
@@ -44,11 +53,7 @@ export const ProposalTab: React.FC<ProposalTabProps> = ({
       setScope(scopeParts.join('\n\n'));
 
       if (brief?.deadline) {
-        try {
-          setTimeline(`Target Delivery: ${new Date(brief.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`);
-        } catch {
-          setTimeline(brief.deadline);
-        }
+        setTimeline(formatDeadline(brief.deadline));
       }
       setTerms('1. Payment: 50% advance upon contract execution, 50% upon final milestone delivery.\n2. Revisions: Includes up to 2 rounds of iterative design feedback.');
     }
@@ -76,7 +81,7 @@ export const ProposalTab: React.FC<ProposalTabProps> = ({
       if (brief?.references) scopeParts.push(`References & Guidelines:\n${brief.references}`);
       setScope(scopeParts.join('\n\n'));
       if (brief?.deadline) {
-        setTimeline(`Target Delivery: ${new Date(brief.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`);
+        setTimeline(formatDeadline(brief.deadline));
       }
     }
   };

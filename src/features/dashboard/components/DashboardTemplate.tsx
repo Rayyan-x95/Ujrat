@@ -127,6 +127,7 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
   const navigate = useNavigate();
   const [chartRange, setChartRange] = useState<'month' | 'week'>('month');
   const [hoveredChartIdx, setHoveredChartIdx] = useState<number | null>(null);
+  const [dismissOnboarding, setDismissOnboarding] = useState(false);
   const todayFormatted = useMemo(() => new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), []);
 
   const actionItems = useMemo(
@@ -265,7 +266,6 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
   const unpaidInvoicesCount = metrics.pipeline.find(p => p.label === 'Invoice Shared')?.count || 0;
   const totalPipelineItems = actionItems.reduce((s, i) => s + i.count, 0);
 
-  const [dismissOnboarding, setDismissOnboarding] = useState(false);
   const isNewWorkspace = metrics.totalClients === 0 && metrics.activeProjects === 0 && metrics.outstanding === 0 && metrics.earnedThisMonth === 0;
 
   return (

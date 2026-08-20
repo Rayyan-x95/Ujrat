@@ -22,8 +22,8 @@ describe('🚀 BRUTAL PERFORMANCE & SLA BENCHMARKS SUITE', () => {
       }
 
       const duration = performance.now() - start;
-      // Invariant: Must comfortably finish well within 300ms SLA
-      expect(duration).toBeLessThan(300);
+      // Invariant: Must comfortably finish within 150ms SLA
+      expect(duration).toBeLessThan(150);
     });
   });
 
@@ -43,7 +43,8 @@ describe('🚀 BRUTAL PERFORMANCE & SLA BENCHMARKS SUITE', () => {
       }
 
       const duration = performance.now() - start;
-      expect(duration).toBeLessThan(200);
+      // Invariant: Must finish within 100ms SLA
+      expect(duration).toBeLessThan(100);
     });
   });
 
@@ -57,7 +58,8 @@ describe('🚀 BRUTAL PERFORMANCE & SLA BENCHMARKS SUITE', () => {
       }
 
       const duration = performance.now() - start;
-      expect(duration).toBeLessThan(150);
+      // Invariant: Must finish within 50ms SLA
+      expect(duration).toBeLessThan(50);
     });
   });
 
@@ -81,7 +83,8 @@ describe('🚀 BRUTAL PERFORMANCE & SLA BENCHMARKS SUITE', () => {
       const duration = performance.now() - start;
 
       expect(activeProjects.length).toBeGreaterThan(1000);
-      expect(duration).toBeLessThan(50);
+      // Invariant: Must finish within 30ms SLA
+      expect(duration).toBeLessThan(30);
     });
   });
 });

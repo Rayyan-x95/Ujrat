@@ -28,4 +28,10 @@ export class LoggingService {
       return { success: false, error: e as Error };
     }
   }
+
+  static logWarning(message: string, context?: Record<string, unknown>): void {
+    if (typeof console !== 'undefined' && console.warn) {
+      console.warn(`[Ujrat Warning] ${message}`, context || {});
+    }
+  }
 }

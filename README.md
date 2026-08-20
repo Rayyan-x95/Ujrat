@@ -514,7 +514,7 @@ Detailed technical specifications, architecture records, schema definitions, and
 * 🗄️ **[API & Database Schema](docs/API_AND_DATABASE_SCHEMA.md)**: PostgreSQL schemas, Row-Level Security policies, and RPC procedures.
 * 🇮🇳 **[Indian GST & UPI Payments Guide](docs/TAX_AND_PAYMENTS_GUIDE.md)**: Interstate/Intrastate GST rules, TDS rates, and NPCI UPI deep links.
 * 🎨 **[UX & Design System Guidelines](docs/UX_DESIGN_SYSTEM.md)**: Design tokens, typography hierarchy, WCAG 2.1 AA, and Day-0 onboarding.
-* 🛡️ **[Testing & Security Infrastructure](docs/TESTING_AND_SECURITY.md)**: Zero-trust authentication, RLS boundary, and 18-suite Vitest test harness.
+* 🛡️ **[Testing & Security Infrastructure](docs/TESTING_AND_SECURITY.md)**: Zero-trust authentication, RLS boundary, and 22-suite Vitest test harness.
 * 🛠️ **[Developer Onboarding Guide](docs/DEVELOPMENT_GUIDE.md)**: Local setup, environment configuration, scripts, and deployment.
 * 🏛️ **[Architecture Decision Records (ADRs)](docs/INDEX.md#architecture-decision-records-adrs)**: Key architectural choices documented.
 

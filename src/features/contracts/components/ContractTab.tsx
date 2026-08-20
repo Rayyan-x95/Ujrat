@@ -38,14 +38,14 @@ export const ContractTab: React.FC<ContractTabProps> = ({
     if (contract) {
       setContractContent(contract.introduction || '');
     } else {
-      setContractContent(defaultContractText);
+      setContractContent(prev => prev || defaultContractText);
     }
-  }, [contract, defaultContractText]);
+  }, [contract?.id]);
 
   const isDirty = useMemo(() => {
-    const saved = contract?.introduction || defaultContractText;
+    const saved = contract?.introduction ?? defaultContractText;
     return contractContent.trim() !== saved.trim();
-  }, [contract, contractContent, defaultContractText]);
+  }, [contract?.introduction, contractContent, defaultContractText]);
 
   const handleAction = async (status: 'draft' | 'sent') => {
     if (status === 'draft') setLoadingDraft(true);

@@ -6,8 +6,10 @@ This guide details the mathematical and legal standards implemented in Ujrat's *
 
 ## 1. Indian GST Compliance Architecture
 
-### 1.1 Interstate vs Intrastate Determination Rule
-In India, Goods and Services Tax (GST) is determined based on the **Supplier's State Code** vs the **Recipient's (Client's) State Code**:
+### 1.1 Interstate vs Intrastate Determination & Place of Supply Rules
+Under the Indian Integrated Goods and Services Tax (IGST) Act, 2017 (specifically Section 12 for domestic service supplies), the tax type depends on the **Location of the Supplier** vs the **Place of Supply (Recipient's Location)**:
+* **B2B Registered Clients**: The place of supply is the location of the registered recipient (identified by the client's 2-digit GSTIN state prefix).
+* **B2C / Unregistered Clients**: The place of supply is the recipient's address on record (or the supplier's state if client location is absent).
 
 ```
 IF supplier.state_code == client.state_code THEN
@@ -27,9 +29,10 @@ END IF
 * **`998431`**: On-line content provision and copywriting services
 
 ### 1.3 Tax Deduction at Source (TDS)
-For corporate clients deducting TDS before invoice settlement:
-* **Section 194J (Technical/Professional Fees)**: Standard **10%** or **2%** (call center/technical service).
-* **Section 194C (Contractor / Deliverable Work)**: **1%** for Individuals/HUF, **2%** for Companies/LLPs.
+For corporate clients deducting TDS before invoice settlement under the Income-tax Act, 1961:
+* **Section 194J (Fees for Professional / Technical Services)**: **10%** for professional fees; **2%** for technical/FTS services.
+* **Section 194C (Payments to Contractors / Deliverables)**: **1%** for Individuals/HUF, **2%** for Companies/LLPs.
+* **Section 194H (Commission or Brokerage)**: **2%** (reduced from 5% under Finance Act (No. 2), 2024, effective October 1, 2024).
 * **Net Payable Calculation**:
   $$\text{Net Payable} = (\text{Subtotal} + \text{CGST} + \text{SGST} + \text{IGST}) - \text{TDS Amount}$$
 

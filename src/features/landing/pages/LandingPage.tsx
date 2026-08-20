@@ -651,7 +651,7 @@ export const LandingPage: React.FC = () => {
       </section>
 
       {/* ─── Use Cases Section ────────────────────────────────────────── */}
-      <section className="py-20 border-t border-border-subtle bg-surface/20">
+      <section id="use-cases" className="py-20 border-t border-border-subtle bg-surface/20">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mx-auto max-w-2xl text-center mb-16">
             <h2 className="text-label tracking-widest text-primary font-bold">Use Cases</h2>

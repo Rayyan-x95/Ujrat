@@ -107,6 +107,7 @@ export interface TaxBreakdownResult {
   discount_amount: number;
   discount_type: DiscountType;
   discount_scope: DiscountScope;
+  post_tax_discount?: number;
   taxable_amount: number;
   cgst: number;
   sgst: number;
@@ -158,16 +159,39 @@ export interface GSTR1B2BEntry {
   invoiceValue: number;
   placeOfSupply: string;
   reverseCharge: 'Y' | 'N';
-  applicablePercent: number;
-  invoiceType: 'Regular' | 'SEZ' | 'Deemed Export';
-  eCommerceGSTIN?: string;
   rate: number;
   taxableValue: number;
   cessAmount: number;
 }
 
+export interface GSTR1B2CSummary {
+  placeOfSupply: string;
+  rate: number;
+  taxableValue: number;
+  cessAmount: number;
+  type: 'OE'; // Other than E-Commerce
+}
+
+export interface GSTR1NilSummary {
+  nilRatedSupplies: number;
+  exemptedSupplies: number;
+  nonGstSupplies: number;
+}
+
+export interface GSTR1ExportSummary {
+  exportType: 'WOPAY' | 'WPAY'; // Without Payment / With Payment of Tax
+  invoiceNumber: string;
+  invoiceDate: string;
+  invoiceValue: number;
+  portCode: string;
+  shippingBillNumber: string;
+  shippingBillDate: string;
+  rate: number;
+  taxableValue: number;
+}
+
 export interface GSTR1Summary {
-  period: string; // e.g. "2026-04" or "FY 2026-27"
+  period: string; // e.g. "2024-25"
   totalOutwardSupplies: number;
   totalTaxableValue: number;
   totalCGST: number;
@@ -179,17 +203,17 @@ export interface GSTR1Summary {
   b2cInvoicesCount: number;
   exportInvoicesCount: number;
   nilExemptCount: number;
-
-  // Compatibility aliases
-  total_b2b_invoices: number;
-  total_b2c_invoices: number;
-  total_export_invoices: number;
-  taxable_value: number;
-  cgst_amount: number;
-  sgst_amount: number;
-  igst_amount: number;
-  cess_amount: number;
-  total_tax: number;
+  
+  // Deprecated backward-compatibility aliases
+  total_b2b_invoices?: number;
+  total_b2c_invoices?: number;
+  total_export_invoices?: number;
+  taxable_value?: number;
+  cgst_amount?: number;
+  sgst_amount?: number;
+  igst_amount?: number;
+  cess_amount?: number;
+  total_tax?: number;
 }
 
 // 40 Official & Legacy Indian State / Union Territory GST Codes
@@ -271,9 +295,9 @@ export const TDS_SECTIONS: Record<string, TDSSectionInfo> = {
   '194H': {
     code: '194H',
     name: 'Commission or Brokerage',
-    defaultRate: 5,
-    description: '5% on commission/brokerage payments above ₹15,000 threshold.',
-    cbdTCircular: 'Section 194H of Income Tax Act 1961',
+    defaultRate: 2,
+    description: '2% on commission/brokerage payments above ₹15,000 threshold (Finance Act 2024).',
+    cbdTCircular: 'Section 194H of Income Tax Act 1961 (amended by Finance Act 2024)',
   },
   '194Q': {
     code: '194Q',
