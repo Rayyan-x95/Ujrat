@@ -34,8 +34,8 @@ Welcome to the comprehensive documentation portal for **Ujrat** — India's zero
 npm run dev          # Frontend SPA (http://localhost:5173)
 npm run dev:backend  # Python FastAPI Backend (http://localhost:8000)
 
-# Run Full Test Suite (Frontend Vitest 227 tests + Backend Python 14 tests)
-npm run test:all
+# Run Vitest Suite (22 test files, 160 tests)
+npm test -- --run
 
 # TypeScript Project Reference Type Check
 npm run typecheck

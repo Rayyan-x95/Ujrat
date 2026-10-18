@@ -159,7 +159,7 @@ export class ContractService {
         if (contractUpdated) {
           try {
             await ContractRepository.update(workspaceId, contractId, { status: contract.status as ContractStatus });
-          } catch { }
+          } catch (_) {}
         }
         try {
           await (supabase as any)
@@ -167,7 +167,7 @@ export class ContractService {
             .delete()
             .eq('id', signature.id)
             .eq('workspace_id', workspaceId);
-        } catch { }
+        } catch (_) {}
         throw updateErr;
       }
 

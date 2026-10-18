@@ -70,14 +70,20 @@ export class DashboardService {
         supabase.from('clients').select('id', { count: 'exact' }).eq('workspace_id', workspaceId).is('deleted_at', null),
         supabase.from('projects').select('status').eq('workspace_id', workspaceId).is('deleted_at', null),
         supabase.from('invoices').select('total, status, created_at').eq('workspace_id', workspaceId).is('deleted_at', null),
-        (() => {
-          let q = supabase
-            .from('activity_logs')
-            .select('id, workspace_id, profile_id, project_id, action, details, created_at')
-            .eq('workspace_id', workspaceId);
-          if (profileId) q = q.eq('profile_id', profileId);
-          return q.order('created_at', { ascending: false }).limit(5);
-        })(),
+        profileId
+          ? supabase
+              .from('activity_logs')
+              .select('id, workspace_id, profile_id, project_id, action, details, created_at')
+              .eq('workspace_id', workspaceId)
+              .eq('profile_id', profileId)
+              .order('created_at', { ascending: false })
+              .limit(5)
+          : supabase
+              .from('activity_logs')
+              .select('id, workspace_id, profile_id, project_id, action, details, created_at')
+              .eq('workspace_id', workspaceId)
+              .order('created_at', { ascending: false })
+              .limit(5),
       ]);
 
       const profileName = (profileRes.status === 'fulfilled' && (profileRes.value as any)?.data?.full_name) || 'Freelancer';
