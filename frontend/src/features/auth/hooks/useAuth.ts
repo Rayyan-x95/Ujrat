@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useNavigate } from 'react-router-dom';
 import { AuthService } from '@/features/auth';
 import { WorkspaceService } from '@/features/workspace';
-import { supabase } from '@/shared/lib/supabaseClient';
 import type { User } from '@supabase/supabase-js';
 import { useToastStore } from '@/shared/hooks/useToastStore';
 import type { Result } from '@/shared/types';
@@ -46,7 +45,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return workspacesRes.data[0]?.id || '';
         }
 
-<<<<<<< HEAD:frontend/src/features/auth/hooks/useAuth.ts
         // NOTE: there is no `workspace_members` table (single-owner workspaces
         // keyed by workspaces.profile_id; auto-created by the
         // handle_new_user() DB trigger). Do not query it — PostgREST answers
@@ -61,21 +59,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const retryRes = await WorkspaceService.getWorkspaces(userId);
         if (retryRes.success && retryRes.data.length > 0) {
           return retryRes.data[0]?.id || '';
-=======
-        try {
-          const { data: memberData } = await (supabase as any)
-            .from('workspace_members')
-            .select('workspace_id')
-            .eq('user_id', userId)
-            .limit(1)
-            .maybeSingle();
-
-          if (memberData?.workspace_id) {
-            return memberData.workspace_id;
-          }
-        } catch {
-          // ignore member lookup error
->>>>>>> aeed5c4b789cfb806fdbae3b15a0ff7cbad16741:src/features/auth/hooks/useAuth.ts
         }
 
         const createRes = await WorkspaceService.createWorkspace(userId, 'My Workspace');

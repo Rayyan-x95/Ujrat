@@ -12,8 +12,8 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description="Operational backend for Ujrat: Tax Engine 2.0, NPCI UPI, State Machines, and Multi-tenant DB operations.",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if settings.ENVIRONMENT != "production" else None,
+    redoc_url="/redoc" if settings.ENVIRONMENT != "production" else None,
 )
 
 # CORS configuration

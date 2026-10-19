@@ -35,6 +35,7 @@ class Settings(BaseModel):
                 "http://localhost:4173",
                 "http://localhost:3000",
                 "http://127.0.0.1:5173",
+                "https://ujrat.ninety5.in",
             ]
         try:
             import json
@@ -51,6 +52,9 @@ class Settings(BaseModel):
         super().__init__(**data)
         if not self.CORS_ORIGINS:
             self.CORS_ORIGINS = self.get_cors_origins()
+        if self.ENVIRONMENT == "production":
+            if not self.SUPABASE_JWT_SECRET or self.SUPABASE_JWT_SECRET == "super-secret-jwt-token-with-at-least-32-characters":
+                raise RuntimeError("SUPABASE_JWT_SECRET must be configured with a secure 32+ character secret in production environment")
 
 
 settings = Settings()

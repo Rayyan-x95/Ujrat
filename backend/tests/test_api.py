@@ -1,10 +1,18 @@
 """Integration tests for FastAPI endpoints."""
 import unittest
-from starlette.testclient import TestClient
+import warnings
 import jwt
 
-from backend.app.main import app
-from backend.app.core.config import settings
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+    from fastapi.testclient import TestClient
+
+try:
+    from backend.app.main import app
+    from backend.app.core.config import settings
+except ImportError:
+    from app.main import app
+    from app.core.config import settings
 
 
 class TestFastAPIEndpoints(unittest.TestCase):

@@ -383,19 +383,19 @@ export class PaymentService {
           }
           try {
             await (supabase as any).from('payment_attempts').delete().eq('id', attemptId).eq('workspace_id', workspaceId);
-          } catch (_) {}
+          } catch {}
           throw new Error('This 12-digit UTR Number has already been submitted.');
         }
         try {
           await (supabase as any).from('payment_attempts').delete().eq('id', attemptId).eq('workspace_id', workspaceId);
-        } catch (_) {}
+        } catch {}
         throw err;
       }
 
       if (!createdPayment) {
         try {
           await (supabase as any).from('payment_attempts').delete().eq('id', attemptId).eq('workspace_id', workspaceId);
-        } catch (_) {}
+        } catch {}
         throw new Error('Failed to create payment record');
       }
 
