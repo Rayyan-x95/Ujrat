@@ -1,5 +1,5 @@
 import { supabase } from '@/shared/lib/supabaseClient';
-import type { Project, Client, Proposal, Contract, Invoice, Deliverable } from '@/shared/types';
+import type { Project, Client, Proposal, Contract, InvoiceWithItems, Deliverable } from '@/shared/types';
 
 /**
  * F7 (revised): projection of workspace settings consumed by client-facing
@@ -54,10 +54,21 @@ export class PortalRepository {
     return data?.[0] || null;
   }
 
-  static async getInvoices(token: string): Promise<Invoice[]> {
+  static async getInvoices(token: string): Promise<InvoiceWithItems[]> {
     const { data, error } = await supabase.rpc('get_portal_invoices', { token_val: token });
     if (error) throw new Error(error.message);
-    return data || [];
+    const invoices = (data || []) as InvoiceWithItems[];
+    // A silent failure here would render GST invoices without their line-level
+    // tax breakdown — surface it.
+    const { data: items, error: itemsError } = await supabase.rpc('get_portal_invoice_items', { token_val: token });
+    if (itemsError) throw new Error(itemsError.message);
+    const byInvoice = new Map<string, any[]>();
+    (items || []).forEach((it: any) => {
+      const arr = byInvoice.get(it.invoice_id) || [];
+      arr.push(it);
+      byInvoice.set(it.invoice_id, arr);
+    });
+    return invoices.map((inv) => ({ ...inv, invoice_items: byInvoice.get(inv.id) || inv.invoice_items || [] }));
   }
 
   static async getDeliverables(token: string): Promise<Deliverable[]> {
@@ -70,7 +81,7 @@ export class PortalRepository {
     token: string,
     name: string,
     ip: string,
-    verified: boolean = true,
+    verified: boolean = false,
     signatureImage?: string | null,
     signatureType: string = 'drawn'
   ): Promise<void> {

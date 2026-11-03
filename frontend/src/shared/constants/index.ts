@@ -45,6 +45,7 @@ export const INVOICE_STATUS = {
   SENT: 'sent',
   VIEWED: 'viewed',
   PENDING_VERIFICATION: 'pending_verification',
+  PARTIALLY_PAID: 'partially_paid',
   PAID: 'paid',
   OVERDUE: 'overdue',
   CANCELLED: 'cancelled',

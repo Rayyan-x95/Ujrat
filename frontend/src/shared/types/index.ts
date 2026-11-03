@@ -14,10 +14,7 @@ export type ContractSignature = Database['public']['Tables']['contract_signature
 export type Invoice = Database['public']['Tables']['invoices']['Row'];
 export type InvoiceItem = Database['public']['Tables']['invoice_items']['Row'];
 
-// Payment type - DB is missing updated_at due to trigger, add it
-export type Payment = Database['public']['Tables']['payments']['Row'] & {
-  updated_at: string;
-};
+export type Payment = Database['public']['Tables']['payments']['Row'];
 
 export type Deliverable = Database['public']['Tables']['deliverables']['Row'];
 export type FileUpload = Database['public']['Tables']['file_uploads']['Row'];
@@ -49,7 +46,7 @@ export type PaymentUpdate = Database['public']['Tables']['payments']['Update'];
 export type DeliverableUpdate = Database['public']['Tables']['deliverables']['Update'];
 
 // Status enums - must match StateMachine union types for type safety
-export type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'pending_verification' | 'paid' | 'overdue' | 'cancelled';
+export type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'pending_verification' | 'paid' | 'partially_paid' | 'overdue' | 'cancelled';
 export type PaymentStatus = 'pending' | 'pending_verification' | 'completed' | 'failed';
 export type ProjectStatus = 'lead' | 'proposal' | 'approved' | 'contract_signed' | 'advance_paid' | 'in_progress' | 'delivered' | 'invoice_sent' | 'paid' | 'completed' | 'archived';
 export type ProposalStatus = 'draft' | 'sent' | 'approved' | 'rejected' | 'revision_requested';

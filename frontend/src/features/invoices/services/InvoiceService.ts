@@ -5,7 +5,7 @@ import { InvoiceSchema } from '@/shared/validation/schemas';
 import type { Invoice, InvoiceWithItems, Result, QueryOptions, PaginatedResult, InvoiceStatus } from '@/shared/types';
 import { InvoiceStateMachine } from '@/shared/utils/StateMachine';
 import { WorkspaceService } from '@/features/workspace/services/WorkspaceService';
-import { calculateInvoiceTax } from '@/features/invoices/utils/TaxEngine';
+import { calculateInvoiceTax } from '../tax/InvoiceCalculator';
 import { supabase } from '@/shared/lib/supabaseClient';
 import { LoggingService } from '@/features/auth/services/LoggingService';
 
@@ -117,6 +117,9 @@ export class InvoiceService {
         unit: li.unit || 'NOS',
         cess_rate: li.cess_rate,
         discount_amount: li.discount_amount,
+        // Use the engine's paise-precise taxable value instead of recomputing
+        // it from the line in floating point.
+        taxable_amount: li.taxable_amount,
         cgst: li.cgst_amount,
         sgst: li.sgst_amount,
         igst: li.igst_amount,
@@ -144,18 +147,16 @@ export class InvoiceService {
       }
 
       if (!finalInvoiceNumber || isDuplicate) {
-        const { data: workspaceInvoices } = await supabase
+        const { data: latest } = await supabase
           .from('invoices')
-          .select('invoice_number')
-          .eq('workspace_id', workspaceId);
+          .select('serial_number')
+          .eq('workspace_id', workspaceId)
+          .order('serial_number', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-        const existingSet = new Set(workspaceInvoices?.map((i: any) => i.invoice_number) || []);
-        let seq = (workspaceInvoices?.length || 0) + 1;
+        let seq = (Number(latest?.serial_number) || 0) + 1;
         let candidate = `${prefix}-${year}-${String(seq).padStart(3, '0')}`;
-        while (existingSet.has(candidate)) {
-          seq++;
-          candidate = `${prefix}-${year}-${String(seq).padStart(3, '0')}`;
-        }
         finalInvoiceNumber = candidate;
         serial_number = seq;
       } else {
@@ -168,9 +169,12 @@ export class InvoiceService {
       }
 
       // Create invoice
-      const newInvoice = await InvoiceRepository.create(
-        workspaceId,
-        {
+      let newInvoice: any = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          newInvoice = await InvoiceRepository.create(
+            workspaceId,
+            {
           workspace_id: workspaceId,
           project_id: projectId,
           invoice_number: finalInvoiceNumber,
@@ -179,9 +183,26 @@ export class InvoiceService {
           notes: validated.notes ?? null,
           gstin: validated.gstin ?? null,
           subtotal: breakdown.subtotal,
+          taxable_amount: breakdown.taxable_amount,
+          discount_amount: breakdown.discount_amount,
+          discount_type: breakdown.discount_type,
+          discount_scope: breakdown.discount_scope,
+          cess_amount: breakdown.cess,
           cgst: breakdown.cgst,
           sgst: breakdown.sgst,
           igst: breakdown.igst,
+          tds_section: breakdown.tds_section,
+          tds_rate: breakdown.tds_rate,
+          tds_amount: breakdown.tds_amount,
+          net_receivable: breakdown.net_receivable,
+          round_off: breakdown.round_off,
+          currency: breakdown.currency,
+          exchange_rate: breakdown.exchange_rate,
+          exchange_rate_date: breakdown.exchange_rate_date,
+          inr_total: breakdown.inr_grand_total,
+          supply_type: breakdown.supply_type,
+          tax_scheme: breakdown.tax_scheme,
+          lut_number: workspaceSettings.lut_number ?? null,
           total: breakdown.grand_total,
           status: 'draft',
           pdf_url: null,
@@ -199,7 +220,25 @@ export class InvoiceService {
           revision_number: 0,
         },
         itemsWithGST
-      );
+          );
+          break;
+        } catch (e: any) {
+          const msg = String(e?.message || e).toLowerCase();
+          const isDup = msg.includes('duplicate') || msg.includes('unique') || msg.includes('23505');
+          if (!isDup || attempt === 2) throw e;
+          const { data: latest } = await supabase
+            .from('invoices')
+            .select('serial_number')
+            .eq('workspace_id', workspaceId)
+            .order('serial_number', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          let seq2 = (Number(latest?.serial_number) || 0) + 1 + attempt;
+          let cand = `${prefix}-${year}-${String(seq2).padStart(3, '0')}`;
+          finalInvoiceNumber = cand;
+          serial_number = seq2;
+        }
+      }
 
       return { success: true, data: newInvoice };
     } catch (e) {

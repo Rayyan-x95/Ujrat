@@ -530,7 +530,10 @@ def calculate_invoice_tax(input_data: TaxCalculationRequest) -> TaxBreakdownResu
 
     raw_grand_total_paise = taxable_paise + total_gst_paise - post_tax_discount_paise
     grand_total_unrounded = from_paise(max(0, raw_grand_total_paise))
-    grand_total = float(round(grand_total_unrounded))
+    # Half-up rounding, matching the frontend's Math.round (and the FX
+    # conversions below). Python's round() rounds .5 to even and disagreed
+    # with the SPA by one rupee on every .50 edge.
+    grand_total = float(math.floor(grand_total_unrounded + 0.5))
     round_off = from_paise(to_paise(grand_total) - to_paise(grand_total_unrounded))
 
     tds_res = calculate_tds_breakdown(gst_res["taxable_subtotal"], input_data.tds)

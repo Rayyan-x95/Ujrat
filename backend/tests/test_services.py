@@ -77,6 +77,21 @@ class TestTaxEngine(unittest.TestCase):
         self.assertEqual(res.tds_amount, 10000.0)
         self.assertEqual(res.net_receivable, 108000.0)
 
+    def test_grand_total_rounds_half_up(self):
+        # 100 + 18% GST = 118, minus a 1.50 post-tax discount = 116.50.
+        # Half-up gives 117; Python's default round() would give 116 and the
+        # frontend's Math.round gives 117.
+        req = TaxCalculationRequest(
+            freelancer=FreelancerTaxProfile(is_gst_registered=True, state="Karnataka", gstin="29AAAAA1111A1Z1"),
+            client=ClientTaxProfile(state="Karnataka", gstin="29BBBBB2222B1Z2"),
+            items=[InvoiceItemTaxInput(description="Design", quantity=1, rate=100, gst_rate=18)],
+            invoiceDiscount=InvoiceDiscountInput(type="fixed", value=1.5, scope="after_tax"),
+        )
+        res = calculate_invoice_tax(req)
+        self.assertEqual(res.grand_total_unrounded, 116.5)
+        self.assertEqual(res.grand_total, 117.0)
+        self.assertEqual(res.round_off, 0.5)
+
     def test_gstin_and_pan_validation(self):
         val = validate_gstin_format("29AAAAA1111A1Z1")
         self.assertTrue(val["is_valid"])

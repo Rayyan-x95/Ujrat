@@ -52,26 +52,15 @@ ProjectStateMachine = StateMachine(
     error_context="project state",
 )
 
-ProposalStateMachine = StateMachine(
-    allowed={
-        "draft": ["sent"],
-        "sent": ["approved", "rejected", "revision_requested"],
-        "approved": ["draft", "sent"],
-        "rejected": ["draft", "sent"],
-        "revision_requested": ["draft", "sent"],
-    },
-    action_name="Proposal Status Updated",
-    error_context="proposal state",
-)
-
 InvoiceStateMachine = StateMachine(
     allowed={
         "draft": ["sent", "pending_verification", "cancelled"],
-        "sent": ["viewed", "pending_verification", "paid", "overdue", "cancelled"],
-        "viewed": ["pending_verification", "paid", "overdue", "cancelled"],
-        "pending_verification": ["paid", "sent", "overdue", "cancelled"],
+        "sent": ["viewed", "pending_verification", "paid", "partially_paid", "overdue", "cancelled"],
+        "viewed": ["pending_verification", "paid", "partially_paid", "overdue", "cancelled"],
+        "pending_verification": ["paid", "partially_paid", "sent", "overdue", "cancelled"],
+        "partially_paid": ["paid", "overdue", "cancelled"],
         "paid": [],
-        "overdue": ["paid", "cancelled"],
+        "overdue": ["paid", "partially_paid", "cancelled"],
         "cancelled": [],
     },
     action_name="Invoice Status Updated",
@@ -87,31 +76,4 @@ PaymentStateMachine = StateMachine(
     },
     action_name="Payment Status Updated",
     error_context="payment state",
-)
-
-PaymentRequestStateMachine = StateMachine(
-    allowed={
-        "pending": ["viewed", "initiated", "cancelled", "expired"],
-        "viewed": ["initiated", "awaiting_verification", "cancelled", "expired"],
-        "initiated": ["awaiting_verification", "cancelled", "expired"],
-        "awaiting_verification": ["verified", "rejected", "initiated", "paid", "cancelled"],
-        "verified": ["paid", "rejected"],
-        "rejected": ["initiated", "cancelled"],
-        "paid": [],
-        "cancelled": [],
-        "expired": [],
-    },
-    action_name="Payment Request Lifecycle Updated",
-    error_context="payment request",
-)
-
-ContractStateMachine = StateMachine(
-    allowed={
-        "draft": ["sent", "void"],
-        "sent": ["signed", "void"],
-        "signed": ["void"],
-        "void": ["draft"],
-    },
-    action_name="Contract Status Updated",
-    error_context="contract state",
 )

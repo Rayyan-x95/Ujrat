@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { determineGSTType, calculateGST } from '@/features/invoices/utils/TaxEngine';
+import { determineGSTType, calculateGST } from '@/features/invoices/tax/InvoiceCalculator';
 import { PaymentService } from '@/features/payments';
 import { InvoiceRepository } from '@/features/invoices';
 import { PaymentRepository } from '@/features/payments';

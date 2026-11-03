@@ -1,9 +1,9 @@
 export interface InvoiceShareParams {
   invoiceNumber: string;
   total: number;
-  dueDate?: string;
-  clientPhone?: string;
-  portalUrl?: string;
+  dueDate?: string | undefined;
+  clientPhone?: string | undefined;
+  portalUrl?: string | undefined;
 }
 
 export function buildWaMeUrl(phone: string | undefined, message: string): string {

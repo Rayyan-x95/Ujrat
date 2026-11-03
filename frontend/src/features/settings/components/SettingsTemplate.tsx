@@ -209,6 +209,15 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
         supabase.from('invoices').select('*').eq('workspace_id', workspaceId),
         supabase.from('payments').select('*').eq('workspace_id', workspaceId),
       ]);
+      // A partial export must never be advertised as a complete backup.
+      for (const [label, res] of [
+        ['clients', clientsRes],
+        ['projects', projectsRes],
+        ['invoices', invoicesRes],
+        ['payments', paymentsRes],
+      ] as const) {
+        if (res.error) throw new Error(`${label}: ${res.error.message}`);
+      }
 
       const backup = {
         ujrat_schema_version: '1.0',

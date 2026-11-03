@@ -40,8 +40,12 @@ async def calculate_tax(
                 if err not in result.warnings:
                     result.warnings.append(err)
         return result
-    except Exception as e:
+    except ValueError as e:
+        # Domain validation messages are user-meaningful by design.
         raise HTTPException(status_code=400, detail=str(e))
+    except OverflowError:
+        raise HTTPException(status_code=400, detail="Numeric value out of range")
+    # Everything else bubbles as a plain 500; never echo internal error text.
 
 
 @router.post("/validate-gstin", response_model=GSTINValidationResponse)

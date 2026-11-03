@@ -8,7 +8,7 @@ import { Metric } from '@/shared/ui/Card';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { Dialog } from '@/shared/ui/Dialog';
 import { useInvoices } from '@/features/invoices';
-import type { Invoice } from '@/shared/types';
+import type { Invoice, InvoiceWithItems } from '@/shared/types';
 import { Printer, Check, Link, AlertCircle, Coins, TrendingUp, ShieldCheck, Download, MessageSquareShare, FileSpreadsheet, Briefcase } from 'lucide-react';
 import { exportGstr1Csv } from '@/shared/utils/csvExport';
 import { generateInvoiceWhatsAppUrl } from '@/shared/utils/whatsappShare';
@@ -75,8 +75,12 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
     }
   };
 
-  const handleWhatsAppShare = (row: Invoice) => {
-    const portalUrl = `${window.location.origin}/invoices`;
+  const handleWhatsAppShare = (row: InvoiceWithItems) => {
+    // Share the zero-auth client portal, never the freelancer's auth-gated
+    // /invoices route; without a portal token send the message without a link.
+    const portalUrl = row.projects?.portal_token
+      ? `${window.location.origin}/portal/${row.projects.portal_token}`
+      : undefined;
     const url = generateInvoiceWhatsAppUrl({
       invoiceNumber: row.invoice_number,
       total: row.total,
@@ -86,7 +90,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const columns: ColumnDef<Invoice>[] = useMemo(() => [
+  const columns: ColumnDef<InvoiceWithItems>[] = useMemo(() => [
     { 
       key: 'invoice_number', 
       header: 'Invoice #', 

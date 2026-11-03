@@ -6,9 +6,9 @@ import {
   extractStateCode,
   extractPANFromGSTIN,
   validateGSTINFormat,
-  numberToIndianRupeeWords,
   calculateTDS,
-} from '../features/invoices/utils/TaxEngine';
+} from '../features/invoices/tax/InvoiceCalculator';
+import { numberToIndianRupeeWords } from '@/shared/utils/currency';
 
 describe('Tax Engine 2.0 - Comprehensive Statutory Compliance Suite', () => {
 

@@ -161,7 +161,7 @@ describe('F6 — OTP generation uses cryptographic randomness', () => {
     );
     expect(fn).toContain('gen_random_bytes(4)');
     expect(fn).not.toMatch(/random\(\)\s*\*/);
-    expect(fn).toContain("crypt(v_code, gen_salt('bf', 8))");
+    expect(fn).toContain("crypt(v_code, extensions.gen_salt('bf', 8))");
   });
 });
 

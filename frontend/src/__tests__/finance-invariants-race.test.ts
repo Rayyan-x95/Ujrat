@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { InvoiceStateMachine, PaymentStateMachine } from '@/shared/utils/StateMachine';
-import { calculateGST, calculateInvoiceTax } from '@/features/invoices/utils/TaxEngine';
+import { calculateGST, calculateInvoiceTax } from '@/features/invoices/tax/InvoiceCalculator';
 
 describe('Financial Invariants, Tax Engine & Payment Race Conditions Suite (F-003 / F-004 / F-005)', () => {
   describe('Invoice Status Settlement Invariants', () => {

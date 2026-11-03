@@ -28,7 +28,9 @@ export class UPIPaymentProvider {
     }
     const amountStr = numAmount.toFixed(2);
     const cleanPayee = (params.payeeName || 'Freelancer').trim();
-    const ref = `INV-${params.invoiceNumber}-${Date.now().toString().slice(-6)}`;
+    // NPCI transaction reference: two links generated in the same second must
+    // not collide, so derive uniqueness from a UUID instead of a timestamp.
+    const ref = `INV-${params.invoiceNumber}-${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
     const note = (params.note || `Invoice ${params.invoiceNumber}`).trim();
 
     const upiParams: Record<string, string> = {
@@ -57,7 +59,7 @@ export class UPIPaymentProvider {
 
   async createPaymentRequest(params: PaymentRequestParams): Promise<PaymentRequestResult> {
     const deepLinkUri = this.generateDeepLink(params);
-    const ref = `REQ-${Date.now().toString().slice(-8)}`;
+    const ref = `REQ-${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
 
     try {
       const { data, error } = await (supabase as any)

@@ -45,13 +45,18 @@ export class DashboardService {
         const invoices = raw.recent_invoices || raw.invoices || [];
         const activities = raw.recent_activities || raw.activities || [];
 
-        return this.calculateMetrics(
+        const result = this.calculateMetrics(
           profileName,
           totalClients,
           projects,
           invoices,
           activities
         );
+        if (result.success && raw.metrics) {
+          if (raw.metrics.outstanding !== undefined) result.data.outstanding = Number(raw.metrics.outstanding) || 0;
+          if (raw.metrics.earned_this_month !== undefined) result.data.earnedThisMonth = Number(raw.metrics.earned_this_month) || 0;
+        }
+        return result;
       }
 
       return await this.getDashboardDataFromTables(workspaceId, profileId);

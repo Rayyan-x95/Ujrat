@@ -39,6 +39,7 @@ export class WorkspaceService {
             .from('workspaces')
             .select('*')
             .eq('profile_id', profileId)
+            .is('deleted_at', null)
             .order('created_at', { ascending: true })
             .limit(1)
             .maybeSingle();

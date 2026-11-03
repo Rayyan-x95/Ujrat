@@ -143,7 +143,7 @@ export const InvoiceItemSchema = z.object({
 
 export const SupplyTypeEnum = z.enum(['taxable', 'zero_rated_lut', 'zero_rated_non_lut', 'sez_with_tax', 'sez_without_tax', 'exempt', 'nil_rated']);
 export const TaxSchemeEnum = z.enum(['regular', 'composition', 'non_gst']);
-export const InvoiceStatusEnum = z.enum(['draft', 'sent', 'viewed', 'pending_verification', 'overdue', 'paid', 'cancelled']);
+export const InvoiceStatusEnum = z.enum(['draft', 'sent', 'viewed', 'pending_verification', 'partially_paid', 'overdue', 'paid', 'cancelled']);
 
 export const InvoiceBaseSchema = z.object({
   invoice_number: z.string().min(1, 'Invoice number is required'),

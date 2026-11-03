@@ -61,7 +61,7 @@ export const InvoicePrintView: React.FC = () => {
   const settings = data.settings;
   const client = data.client;
 
-  // Run pure TaxEngine calculation for complete fidelity
+  // Run pure InvoiceCalculator calculation for complete fidelity
   const { breakdown: taxResult, lineItems } = calculateInvoiceTax({
     freelancer: {
       is_gst_registered: settings?.is_gst_registered ?? false,

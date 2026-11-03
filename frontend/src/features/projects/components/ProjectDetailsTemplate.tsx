@@ -462,6 +462,7 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
             onConfirmPayment={async (invoiceId) => {
               await confirmPaymentMutation.mutateAsync(invoiceId);
             }}
+            portalUrl={project.portal_token ? `${window.location.origin}/portal/${project.portal_token}` : undefined}
           />
         )}
       </div>

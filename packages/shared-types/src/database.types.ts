@@ -124,6 +124,8 @@ export type ContractsRow = {
   id: string;
   workspace_id: string;
   project_id: string;
+  title: string;
+  content: string;
   introduction: string | null;
   payment_schedule: string | null;
   terms: string | null;
@@ -242,9 +244,10 @@ export type PaymentsRow = {
   verified_at: string | null;
   notes: string | null;
   created_at: string;
+  updated_at: string;
   deleted_at: string | null;
 };
-
+ 
 export type DeliverablesRow = {
   id: string;
   workspace_id: string;
@@ -389,7 +392,9 @@ export type PaymentReceiptsRow = {
   currency: string;
   payment_method: string;
   utr_number: string;
-  client_name: string;
+  client_name: string | null;
+  client_email: string | null;
+  notes: string | null;
   issued_at: string;
 };
 
@@ -552,7 +557,7 @@ export type Database = {
       };
       contracts: {
         Row: ContractsRow;
-        Insert: Omit<ContractsRow, 'id' | 'created_at' | 'updated_at' | 'deleted_at'>;
+        Insert: Omit<ContractsRow, 'id' | 'created_at' | 'updated_at' | 'deleted_at' | 'title' | 'content'> & { title?: string; content?: string };
         Update: Partial<Omit<ContractsRow, 'id' | 'created_at' | 'updated_at'>>;
         Relationships: [
           {
@@ -636,8 +641,8 @@ export type Database = {
       };
       payments: {
         Row: PaymentsRow;
-        Insert: Omit<PaymentsRow, 'id' | 'created_at' | 'deleted_at'>;
-        Update: Partial<Omit<PaymentsRow, 'id' | 'created_at' | 'deleted_at'>>;
+        Insert: Omit<PaymentsRow, 'id' | 'created_at' | 'updated_at' | 'deleted_at'>;
+        Update: Partial<Omit<PaymentsRow, 'id' | 'created_at' | 'updated_at' | 'deleted_at'>>;
         Relationships: [
           {
             foreignKeyName: 'payments_workspace_id_fkey';
@@ -929,6 +934,12 @@ export type Database = {
           token_val: string;
         };
         Returns: InvoicesRow[];
+      };
+      get_portal_invoice_items: {
+        Args: {
+          token_val: string;
+        };
+        Returns: InvoiceItemsRow[];
       };
       get_portal_deliverables: {
         Args: {

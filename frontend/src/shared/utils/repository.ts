@@ -11,7 +11,10 @@ export function getPaginationBounds(options: QueryOptions = {}): {
   to: number;
 } {
   const page = Math.max(1, options.page || 1);
-  const pageSize = Math.min(100, Math.max(1, options.pageSize || 10));
+  // 1000 is the hosted Supabase per-request row cap; pages stay full until
+  // exhausted, so callers asking for whole-table lists cost 1 round trip
+  // instead of 10 (each Supabase RTT dominates perceived latency).
+  const pageSize = Math.min(1000, Math.max(1, options.pageSize || 10));
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
   return { page, pageSize, from, to };
@@ -34,6 +37,31 @@ export function toPaginatedResult<T>(
     pageSize,
     totalPages: Math.ceil(total / pageSize),
   };
+}
+
+/**
+ * Fetches every row of a paginated query, page by page.
+ * A single request is capped at 1000 rows (the hosted Supabase max), so lists
+ * that must be complete (dashboard cards, statutory exports) cannot rely on
+ * one page.
+ */
+export async function fetchAllPages<T>(
+  fetchPage: (page: number) => Promise<PaginatedResult<T>>,
+): Promise<PaginatedResult<T>> {
+  const rows: T[] = [];
+  let page = 1;
+  let total = 0;
+  let totalPages = 1;
+
+  do {
+    const result = await fetchPage(page);
+    rows.push(...result.data);
+    total = result.total;
+    totalPages = result.totalPages;
+    page += 1;
+  } while (page <= totalPages);
+
+  return { data: rows, total, page: 1, pageSize: rows.length, totalPages: 1 };
 }
 
 /**

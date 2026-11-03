@@ -52,9 +52,16 @@ class Settings(BaseModel):
         super().__init__(**data)
         if not self.CORS_ORIGINS:
             self.CORS_ORIGINS = self.get_cors_origins()
-        if self.ENVIRONMENT == "production":
+        # The placeholder secret is the well-known local Supabase dev secret, so
+        # anyone can mint a valid token with it. Refuse to start anywhere that
+        # is not a local development deployment. ENVIRONMENT defaults to
+        # "development", so a remote Supabase host is the reliable signal that
+        # this is a real deployment even when ENVIRONMENT was forgotten.
+        is_local_url = "localhost" in self.SUPABASE_URL or "127.0.0.1" in self.SUPABASE_URL
+        is_local_deployment = self.ENVIRONMENT in ("development", "test") and is_local_url
+        if not is_local_deployment:
             if not self.SUPABASE_JWT_SECRET or self.SUPABASE_JWT_SECRET == "super-secret-jwt-token-with-at-least-32-characters":
-                raise RuntimeError("SUPABASE_JWT_SECRET must be configured with a secure 32+ character secret in production environment")
+                raise RuntimeError("SUPABASE_JWT_SECRET must be configured with a secure 32+ character secret outside local development")
 
 
 settings = Settings()

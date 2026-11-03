@@ -73,7 +73,9 @@ serve(async (req: Request) => {
     })
 
     // 1. Rate limiting on webhook endpoint (max 100 requests per minute per IP)
-    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown'
+    // The edge proxy appends the real client IP last, so the last entry is the
+    // one the client cannot spoof by sending its own x-forwarded-for header.
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',').pop()?.trim() || 'unknown'
     const rateLimit = await consumeRateLimit(adminClient, {
       functionName: 'payment-webhook',
       principal: clientIp,
@@ -164,7 +166,8 @@ serve(async (req: Request) => {
 
     if (rpcError) {
       console.error('[payment-webhook] Reconciliation RPC failed:', rpcError)
-      return new Response(JSON.stringify({ error: rpcError.message }), {
+      // Do not echo raw Postgres SECURITY DEFINER messages to the caller.
+      return new Response(JSON.stringify({ error: 'Reconciliation failed; event retained for retry' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
@@ -180,7 +183,7 @@ serve(async (req: Request) => {
 
   } catch (error: any) {
     console.error('[payment-webhook] Unhandled exception:', error)
-    return new Response(JSON.stringify({ error: error.message || 'Internal Server Error' }), {
+    return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })

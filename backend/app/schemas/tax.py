@@ -36,19 +36,20 @@ class ClientTaxProfile(BaseModel):
 
 class InvoiceItemTaxInput(BaseModel):
     description: str = "Item"
-    quantity: float = Field(default=1.0, ge=0)
-    rate: float = Field(default=0.0, ge=0)
-    gst_rate: float = Field(default=18.0, ge=0)
-    cess_rate: Optional[float] = Field(default=0.0, ge=0)
+    # allow_inf_nan=False keeps inf/1e999 out of the integer-paise engine.
+    quantity: float = Field(default=1.0, ge=0, allow_inf_nan=False)
+    rate: float = Field(default=0.0, ge=0, allow_inf_nan=False)
+    gst_rate: float = Field(default=18.0, ge=0, allow_inf_nan=False)
+    cess_rate: Optional[float] = Field(default=0.0, ge=0, allow_inf_nan=False)
     hsn_code: Optional[str] = None
     sac_code: Optional[str] = None
     unit: Optional[str] = "NOS"
-    discount_amount: Optional[float] = Field(default=0.0, ge=0)
+    discount_amount: Optional[float] = Field(default=0.0, ge=0, allow_inf_nan=False)
 
 
 class InvoiceDiscountInput(BaseModel):
     type: DiscountType = "fixed"
-    value: float = Field(default=0.0, ge=0)
+    value: float = Field(default=0.0, ge=0, allow_inf_nan=False)
     scope: DiscountScope = "before_tax"
 
 
@@ -65,7 +66,7 @@ class TaxCalculationRequest(BaseModel):
     tds: Optional[TDSInput] = None
     isReverseCharge: Optional[bool] = False
     currency: Optional[SupportedCurrency] = "INR"
-    exchangeRate: Optional[float] = 1.0
+    exchangeRate: Optional[float] = Field(default=1.0, allow_inf_nan=False)
     exchangeRateDate: Optional[str] = None
     supply_type: Optional[SupplyType] = None
     lutNumber: Optional[str] = None

@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // client session; a single retry absorbs that lag and avoids a noisy
         // POST /workspaces → 409 that createWorkspace() would otherwise have
         // to recover from.
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 200));
         const retryRes = await WorkspaceService.getWorkspaces(userId);
         if (retryRes.success && retryRes.data.length > 0) {
           return retryRes.data[0]?.id || '';

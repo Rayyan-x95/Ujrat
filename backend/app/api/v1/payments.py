@@ -1,10 +1,10 @@
 """Payments API endpoints."""
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 
 from backend.app.services.upi_service import UPIService, UPILinkParams
-from backend.app.services.state_machines import PaymentStateMachine, StateMachineError
 from backend.app.core.security import get_current_user
 from backend.app.core.database import get_supabase_client
 
@@ -72,8 +72,12 @@ async def generate_upi_deep_link(
             phonepe_link=phonepe,
             paytm_link=paytm,
         )
-    except Exception as e:
+    except ValueError as e:
+        # Domain validation messages are user-meaningful by design.
         raise HTTPException(status_code=400, detail=str(e))
+    except OverflowError:
+        raise HTTPException(status_code=400, detail="Numeric value out of range")
+    # Everything else bubbles as a plain 500; never echo internal error text.
 
 
 @router.post("/upi/verify-utr", response_model=UTRVerificationResponse)
@@ -120,24 +124,40 @@ async def record_payment(
         raise HTTPException(status_code=400, detail="Invalid 12-digit UTR transaction reference")
 
     sb = get_supabase_client()
-    
+
     # Verify invoice exists in this workspace
-    inv_res = sb.table("invoices").select("id, status, grand_total").eq("id", request.invoice_id).eq("workspace_id", workspace_id).execute()
+    inv_res = (
+        sb.table("invoices")
+        .select("id, status, total, outstanding_balance")
+        .eq("id", request.invoice_id)
+        .eq("workspace_id", workspace_id)
+        .is_("deleted_at", "null")
+        .execute()
+    )
     if not inv_res.data:
         raise HTTPException(status_code=404, detail="Invoice not found in workspace")
 
-    # Insert payment record
-    pay_data = {
-        "workspace_id": workspace_id,
-        "invoice_id": request.invoice_id,
-        "amount": request.amount,
-        "payment_method": request.payment_method,
-        "transaction_reference": request.transaction_reference,
-        "status": "completed",
-        "notes": request.notes,
-    }
-    insert_res = sb.table("payments").insert(pay_data).execute()
-    if not insert_res.data:
-        raise HTTPException(status_code=500, detail="Failed to record payment")
+    invoice = inv_res.data[0]
+    if invoice.get("status") in ("paid", "cancelled"):
+        raise HTTPException(status_code=400, detail="Invoice is not open for payment")
 
-    return insert_res.data[0]
+    outstanding = invoice.get("outstanding_balance")
+    if outstanding is None:
+        outstanding = invoice.get("total") or 0
+    if request.amount > outstanding:
+        raise HTTPException(status_code=400, detail="Payment amount exceeds the outstanding balance")
+
+    # Atomic settle via the reconcile_gateway_payment RPC (single transaction,
+    # invoice lock + idempotent transaction_reference handling).
+    import uuid as _uuid
+    tx_ref = request.transaction_reference or f"MANUAL-{_uuid.uuid4()}"
+    rpc_res = sb.rpc("reconcile_gateway_payment", {
+        "p_invoice_id": request.invoice_id,
+        "p_amount": request.amount,
+        "p_transaction_id": tx_ref,
+        "p_gateway": request.payment_method or "UPI",
+        "p_metadata": {"notes": request.notes, "paid_at": request.paid_at},
+    }).execute()
+    if not rpc_res.data:
+        raise HTTPException(status_code=500, detail="Failed to record payment")
+    return rpc_res.data

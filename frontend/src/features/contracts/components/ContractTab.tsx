@@ -46,7 +46,7 @@ export const ContractTab: React.FC<ContractTabProps> = ({
     } else {
       setContractContent(defaultContractText);
     }
-  }, [projectIdentifier, contract?.id, defaultContractText]);
+  }, [projectIdentifier, contract?.id, contract?.introduction, contract?.content, defaultContractText]);
 
   const isDirty = useMemo(() => {
     const saved = contract?.introduction ?? contract?.content ?? defaultContractText;

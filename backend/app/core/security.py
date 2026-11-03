@@ -36,12 +36,13 @@ async def get_current_user(
     token = credentials.credentials
 
     try:
-        # Decode without verification first if secret is placeholder, or verify with secret
+        # Always verify the signature. A short or missing secret must fail the
+        # request, never silently turn verification off.
         payload = jwt.decode(
             token,
             settings.SUPABASE_JWT_SECRET,
             algorithms=["HS256"],
-            options={"verify_aud": False, "verify_signature": bool(settings.SUPABASE_JWT_SECRET and len(settings.SUPABASE_JWT_SECRET) >= 32)},
+            options={"verify_aud": False, "verify_signature": True},
         )
 
         user_id = payload.get("sub")
@@ -52,9 +53,26 @@ async def get_current_user(
             )
 
         email = payload.get("email")
-        # In multi-tenant Supabase, workspace_id can be in app_metadata or queried from user profile
-        app_metadata = payload.get("app_metadata", {})
-        workspace_id = app_metadata.get("workspace_id") or payload.get("workspace_id") or user_id
+        app_metadata = payload.get("app_metadata") or {}
+        # Only app_metadata.workspace_id (set server-side via the admin API) is
+        # trusted; a top-level claim is client-derived and may be user-reachable
+        # via custom access token hooks, so it is ignored.
+        workspace_id = app_metadata.get("workspace_id") if isinstance(app_metadata, dict) else None
+        if not workspace_id:
+            try:
+                from backend.app.core.database import get_supabase_client
+                sb = get_supabase_client()
+                res = sb.table("workspaces").select("id").eq("profile_id", user_id).is_("deleted_at", "null").limit(1).execute()
+                if res.data:
+                    workspace_id = res.data[0]["id"]
+            except Exception:
+                workspace_id = None
+        if not workspace_id:
+            # Last resort: bind to a pseudo-tenant keyed by the user id. Safe
+            # because both trusted paths above (app_metadata, profile_id-scoped
+            # DB lookup) already resolve; this can only produce an empty tenant,
+            # never another user's workspace.
+            workspace_id = user_id
 
         return AuthenticatedUser(
             user_id=user_id,
@@ -68,15 +86,3 @@ async def get_current_user(
             detail=f"Invalid or expired credentials: {str(e)}",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
-
-async def get_optional_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
-) -> Optional[AuthenticatedUser]:
-    """Optional authentication dependency for mixed/public routes."""
-    if not credentials or not credentials.credentials:
-        return None
-    try:
-        return await get_current_user(credentials)
-    except HTTPException:
-        return None

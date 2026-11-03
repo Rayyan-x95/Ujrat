@@ -4,8 +4,8 @@ import {
   fromPaise,
   calculateInvoiceTax,
   calculateTDSBreakdown,
-  numberToIndianRupeeWords,
-} from '../features/invoices/utils/TaxEngine';
+} from '../features/invoices/tax/InvoiceCalculator';
+import { numberToIndianRupeeWords } from '@/shared/utils/currency';
 
 describe('🔥 BRUTAL FINANCIAL STRESS & PRECISION SUITE', () => {
 

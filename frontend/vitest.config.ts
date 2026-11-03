@@ -1,16 +1,14 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
-import path from 'path';
-
 export default defineConfig({
   plugins: [react() as any],
   resolve: {
     alias: {
-      '@/app': path.resolve(__dirname, './src/app'),
-      '@/shared': path.resolve(__dirname, './src/shared'),
-      '@/features': path.resolve(__dirname, './src/features'),
-      '@/supabase': path.resolve(__dirname, '../backend/supabase'),
-      '@ujrat/shared-types': path.resolve(__dirname, '../packages/shared-types/src'),
+      '@/app': import.meta.dirname + '/src/app',
+      '@/shared': import.meta.dirname + '/src/shared',
+      '@/features': import.meta.dirname + '/src/features',
+      '@/supabase': import.meta.dirname + '/../backend/supabase',
+      '@ujrat/shared-types': import.meta.dirname + '/../packages/shared-types/src',
     },
   },
   test: {

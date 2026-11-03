@@ -7,10 +7,11 @@ const envSchema = z.object({
 });
 
 const getEnvVars = () => {
+  const isTest = Boolean(import.meta.env?.VITEST);
   const vars = {
-    VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
-    VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
-    VITE_APP_URL: import.meta.env.VITE_APP_URL,
+    VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL || (isTest ? 'http://localhost:54321' : undefined),
+    VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY || (isTest ? 'test-anon-key' : undefined),
+    VITE_APP_URL: import.meta.env.VITE_APP_URL || (isTest ? 'http://localhost:5173' : undefined),
   };
 
   const parsed = envSchema.safeParse(vars);

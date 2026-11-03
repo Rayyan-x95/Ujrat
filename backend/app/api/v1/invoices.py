@@ -71,12 +71,13 @@ async def list_invoices(
     sb = get_supabase_client()
     query = (
         sb.table("invoices")
-        .select("*, clients(name, company_name), invoice_items(*)")
+        .select("*, projects(id, name, client_id), invoice_items(*)")
         .eq("workspace_id", workspace_id)
         .is_("deleted_at", "null")
     )
     if client_id:
-        query = query.eq("client_id", client_id)
+        # public.invoices has no client_id column - the client comes from the project.
+        query = query.eq("projects.client_id", client_id)
     if project_id:
         query = query.eq("project_id", project_id)
     if status:
@@ -97,6 +98,11 @@ async def create_invoice(
         raise HTTPException(status_code=400, detail="Missing workspace context")
 
     sb = get_supabase_client()
+
+    if not request.project_id:
+        # public.invoices.project_id is NOT NULL - the invoice is always
+        # attached to a project (the client is derived from it).
+        raise HTTPException(status_code=400, detail="project_id is required to create an invoice")
 
     # Fetch workspace profile (freelancer profile)
     ws_res = sb.table("workspaces").select("*").eq("id", workspace_id).execute()
@@ -155,9 +161,11 @@ async def create_invoice(
     tax_breakdown = calculate_invoice_tax(calc_req)
 
     # Insert invoice header
+    # Column names must match public.invoices: there is no client_id (the
+    # client comes from the project), no total_tax and no grand_total - the
+    # column is "total" - and no terms column.
     inv_data = {
         "workspace_id": workspace_id,
-        "client_id": request.client_id,
         "project_id": request.project_id,
         "invoice_number": request.invoice_number,
         "invoice_date": request.invoice_date,
@@ -165,19 +173,34 @@ async def create_invoice(
         "status": "draft",
         "subtotal": tax_breakdown.subtotal,
         "discount_amount": tax_breakdown.discount_amount,
+        "discount_type": tax_breakdown.discount_type,
+        "discount_scope": tax_breakdown.discount_scope,
         "taxable_amount": tax_breakdown.taxable_amount,
         "cgst": tax_breakdown.cgst,
         "sgst": tax_breakdown.sgst,
         "igst": tax_breakdown.igst,
         "cess_amount": tax_breakdown.cess,
-        "total_tax": tax_breakdown.total_gst,
+        "total": tax_breakdown.grand_total,
         "round_off": tax_breakdown.round_off,
-        "grand_total": tax_breakdown.grand_total,
+        "net_receivable": tax_breakdown.net_receivable,
+        "tds_section": tax_breakdown.tds_section,
+        "tds_rate": tax_breakdown.tds_rate,
         "tds_amount": tax_breakdown.tds_amount,
+        "supply_type": tax_breakdown.supply_type,
+        "tax_scheme": tax_breakdown.tax_scheme,
+        "is_interstate": tax_breakdown.is_interstate,
+        "is_zero_rated": tax_breakdown.is_zero_rated,
+        "is_reverse_charge": tax_breakdown.is_reverse_charge,
+        "freelancer_gstin": tax_breakdown.freelancer_gstin,
+        "client_gstin": tax_breakdown.client_gstin,
+        "freelancer_state": tax_breakdown.freelancer_state,
+        "client_state": tax_breakdown.client_state,
         "outstanding_balance": tax_breakdown.grand_total,
         "currency": tax_breakdown.currency,
+        "exchange_rate": tax_breakdown.exchange_rate,
+        "exchange_rate_date": tax_breakdown.exchange_rate_date,
+        "inr_total": tax_breakdown.inr_grand_total,
         "notes": request.notes,
-        "terms": request.terms,
     }
 
     inv_insert = sb.table("invoices").insert(inv_data).execute()
@@ -196,11 +219,15 @@ async def create_invoice(
             "quantity": line.quantity,
             "rate": line.rate,
             "gst_rate": line.gst_rate,
+            "discount_amount": line.discount_amount,
+            "taxable_amount": line.taxable_amount,
+            "cess_rate": line.cess_rate,
             "cgst_amount": line.cgst_amount,
             "sgst_amount": line.sgst_amount,
             "igst_amount": line.igst_amount,
             "cess_amount": line.cess_amount,
             "line_total": line.line_total,
+            "amount": line.line_total,
             "hsn_code": line.hsn_code,
             "sac_code": line.sac_code,
             "unit": line.unit,
@@ -225,7 +252,7 @@ async def get_invoice(
     sb = get_supabase_client()
     res = (
         sb.table("invoices")
-        .select("*, clients(*), invoice_items(*), payments(*)")
+        .select("*, projects(id, name), invoice_items(*), payments(*)")
         .eq("id", invoice_id)
         .eq("workspace_id", workspace_id)
         .is_("deleted_at", "null")

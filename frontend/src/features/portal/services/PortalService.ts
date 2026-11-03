@@ -108,10 +108,20 @@ export class PortalService {
         token,
         validated.signature_name,
         validated.ip_address || '',
-        signatureData.emailVerified ?? true,
+        signatureData.emailVerified ?? false,
         signatureData.signatureImage ?? null,
         signatureData.signatureType || 'drawn'
       );
+
+      // The RPC records the "Agreement Signed" email in email_logs; the edge
+      // function sends the newest pending log of this project. Without this
+      // call the freelancer never hears that the client signed.
+      const { error: emailErr } = await supabase.functions.invoke('send-email', {
+        body: { portalToken: token }
+      });
+      if (emailErr) {
+        console.error('[PortalService] Failed to trigger signature notification email:', emailErr);
+      }
 
       return { success: true, data: undefined };
     } catch (e: any) {

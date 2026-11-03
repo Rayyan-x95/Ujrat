@@ -77,22 +77,6 @@ export class PaymentRepository {
     return data as Payment;
   }
 
-  static async updateStatus(workspaceId: string, paymentId: string, status: Payment['status']): Promise<Payment> {
-    if (status === 'completed') {
-      throw new Error('Use verifyPayment() to complete a payment — verifier attribution is required');
-    }
-    const { data, error } = await supabase
-      .from('payments')
-      .update({ status })
-      .eq('id', paymentId)
-      .eq('workspace_id', workspaceId)
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return data as Payment;
-  }
-
   static async verifyPayment(
     workspaceId: string,
     paymentId: string,

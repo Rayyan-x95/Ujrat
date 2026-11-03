@@ -78,18 +78,22 @@ async def create_client(
         if val["is_valid"] and not pan:
             pan = val.get("pan")
 
+    if not request.email:
+        # public.clients.email is NOT NULL
+        raise HTTPException(status_code=400, detail="Client email is required")
+
+    # Column names must match public.clients: the company column is "company"
+    # and there are no country / is_sez columns.
     data = {
         "workspace_id": workspace_id,
         "name": request.name.strip(),
-        "email": request.email.strip() if request.email else None,
+        "email": request.email.strip(),
         "phone": request.phone.strip() if request.phone else None,
-        "company_name": request.company_name.strip() if request.company_name else None,
+        "company": request.company_name.strip() if request.company_name else None,
         "gstin": request.gstin.strip().upper() if request.gstin else None,
         "pan": pan.strip().upper() if pan else None,
         "state": request.state.strip() if request.state else None,
-        "country": request.country.strip() if request.country else "India",
         "address": request.address.strip() if request.address else None,
-        "is_sez": bool(request.is_sez),
         "currency": (request.currency or "INR").upper(),
         "notes": request.notes,
     }
@@ -139,6 +143,11 @@ async def update_client(
 
     sb = get_supabase_client()
     update_data = {k: v for k, v in request.model_dump(exclude_unset=True).items()}
+    if "company_name" in update_data:
+        update_data["company"] = update_data.pop("company_name")
+    # public.clients has no country / is_sez columns.
+    update_data.pop("country", None)
+    update_data.pop("is_sez", None)
     if "gstin" in update_data and update_data["gstin"]:
         val = validate_gstin_format(update_data["gstin"])
         if val["is_valid"] and not update_data.get("pan"):

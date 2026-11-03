@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { calculateInvoiceTax, numberToIndianRupeeWords } from '../features/invoices/utils/TaxEngine';
+import { calculateInvoiceTax } from '../features/invoices/tax/InvoiceCalculator';
+import { numberToIndianRupeeWords } from '@/shared/utils/currency';
 import { UPIPaymentProvider } from '../features/payments/providers/UPIPaymentProvider';
 
 describe('🚀 BRUTAL PERFORMANCE & SLA BENCHMARKS SUITE', () => {

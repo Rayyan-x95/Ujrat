@@ -1,5 +1,6 @@
 import { supabase } from '@/shared/lib/supabaseClient';
 import { getPaginationBounds, toPaginatedResult, softDeleteRecord } from '@/shared/utils/repository';
+import { sanitizeSearchTerm } from '@/shared/utils/sanitize';
 import type { Deliverable, DeliverableInsert, QueryOptions, PaginatedResult } from '@/shared/types';
 
 export class DeliverableRepository {
@@ -32,7 +33,7 @@ export class DeliverableRepository {
       query = query.eq('project_id', String(options.filter.project_id));
     }
     if (options.search) {
-      query = query.ilike('name', `%${options.search}%`);
+      query = query.ilike('name', `%${sanitizeSearchTerm(options.search)}%`);
     }
 
     const sortBy = options.sortBy || 'created_at';

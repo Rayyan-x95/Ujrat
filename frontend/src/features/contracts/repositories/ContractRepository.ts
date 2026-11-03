@@ -73,8 +73,7 @@ export class ContractRepository {
     // `title` and `content` are NOT NULL in the DB schema.
     // The sync_contracts_introduction_and_content trigger keeps introduction ↔ content in sync,
     // but `title` has no trigger fallback — we must always supply it explicitly.
-    // Note: ContractInsert generated type is stale and omits `title`/`content`; cast to any.
-    const cd = contractData as any;
+  const cd = contractData as any;
     const derivedTitle = cd.title || cd.introduction || 'Contract';
     const payload = {
       workspace_id: workspaceId,
@@ -87,7 +86,7 @@ export class ContractRepository {
       status: contractData.status || 'draft',
     };
 
-    const { data, error } = await (supabase.from('contracts') as any)
+    const { data, error } = await supabase.from('contracts')
       .insert(payload)
       .select()
       .single();

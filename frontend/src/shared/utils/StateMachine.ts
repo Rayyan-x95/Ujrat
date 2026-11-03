@@ -68,11 +68,12 @@ export const ProposalStateMachine = createStateMachine<ProposalStatus>(
 export const InvoiceStateMachine = createStateMachine<InvoiceStatus>(
   {
     draft: ['sent', 'pending_verification', 'cancelled'],
-    sent: ['viewed', 'pending_verification', 'paid', 'overdue', 'cancelled'],
-    viewed: ['pending_verification', 'paid', 'overdue', 'cancelled'],
-    pending_verification: ['paid', 'sent', 'overdue', 'cancelled'],
+    sent: ['viewed', 'pending_verification', 'paid', 'partially_paid', 'overdue', 'cancelled'],
+    viewed: ['pending_verification', 'paid', 'partially_paid', 'overdue', 'cancelled'],
+    pending_verification: ['paid', 'partially_paid', 'sent', 'overdue', 'cancelled'],
+    partially_paid: ['paid', 'overdue', 'cancelled'],
     paid: [],
-    overdue: ['paid', 'cancelled'],
+    overdue: ['paid', 'partially_paid', 'cancelled'],
     cancelled: [],
   },
   'Invoice Status Updated',

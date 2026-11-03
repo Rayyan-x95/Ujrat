@@ -1,5 +1,6 @@
 import { supabase } from '@/shared/lib/supabaseClient';
 import { getPaginationBounds, toPaginatedResult, softDeleteRecord } from '@/shared/utils/repository';
+import { sanitizeSearchTerm } from '@/shared/utils/sanitize';
 import type { Invoice, InvoiceWithItems, InvoiceInsert, InvoiceUpdate, InvoiceItemInsert, QueryOptions, PaginatedResult } from '@/shared/types';
 
 export class InvoiceRepository {
@@ -10,7 +11,7 @@ export class InvoiceRepository {
     const { page, pageSize, from, to } = getPaginationBounds(options);
 
     let query = (supabase.from('invoices') as any)
-      .select('*, projects(id, name)', { count: 'exact' })
+      .select('*, projects(id, name, portal_token)', { count: 'exact' })
       .eq('workspace_id', workspaceId)
       .is('deleted_at', null);
 
@@ -21,7 +22,7 @@ export class InvoiceRepository {
       query = query.eq('project_id', String(options.filter.project_id));
     }
     if (options.search) {
-      query = query.ilike('invoice_number', `%${options.search}%`);
+      query = query.ilike('invoice_number', `%${sanitizeSearchTerm(options.search)}%`);
     }
 
     const sortBy = options.sortBy || 'created_at';
@@ -48,14 +49,14 @@ export class InvoiceRepository {
 
   static async getByProjectId(workspaceId: string, projectId: string): Promise<InvoiceWithItems[]> {
     const { data, error } = await (supabase.from('invoices') as any)
-      .select('*, projects(id, name)')
+      .select('*, invoice_items(*)')
       .eq('project_id', projectId)
       .eq('workspace_id', workspaceId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false });
 
     if (error) throw new Error(error.message);
-    return (data || []).map((inv: any) => ({ ...inv, invoice_items: [] }));
+    return (data || []);
   }
 
   static async create(
@@ -91,7 +92,7 @@ export class InvoiceRepository {
     });
 
     // Attempt database-level atomic transaction via RPC first
-    try {
+    {
       const { data, error } = await (supabase.rpc as any)('create_invoice_transactional', {
         p_workspace_id: workspaceId,
         p_invoice_data: {
@@ -102,14 +103,19 @@ export class InvoiceRepository {
         p_invoice_items: itemsToInsert,
       });
 
-      if (!error && data?.invoice) {
+      if (error) {
+        const msg = String(error?.message || '').toLowerCase();
+        const missingFn = msg.includes('could not find') || msg.includes('does not exist') || msg.includes('schema cache') || error?.code === 'PGRST202';
+        if (!missingFn) {
+          throw new Error(error.message || 'Invoice transactional RPC failed');
+        }
+        console.error('[InvoiceRepository] create_invoice_transactional unavailable, using fallback:', error.message);
+      } else if (data?.invoice) {
         return {
           ...data.invoice,
           invoice_items: data.invoice_items || [],
         } as InvoiceWithItems;
       }
-    } catch {
-      // Fallback if RPC function is not yet present on backend
     }
 
     const { data: invoice, error: invErr } = await (supabase.from('invoices') as any)

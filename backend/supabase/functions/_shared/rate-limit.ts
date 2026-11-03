@@ -12,7 +12,8 @@ type RateLimitClient = {
 
 type RateLimitRow = {
   allowed: boolean
-  retry_after_seconds: number
+  retry_after_seconds?: number
+  window_reset_at?: string
 }
 
 export type RateLimitConfig = {
@@ -33,8 +34,27 @@ function isRateLimitRow(value: unknown): value is RateLimitRow {
   }
 
   const row = value as Record<string, unknown>
-  return typeof row.allowed === 'boolean'
-    && typeof row.retry_after_seconds === 'number'
+  if (typeof row.allowed !== 'boolean') {
+    return false
+  }
+
+  return typeof row.retry_after_seconds === 'number'
+    || typeof row.window_reset_at === 'string'
+}
+
+// The RPC returns window_reset_at (end of the current window); retry_after_seconds
+// is only present on newer deployments. Accept both so the helper works either way.
+function computeRetryAfterSeconds(row: RateLimitRow): number {
+  if (typeof row.retry_after_seconds === 'number') {
+    return row.retry_after_seconds
+  }
+
+  const resetAt = Date.parse(row.window_reset_at ?? '')
+  if (Number.isNaN(resetAt)) {
+    return 0
+  }
+
+  return Math.max(0, Math.ceil((resetAt - Date.now()) / 1000))
 }
 
 async function hashPrincipal(principal: string): Promise<string> {
@@ -66,8 +86,10 @@ export async function consumeRateLimit(
     return { allowed: false, error: 'Invalid rate limit response', retryAfterSeconds: 0 }
   }
 
-  return {
-    allowed: data[0].allowed,
-    retryAfterSeconds: data[0].retry_after_seconds,
+  const row = data[0]
+  if (row.allowed) {
+    return { allowed: true, retryAfterSeconds: 0 }
   }
+
+  return { allowed: false, retryAfterSeconds: computeRetryAfterSeconds(row) }
 }

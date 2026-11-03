@@ -16,10 +16,9 @@ serve(async (_req) => {
     checks.database = {
       status: error ? 'down' : 'healthy',
       latency_ms: Date.now() - dbStart,
-      details: error?.message,
     };
   } catch (e) {
-    checks.database = { status: 'down', latency_ms: Date.now() - dbStart, details: String(e) };
+    checks.database = { status: 'down', latency_ms: Date.now() - dbStart };
   }
 
   // 2. Auth service
@@ -29,10 +28,9 @@ serve(async (_req) => {
     checks.auth = {
       status: error ? 'degraded' : 'healthy',
       latency_ms: Date.now() - authStart,
-      details: error?.message,
     };
   } catch (e) {
-    checks.auth = { status: 'down', latency_ms: Date.now() - authStart, details: String(e) };
+    checks.auth = { status: 'down', latency_ms: Date.now() - authStart };
   }
 
   // 3. Storage service
@@ -42,10 +40,9 @@ serve(async (_req) => {
     checks.storage = {
       status: error ? 'down' : 'healthy',
       latency_ms: Date.now() - storageStart,
-      details: error?.message,
     };
   } catch (e) {
-    checks.storage = { status: 'down', latency_ms: Date.now() - storageStart, details: String(e) };
+    checks.storage = { status: 'down', latency_ms: Date.now() - storageStart };
   }
 
   // 4. Realtime
@@ -57,10 +54,9 @@ serve(async (_req) => {
     checks.realtime = {
       status: error ? 'degraded' : 'healthy',
       latency_ms: Date.now() - realtimeStart,
-      details: error?.message,
     };
   } catch (e) {
-    checks.realtime = { status: 'down', latency_ms: Date.now() - realtimeStart, details: String(e) };
+    checks.realtime = { status: 'down', latency_ms: Date.now() - realtimeStart };
   }
 
   const overallStatus = Object.values(checks).every(c => c.status === 'healthy') 
@@ -81,3 +77,4 @@ serve(async (_req) => {
     }
   );
 });
+

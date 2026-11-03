@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 class UPILinkParams(BaseModel):
     payee_vpa: str
     payee_name: str = "Freelancer"
-    amount: float = Field(gt=0)
+    amount: float = Field(gt=0, allow_inf_nan=False)
     currency: str = "INR"
     invoice_number: str
     note: Optional[str] = None

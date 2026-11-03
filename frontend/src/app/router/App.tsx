@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from '../providers/ThemeProvider';
 import { useEffect, lazy, Suspense } from 'react';
 
 // UI Components
@@ -146,16 +145,14 @@ function UjratApp() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <BrowserRouter>
-          <ErrorBoundary>
-            <PageTracker />
-            <AuthProvider>
-              <UjratApp />
-            </AuthProvider>
-          </ErrorBoundary>
-        </BrowserRouter>
-      </ThemeProvider>
+      <BrowserRouter>
+        <ErrorBoundary>
+          <PageTracker />
+          <AuthProvider>
+            <UjratApp />
+          </AuthProvider>
+        </ErrorBoundary>
+      </BrowserRouter>
     </QueryClientProvider>
   );
 }

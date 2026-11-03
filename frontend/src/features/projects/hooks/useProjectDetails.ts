@@ -215,7 +215,7 @@ export function useProjectDetails({
         }],
       })),
     onSuccess: (invoice) => {
-      queryClient.invalidateQueries({ queryKey: ['invoices', workspaceId, projectId] });
+      queryClient.invalidateQueries({ queryKey: ['invoices', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['project', workspaceId, projectId] });
       queryClient.invalidateQueries({ queryKey: ['dashboard', workspaceId, profileId] });
       if (invoice.id) onShowInvoice(invoice.id);
@@ -229,7 +229,8 @@ export function useProjectDetails({
     mutationFn: async (data: { invoice_id: string; amount: number; payment_method?: string; transaction_reference: string }) =>
       unwrapResult(await PaymentService.submitPayment(workspaceId, data)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices', workspaceId, projectId] });
+      queryClient.invalidateQueries({ queryKey: ['invoices', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['payments', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['dashboard', workspaceId, profileId] });
       addToast('success', 'Payment Submitted', 'Payment reference sent for verification');
     },
@@ -240,7 +241,8 @@ export function useProjectDetails({
     mutationFn: async (data: { paymentId: string; status: 'completed' | 'failed'; notes?: string }) =>
       unwrapResult(await PaymentService.verifyPayment(workspaceId, profileId, data.paymentId, data.status, data.notes)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices', workspaceId, projectId] });
+      queryClient.invalidateQueries({ queryKey: ['invoices', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['payments', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['dashboard', workspaceId, profileId] });
       addToast('success', 'Payment Verified', 'Payment status updated');
     },

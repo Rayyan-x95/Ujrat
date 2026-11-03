@@ -58,6 +58,18 @@ describe('State Machines', () => {
     it('draft -> paid should be invalid', () => {
       expect(InvoiceStateMachine.validate('draft', 'paid')).toBe(false);
     });
+
+    it('sent -> partially_paid should be valid', () => {
+      expect(InvoiceStateMachine.validate('sent', 'partially_paid')).toBe(true);
+    });
+
+    it('partially_paid -> paid should be valid', () => {
+      expect(InvoiceStateMachine.validate('partially_paid', 'paid')).toBe(true);
+    });
+
+    it('draft -> partially_paid should be invalid', () => {
+      expect(InvoiceStateMachine.validate('draft', 'partially_paid')).toBe(false);
+    });
   });
 
   describe('PaymentStateMachine', () => {

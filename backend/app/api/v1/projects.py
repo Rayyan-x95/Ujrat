@@ -47,7 +47,7 @@ async def list_projects(
     sb = get_supabase_client()
     query = (
         sb.table("projects")
-        .select("*, clients(name, company_name)")
+        .select("*, clients(name, company)")
         .eq("workspace_id", workspace_id)
         .is_("deleted_at", "null")
     )
@@ -71,6 +71,8 @@ async def create_project(
         raise HTTPException(status_code=400, detail="Missing workspace context")
 
     sb = get_supabase_client()
+    # Column names must match public.projects: the timeline columns are
+    # timeline_start / timeline_end and there is no currency column.
     data = {
         "workspace_id": workspace_id,
         "client_id": request.client_id,
@@ -78,9 +80,8 @@ async def create_project(
         "description": request.description,
         "status": request.status or "lead",
         "budget": request.budget or 0.0,
-        "currency": (request.currency or "INR").upper(),
-        "start_date": request.start_date,
-        "end_date": request.end_date,
+        "timeline_start": request.start_date,
+        "timeline_end": request.end_date,
     }
     res = sb.table("projects").insert(data).execute()
     if not res.data:
@@ -137,6 +138,13 @@ async def update_project(
 
     current_status = current_res.data[0].get("status", "lead")
     update_data = {k: v for k, v in request.model_dump(exclude_unset=True).items()}
+
+    # Map the API field names onto the real column names.
+    if "start_date" in update_data:
+        update_data["timeline_start"] = update_data.pop("start_date")
+    if "end_date" in update_data:
+        update_data["timeline_end"] = update_data.pop("end_date")
+    update_data.pop("currency", None)  # public.projects has no currency column
 
     # Check state machine transition if status is being updated
     if "status" in update_data and update_data["status"] != current_status:
