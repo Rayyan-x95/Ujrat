@@ -25,9 +25,9 @@ npm run build        # tsc -b && vite build
 
 Ujrat is organized as an npm-workspaces monorepo:
 
-- `frontend/`: React 19 + TypeScript + Vite SPA, UI features, presentation components, Vitest tests, Tailwind CSS 4. Uses `frontend/src/shared/lib/apiClient.ts` to dispatch operations to the Python backend with Supabase Bearer JWTs.
+- `frontend/`: React 19 + TypeScript + Vite SPA, UI features, presentation components, Vitest tests, Tailwind CSS 4. Talks to Supabase directly (RLS + `SECURITY DEFINER` RPCs); it does not call the Python backend.
 - `backend/`:
-  - `backend/app/`: Authoritative Python operations backend (FastAPI, Pydantic v2, PyJWT).
+  - `backend/app/`: Python operations backend (FastAPI, Pydantic v2, PyJWT). Not currently wired to the frontend — no SPA code imports it.
     - `app/core/`: Settings (`config.py`), JWT authentication & workspace scoping (`security.py`), Supabase client (`database.py`).
     - `app/services/`: Indian GST Tax Engine 2.0 with integer paise math (`tax_engine.py`), NPCI UPI deep links & UTR validation (`upi_service.py`), and authoritative state machines (`state_machines.py`).
     - `app/api/v1/`: Endpoints for `/tax`, `/payments`, `/clients`, `/projects`, `/invoices`, `/portal`.
@@ -58,5 +58,5 @@ Ujrat is organized as an npm-workspaces monorepo:
 
 - Commits follow Conventional Commits (`feat:`, `fix:`).
 - tsconfig is stricter than typical: `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `erasableSyntaxOnly` — expect friction indexing arrays or assigning optional props.
-- Some docs drift from reality: the README `src/` tree lists folders that don't exist (`components/`, `hooks/`, `store/`, …) and names deps not in `package.json` (`zustand`, `react-hook-form`, `shadcn/ui`), and DEVELOPMENT_GUIDE calls `npm test` watch mode. Trust `package.json` and the actual configs over prose.
+- Some docs drift from reality: a few docs quote stale counts (test suites, tarballs, folder lists). Trust `package.json` and the actual configs over prose.
 - Deeper references: `docs/ARCHITECTURE.md`, `docs/TESTING_AND_SECURITY.md`, `docs/TAX_AND_PAYMENTS_GUIDE.md`, and ADRs linked from `docs/INDEX.md`.

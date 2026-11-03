@@ -59,7 +59,7 @@ ujrat/ (repo root)
 │       └── main.tsx               # Entry bootstrap
 │
 ├── backend/                       # @ujrat/backend (Python FastAPI + Supabase backend)
-│   ├── app/                       # Authoritative Python operations service (FastAPI)
+│   ├── app/                       # FastAPI operations service (not wired to the SPA)
 │   │   ├── api/v1/                # REST endpoints (/tax, /payments, /clients, /invoices, /portal)
 │   │   ├── core/                  # Settings (config.py), JWT auth (security.py), Supabase (database.py)
 │   │   ├── services/              # Indian GST Tax Engine 2.0, UPI links/UTR, state machines

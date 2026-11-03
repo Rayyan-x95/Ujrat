@@ -15,15 +15,16 @@ Welcome to the comprehensive documentation portal for **Ujrat** — India's zero
 | **[Testing & Security Infrastructure](TESTING_AND_SECURITY.md)** | Zero-trust authentication, RLS boundary, input sanitization, and 22-suite Vitest test harness. | QA, Security Auditors |
 | **[Developer Onboarding Guide](DEVELOPMENT_GUIDE.md)** | Getting started, environment variables, local scripts, and Vercel edge deployment. | New Contributors, DevOps |
 | **[Operations Runbook](OPERATIONS_RUNBOOK.md)** | Incident response, monitoring, database backups, and health checks. | DevOps, SRE |
+| **[Migration Rollback Strategy](ROLLBACK_STRATEGY.md)** | Rollback policy, DOWN-block templates, and the production rollback checklist. | DevOps, DBA |
 
 ---
 
 ## 🏛️ Architecture Decision Records (ADRs)
 
-* **[ADR 0001: Multi-Tenant Workspace Isolation and RLS](file:///d:/CODE%20PROJECTS/Ujrat/docs/adr/0001-multi-tenant-isolation-and-rls.md)**
-* **[ADR 0002: Zero-Fee Direct UPI Payment Integration and Native GST Engine](file:///d:/CODE%20PROJECTS/Ujrat/docs/adr/0002-zero-fee-upi-and-gst-tax-engine.md)**
-* **[ADR 0003: Modular Feature-Driven Architecture and Layer Isolation](file:///d:/CODE%20PROJECTS/Ujrat/docs/adr/0003-modular-feature-architecture.md)**
-* **[ADR 0004: Minimalist UI, Truthful Data Representation, and Day-0 Onboarding](file:///d:/CODE%20PROJECTS/Ujrat/docs/adr/0004-minimal-ui-and-day-0-onboarding.md)**
+* **[ADR 0001: Multi-Tenant Workspace Isolation and RLS](adr/0001-multi-tenant-isolation-and-rls.md)**
+* **[ADR 0002: Zero-Fee Direct UPI Payment Integration and Native GST Engine](adr/0002-zero-fee-upi-and-gst-tax-engine.md)**
+* **[ADR 0003: Modular Feature-Driven Architecture and Layer Isolation](adr/0003-modular-feature-architecture.md)**
+* **[ADR 0004: Minimalist UI, Truthful Data Representation, and Day-0 Onboarding](adr/0004-minimal-ui-and-day-0-onboarding.md)**
 
 ---
 
@@ -35,7 +36,7 @@ npm run dev          # Frontend SPA (http://localhost:5173)
 npm run dev:backend  # Python FastAPI Backend (http://localhost:8000)
 
 # Run Vitest Suite (22 test files, 160 tests)
-npm test -- --run
+npm test             # Vitest test suite (25 test files, 234 tests)
 
 # TypeScript Project Reference Type Check
 npm run typecheck

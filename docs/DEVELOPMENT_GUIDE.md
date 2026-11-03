@@ -66,7 +66,7 @@ The web application will be available at `http://localhost:5173` and the backend
 * **`npm run build`**: Builds production bundle into `dist/` folder via `tsc -b && vite build`.
 * **`npm run typecheck`**: Compiles TypeScript project references across all workspaces (`tsc -b --noEmit`).
 * **`npm run lint`**: Lints the codebase with oxlint.
-* **`npm test`**: Executes the 24 Vitest frontend test suites once.
+* **`npm test`**: Executes the 25 Vitest frontend test suites (234 tests) once.
 * **`npm run test:backend`**: Runs Python unit & API tests with `unittest`.
 * **`npm run test:all`**: Runs the complete test suite (frontend Vitest + backend Python).
 * **`npm run validate:migrations`**: Validates SQL migration sequence, table naming, and RPC contracts.

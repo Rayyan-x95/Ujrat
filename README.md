@@ -272,14 +272,14 @@ ujrat/
 │   │   ├── features/             # Feature DDD modules (auth, clients, projects,
 │   │   │                         # briefs, proposals, contracts, invoices,
 │   │   │                         # payments, portal, deliverables, settings)
-│   │   ├── shared/               # UI components, apiClient, utils, validation
+│   │   ├── shared/               # UI components, hooks, utils, validation
 │   │   ├── __tests__/            # Centralized Vitest test harness (24 suites)
 │   │   └── main.tsx              # Application bootstrap
 │   ├── vite.config.ts
 │   └── package.json
 │
 ├── backend/                      # Python backend & Supabase (@ujrat/backend)
-│   ├── app/                      # Authoritative FastAPI operations service
+│   ├── app/                       # FastAPI operations service (not wired to the SPA)
 │   │   ├── api/v1/               # Endpoints (tax, payments, clients, projects, etc.)
 │   │   ├── core/                 # Config, security, database client
 │   │   └── services/             # Tax engine, UPI service, state machines
