@@ -3,16 +3,6 @@
  * Gateway Independent • UPI Deep Links • Multi-Provider Architecture
  */
 
-export type PaymentRequestStatus =
-  | 'pending'
-  | 'viewed'
-  | 'initiated'
-  | 'awaiting_verification'
-  | 'verified'
-  | 'paid'
-  | 'cancelled'
-  | 'expired';
-
 export interface PaymentRequestParams {
   workspaceId: string;
   invoiceId: string;
@@ -23,20 +13,6 @@ export interface PaymentRequestParams {
   payeeName: string;
   note?: string;
   clientId?: string;
-}
-
-export interface PaymentRequestResult {
-  id: string;
-  providerId: string;
-  invoiceId: string;
-  amount: number;
-  currency: string;
-  payeeVpa: string;
-  payeeName: string;
-  deepLinkUri: string;
-  referenceNumber: string;
-  status: PaymentRequestStatus;
-  createdAt: string;
 }
 
 export interface UPIParams {

@@ -585,32 +585,6 @@ export function calculateInvoiceTax(input: InvoiceTaxCalculationInput): InvoiceT
   };
 }
 
-export function calculateInvoiceWithTax(
-  items: InvoiceItemTaxInput[],
-  freelancer: FreelancerTaxProfile,
-  client: ClientTaxProfile,
-  options?: {
-    discount?: { type: 'percentage' | 'fixed'; value: number; scope: 'before_tax' | 'after_tax' };
-    tds?: { section: string; rate: number };
-    isReverseCharge?: boolean;
-    currency?: any;
-    exchangeRate?: number;
-    lutNumber?: string | null;
-  }
-) {
-  return calculateInvoiceTax({
-    freelancer,
-    client,
-    items,
-    invoiceDiscount: options?.discount,
-    tds: options?.tds,
-    isReverseCharge: options?.isReverseCharge,
-    currency: options?.currency,
-    exchangeRate: options?.exchangeRate,
-    lutNumber: options?.lutNumber,
-  });
-}
-
 // ==========================================
 // 6. Tax Invariant Validation Guard
 // ==========================================

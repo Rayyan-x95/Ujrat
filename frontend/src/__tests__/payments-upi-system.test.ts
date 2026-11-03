@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { UPIPaymentProvider } from '@/features/payments/providers/UPIPaymentProvider';
 import { PaymentService } from '@/features/payments/services/PaymentService';
-import { PaymentRequestStateMachine } from '@/shared/utils/StateMachine';
 import { UTR_REGEX } from '@/features/payments/constants/PaymentConstants';
 
 describe('UPI Deep Link Payment System Test Suite', () => {
@@ -60,17 +59,7 @@ describe('UPI Deep Link Payment System Test Suite', () => {
     expect(valInvalid.error).toContain('12 digits');
   });
 
-  it('4. Enforces valid Payment Request State Machine transitions', () => {
-    expect(PaymentRequestStateMachine.validate('pending', 'viewed')).toBe(true);
-    expect(PaymentRequestStateMachine.validate('viewed', 'awaiting_verification')).toBe(true);
-    expect(PaymentRequestStateMachine.validate('awaiting_verification', 'paid')).toBe(true);
-
-    // Paid is immutable
-    expect(PaymentRequestStateMachine.validate('paid', 'pending')).toBe(false);
-    expect(PaymentRequestStateMachine.validate('paid', 'awaiting_verification')).toBe(false);
-  });
-
-  it('5. Generates official Payment Receipt data', async () => {
+  it('4. Generates official Payment Receipt data', async () => {
     const res = await PaymentService.generateReceipt('ws-123', {
       invoiceId: 'inv-456',
       amount: 25000,
@@ -87,7 +76,7 @@ describe('UPI Deep Link Payment System Test Suite', () => {
     }
   });
 
-  it('6. Strictly encodes adversarial characters in Payee Names and Notes', () => {
+  it('5. Strictly encodes adversarial characters in Payee Names and Notes', () => {
     const adversarialParams = {
       workspaceId: 'ws-123',
       invoiceId: 'inv-999',
@@ -104,7 +93,7 @@ describe('UPI Deep Link Payment System Test Suite', () => {
     expect(uri).toContain('am=4500.50');
   });
 
-  it('7. Rejects malformed and fuzz UTR submissions', () => {
+  it('6. Rejects malformed and fuzz UTR submissions', () => {
     const maliciousUTRs = [
       '',
       ' ',

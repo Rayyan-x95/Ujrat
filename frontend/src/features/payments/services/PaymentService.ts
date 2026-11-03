@@ -10,7 +10,7 @@ import type { Result, QueryOptions, PaginatedResult, Payment, InvoiceStatus } fr
 import type { SupportedCurrency } from '@/features/invoices/tax/TaxTypes';
 import type { PaymentReceiptData } from '../types/PaymentTypes';
 import { UTR_REGEX } from '../constants/PaymentConstants';
-import { PaymentStateMachine, InvoiceStateMachine, PaymentRequestStateMachine } from '@/shared/utils/StateMachine';
+import { PaymentStateMachine, InvoiceStateMachine } from '@/shared/utils/StateMachine';
 import { PaymentSchema } from '@/shared/validation/schemas';
 import { LoggingService } from '@/features/auth/services/LoggingService';
 import { toPaise, fromPaise } from '@/shared/utils/currency';
@@ -271,35 +271,6 @@ export class PaymentService {
 
       // Duplicate UTRs are caught by the DB unique constraint on insert below.
 
-      let paymentRequestId: string | null = null;
-      try {
-        const { data: reqData } = await (supabase as any)
-          .from('payment_requests')
-          .select('id, status')
-          .eq('workspace_id', workspaceId)
-          .eq('invoice_id', params.invoiceId)
-          .limit(1)
-          .maybeSingle();
-        if (reqData?.id) {
-          paymentRequestId = reqData.id;
-          let currStatus = reqData.status || 'pending';
-          if (currStatus !== 'awaiting_verification') {
-            if (PaymentRequestStateMachine.validate(currStatus, 'initiated')) {
-              currStatus = PaymentRequestStateMachine.transition(currStatus, 'initiated', { requestId: paymentRequestId! }).next;
-            }
-            if (PaymentRequestStateMachine.validate(currStatus, 'awaiting_verification')) {
-              currStatus = PaymentRequestStateMachine.transition(currStatus, 'awaiting_verification', { requestId: paymentRequestId! }).next;
-            }
-            await (supabase as any)
-              .from('payment_requests')
-              .update({ status: currStatus })
-              .eq('id', paymentRequestId);
-          }
-        }
-      } catch {
-        // Table fallback
-      }
-
       let nextInvoiceStatus = invoice.status;
       if (invoice.status !== 'pending_verification') {
         const transition = InvoiceStateMachine.transition(
@@ -316,7 +287,7 @@ export class PaymentService {
           id: attemptId,
           workspace_id: workspaceId,
           invoice_id: params.invoiceId,
-          payment_request_id: paymentRequestId,
+          payment_request_id: null,
           utr_number: params.utrNumber.trim(),
           amount: params.amount,
           screenshot_url: params.screenshotUrl || null,

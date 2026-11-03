@@ -18,7 +18,6 @@ from backend.app.services.upi_service import UPIService, UPILinkParams
 from backend.app.services.state_machines import (
     ProjectStateMachine,
     InvoiceStateMachine,
-    PaymentStateMachine,
     StateMachineError,
 )
 

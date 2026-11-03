@@ -91,33 +91,6 @@ export const PaymentStateMachine = createStateMachine<PaymentStatus>(
   'payment state'
 );
 
-export type PaymentRequestLifecycleStatus =
-  | 'pending'
-  | 'viewed'
-  | 'initiated'
-  | 'awaiting_verification'
-  | 'verified'
-  | 'rejected'
-  | 'paid'
-  | 'cancelled'
-  | 'expired';
-
-export const PaymentRequestStateMachine = createStateMachine<PaymentRequestLifecycleStatus>(
-  {
-    pending: ['viewed', 'initiated', 'cancelled', 'expired'],
-    viewed: ['initiated', 'awaiting_verification', 'cancelled', 'expired'],
-    initiated: ['awaiting_verification', 'cancelled', 'expired'],
-    awaiting_verification: ['verified', 'rejected', 'initiated', 'paid', 'cancelled'],
-    verified: ['paid', 'rejected'],
-    rejected: ['initiated', 'cancelled'],
-    paid: [],
-    cancelled: [],
-    expired: [],
-  },
-  'Payment Request Lifecycle Updated',
-  'payment request'
-);
-
 export const ContractStateMachine = createStateMachine<ContractStatus>(
   {
     draft: ['sent', 'void'],

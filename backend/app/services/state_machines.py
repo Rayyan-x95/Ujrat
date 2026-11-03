@@ -66,14 +66,3 @@ InvoiceStateMachine = StateMachine(
     action_name="Invoice Status Updated",
     error_context="invoice state",
 )
-
-PaymentStateMachine = StateMachine(
-    allowed={
-        "pending": ["pending_verification", "completed", "failed"],
-        "pending_verification": ["completed", "failed"],
-        "completed": [],
-        "failed": [],
-    },
-    action_name="Payment Status Updated",
-    error_context="payment state",
-)
