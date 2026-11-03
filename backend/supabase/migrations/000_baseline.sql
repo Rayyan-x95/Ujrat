@@ -97,7 +97,7 @@ CREATE TABLE public.projects (
     deliverables JSONB DEFAULT '[]'::jsonb,
     notes TEXT,
     status TEXT NOT NULL DEFAULT 'lead' CONSTRAINT projects_status_check CHECK (status IN ('lead', 'proposal', 'approved', 'contract_signed', 'advance_paid', 'in_progress', 'delivered', 'invoice_sent', 'paid', 'completed', 'archived')),
-    portal_token TEXT UNIQUE NOT NULL DEFAULT encode(gen_random_bytes(16), 'hex'),
+    portal_token TEXT UNIQUE NOT NULL DEFAULT encode(extensions.gen_random_bytes(16), 'hex'),
     portal_token_expires_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -395,26 +395,6 @@ CREATE TABLE public.portal_verifications (
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
-
--- REFERENCE TABLE: HSN/SAC CODES
-CREATE TABLE public.hsn_sac_codes (
-    code TEXT PRIMARY KEY,
-    description TEXT NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('HSN', 'SAC')),
-    default_gst_rate NUMERIC(5, 2) NOT NULL DEFAULT 18.00,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-INSERT INTO public.hsn_sac_codes (code, description, type, default_gst_rate)
-VALUES 
-    ('998311', 'IT Consulting and Support Services', 'SAC', 18.00),
-    ('998313', 'Information Technology Design and Development', 'SAC', 18.00),
-    ('998314', 'Web Design and Development Services', 'SAC', 18.00),
-    ('998315', 'Software Development and Maintenance Services', 'SAC', 18.00),
-    ('998399', 'Other Professional Technical & Business Services', 'SAC', 18.00),
-    ('998413', 'Advertising & Marketing Services', 'SAC', 18.00),
-    ('9983', 'General IT & Technical Services', 'SAC', 18.00)
-ON CONFLICT (code) DO NOTHING;
 
 -- TDS CERTIFICATES TABLE
 CREATE TABLE public.tds_certificates (
@@ -1680,7 +1660,7 @@ BEGIN
   END IF;
 
   -- CSPRNG-derived 6-digit code (pgcrypto, seeded from OpenSSL).
-  v_entropy := gen_random_bytes(4);
+  v_entropy := extensions.gen_random_bytes(4);
   v_code := (((get_byte(v_entropy, 0)::bigint << 22)
            | (get_byte(v_entropy, 1)::bigint << 14)
            | (get_byte(v_entropy, 2)::bigint << 6)
@@ -1690,7 +1670,7 @@ BEGIN
   VALUES (
     v_project_id,
     v_client_email,
-    crypt(v_code, gen_salt('bf', 8)),
+    crypt(v_code, extensions.gen_salt('bf', 8)),
     0,
     5,
     now() + interval '15 minutes',
@@ -1748,7 +1728,7 @@ BEGIN
     RETURN false;
   END IF;
 
-  IF v_record.code_hash = crypt(entered_code, v_record.code_hash) THEN
+  IF v_record.code_hash = extensions.crypt(entered_code, v_record.code_hash) THEN
     UPDATE public.portal_verifications SET verified = true WHERE id = v_record.id;
     RETURN true;
   ELSE
@@ -2632,7 +2612,7 @@ BEGIN
         AND EXISTS (
           SELECT 1 FROM public.workspaces w
           WHERE w.profile_id = auth.uid()
-            AND (storage.foldername(name))[1] = w.id::text
+            AND (storage.foldername(objects.name))[1] = w.id::text
         )
       )
     $f$, 'Owner select ' || b, b);
@@ -2644,7 +2624,7 @@ BEGIN
         AND EXISTS (
           SELECT 1 FROM public.workspaces w
           WHERE w.profile_id = auth.uid()
-            AND (storage.foldername(name))[1] = w.id::text
+            AND (storage.foldername(objects.name))[1] = w.id::text
         )
       )
     $f$, 'Owner insert ' || b, b);
@@ -2656,7 +2636,7 @@ BEGIN
         AND EXISTS (
           SELECT 1 FROM public.workspaces w
           WHERE w.profile_id = auth.uid()
-            AND (storage.foldername(name))[1] = w.id::text
+            AND (storage.foldername(objects.name))[1] = w.id::text
         )
       )
     $f$, 'Owner update ' || b, b);
@@ -2668,7 +2648,7 @@ BEGIN
         AND EXISTS (
           SELECT 1 FROM public.workspaces w
           WHERE w.profile_id = auth.uid()
-            AND (storage.foldername(name))[1] = w.id::text
+            AND (storage.foldername(objects.name))[1] = w.id::text
         )
       )
     $f$, 'Owner delete ' || b, b);
@@ -2688,8 +2668,8 @@ FOR SELECT USING (
     (
         SELECT 1 FROM public.projects p
         JOIN public.workspaces w ON w.id = p.workspace_id
-        WHERE p.id::text = (storage.foldername(name))[2]
-          AND p.workspace_id::text = (storage.foldername(name))[1]
+        WHERE p.id::text = (storage.foldername(objects.name))[2]
+          AND p.workspace_id::text = (storage.foldername(objects.name))[1]
           AND w.profile_id = auth.uid()
           AND p.deleted_at IS NULL
         LIMIT 1
@@ -2703,8 +2683,8 @@ FOR SELECT USING (
     (
         SELECT 1 FROM public.projects p
         JOIN public.workspaces w ON w.id = p.workspace_id
-        WHERE p.id::text = (storage.foldername(name))[2]
-          AND p.workspace_id::text = (storage.foldername(name))[1]
+        WHERE p.id::text = (storage.foldername(objects.name))[2]
+          AND p.workspace_id::text = (storage.foldername(objects.name))[1]
           AND w.profile_id = auth.uid()
           AND p.deleted_at IS NULL
         LIMIT 1
