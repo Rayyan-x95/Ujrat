@@ -8,6 +8,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { calculateInvoiceTax } from '@/features/invoices/tax/InvoiceCalculator';
 import { TDS_SECTIONS } from '@/features/invoices/tax/TaxTypes';
 import { formatCurrency, numberToIndianRupeeWords } from '@/shared/utils/currency';
+import { formatIndianDate } from '@/shared/utils/date';
 
 export const InvoicePrintView: React.FC = () => {
   const { portalToken, invoiceId } = useParams<{ portalToken: string; invoiceId: string }>();
@@ -154,10 +155,10 @@ export const InvoicePrintView: React.FC = () => {
               <span className="font-mono font-semibold text-neutral-900">{invoice.invoice_number}</span>
               
               <span className="font-medium text-neutral-500">Invoice Date:</span>
-              <span className="text-neutral-900">{new Date(invoice.invoice_date).toLocaleDateString('en-IN')}</span>
+              <span className="text-neutral-900">{formatIndianDate(invoice.invoice_date)}</span>
               
               <span className="font-medium text-neutral-500">Due Date:</span>
-              <span className="text-neutral-900">{new Date(invoice.due_date).toLocaleDateString('en-IN')}</span>
+              <span className="text-neutral-900">{formatIndianDate(invoice.due_date)}</span>
 
               {taxResult.place_of_supply && (
                 <>

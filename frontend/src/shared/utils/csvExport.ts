@@ -1,4 +1,5 @@
 import type { Invoice } from '@/shared/types';
+import { formatIndianDate } from '@/shared/utils/date';
 
 function escapeCsvCell(val: any): string {
   if (val === null || val === undefined) return '""';
@@ -33,8 +34,8 @@ export function exportGstr1Csv(invoices: Invoice[]): void {
 
   const rows = invoices.map(inv => [
     escapeCsvCell(inv.invoice_number),
-    escapeCsvCell(inv.invoice_date ? new Date(inv.invoice_date).toLocaleDateString('en-IN') : ''),
-    escapeCsvCell(inv.due_date ? new Date(inv.due_date).toLocaleDateString('en-IN') : ''),
+    escapeCsvCell(inv.invoice_date ? formatIndianDate(inv.invoice_date) : ''),
+    escapeCsvCell(inv.due_date ? formatIndianDate(inv.due_date) : ''),
     escapeCsvCell(inv.status.toUpperCase()),
     escapeCsvCell(inv.subtotal ?? 0),
     escapeCsvCell(inv.cgst ?? 0),

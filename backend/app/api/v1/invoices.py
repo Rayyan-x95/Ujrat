@@ -104,8 +104,10 @@ async def create_invoice(
         # attached to a project (the client is derived from it).
         raise HTTPException(status_code=400, detail="project_id is required to create an invoice")
 
-    # Fetch workspace profile (freelancer profile)
-    ws_res = sb.table("workspaces").select("*").eq("id", workspace_id).execute()
+    # Fetch workspace settings (GST profile lives here, not on workspaces)
+    ws_res = sb.table("workspace_settings").select(
+        "is_gst_registered, gstin, state, tax_scheme, lut_number, lut_expiry_date"
+    ).eq("workspace_id", workspace_id).execute()
     freelancer_data = ws_res.data[0] if ws_res.data else {}
 
     # Fetch client profile
@@ -127,8 +129,9 @@ async def create_invoice(
         client=ClientTaxProfile(
             gstin=client_data.get("gstin"),
             state=client_data.get("state"),
-            country=client_data.get("country", "India"),
-            is_sez=bool(client_data.get("is_sez", False)),
+            # public.clients has no country/is_sez columns yet; domestic defaults.
+            country="India",
+            is_sez=False,
         ),
         items=[
             InvoiceItemTaxInput(

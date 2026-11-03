@@ -14,6 +14,7 @@ import { PaymentStateMachine, InvoiceStateMachine, PaymentRequestStateMachine } 
 import { PaymentSchema } from '@/shared/validation/schemas';
 import { LoggingService } from '@/features/auth/services/LoggingService';
 import { toPaise, fromPaise } from '@/shared/utils/currency';
+import { parseLocalDate } from '@/shared/utils/date';
 
 export class PaymentService {
   /**
@@ -187,6 +188,16 @@ export class PaymentService {
         throw new Error('Invoice not found');
       }
 
+      // Validate the state transition BEFORE inserting the payment row so a
+      // rejected transition can't leave an orphaned payment behind.
+      const transition =
+        invoice.status !== 'pending_verification'
+          ? InvoiceStateMachine.transition(invoice.status as InvoiceStatus, 'pending_verification' as InvoiceStatus, {
+              invoiceId: invoice.id,
+              invoiceNumber: invoice.invoice_number,
+            })
+          : null;
+
       const payment = await PaymentRepository.create(workspaceId, {
         workspace_id: workspaceId,
         invoice_id: validated.invoice_id,
@@ -200,13 +211,7 @@ export class PaymentService {
         verified_at: null,
       });
 
-      if (invoice.status !== 'pending_verification') {
-        const currentInvoiceStatus = invoice.status as InvoiceStatus;
-        const transition = InvoiceStateMachine.transition(currentInvoiceStatus, 'pending_verification' as InvoiceStatus, {
-          invoiceId: invoice.id,
-          invoiceNumber: invoice.invoice_number,
-        });
-
+      if (transition) {
         await LoggingService.logActivity({
           workspaceId,
           profileId: '',
@@ -460,10 +465,10 @@ export class PaymentService {
           const outstandingPaise = Math.max(0, invoiceTotalPaise - completedSumPaise);
           outstandingBalance = fromPaise(outstandingPaise);
 
-          const isOverdue = invoice.due_date ? new Date(invoice.due_date).getTime() < Date.now() : false;
+          const isOverdue = invoice.due_date ? parseLocalDate(invoice.due_date).getTime() < Date.now() : false;
           nextInvoiceStatus = 'paid';
           if (outstandingPaise > 0) {
-            nextInvoiceStatus = isOverdue ? 'overdue' : 'sent';
+            nextInvoiceStatus = isOverdue ? 'overdue' : 'partially_paid';
           }
 
           if (invoice.status !== nextInvoiceStatus) {

@@ -6,6 +6,7 @@ import { Textarea } from '@/shared/ui/Input';
 import { AlertBanner, ClientPortalSkeleton } from '@/shared/ui/Feedback';
 import { useClientPortal } from '@/features/portal';
 import type { Invoice } from '@/shared/types';
+import { formatIndianDate } from '@/shared/utils/date';
 import { useToastStore } from '@/shared/hooks/useToastStore';
 import { UPIPaymentCard } from '@/features/payments/components/UPIPaymentCard';
 
@@ -368,7 +369,7 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
                     >
                       <div className="space-y-1">
                         <p className="text-xs font-semibold text-primary font-mono m-0">{inv.invoice_number}</p>
-                        <p className="text-[10px] text-muted-foreground m-0 select-none">Due date: {new Date(inv.due_date).toLocaleDateString('en-IN')}</p>
+                        <p className="text-[10px] text-muted-foreground m-0 select-none">Due date: {formatIndianDate(inv.due_date)}</p>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-xs font-bold text-foreground font-mono">₹{inv.total.toLocaleString('en-IN')}</span>
@@ -431,7 +432,7 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
                     workspaceId={project?.workspace_id || ''}
                     invoiceId={selectedInvoice.id}
                     invoiceNumber={selectedInvoice.invoice_number}
-                    amount={selectedInvoice.total}
+                    amount={selectedInvoice.outstanding_balance ?? selectedInvoice.total}
                     payeeVpa={settings.upi_id}
                     payeeName={settings?.company_name || 'Freelancer'}
                     portalToken={portalToken}

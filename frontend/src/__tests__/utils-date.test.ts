@@ -1,8 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { formatIndianDate, formatFriendlyDate, isPastDate } from '@/shared/utils/date';
+import { parseLocalDate, formatIndianDate, formatFriendlyDate, isPastDate } from '@/shared/utils/date';
 import { formatDeadline } from '@/features/proposals/components/ProposalTab';
 
 describe('Date Utility Functions', () => {
+  it('parses date-only strings as local calendar days (no UTC off-by-one)', () => {
+    const d = parseLocalDate('2026-11-03');
+    expect([d.getFullYear(), d.getMonth(), d.getDate()]).toEqual([2026, 10, 3]);
+  });
+
   describe('formatIndianDate', () => {
     it('should format date to standard Indian representation (dd/mm/yyyy)', () => {
       const date = new Date('2026-07-04T00:00:00Z');

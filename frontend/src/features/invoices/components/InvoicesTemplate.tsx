@@ -12,6 +12,7 @@ import type { Invoice, InvoiceWithItems } from '@/shared/types';
 import { Printer, Check, Link, AlertCircle, Coins, TrendingUp, ShieldCheck, Download, MessageSquareShare, FileSpreadsheet, Briefcase } from 'lucide-react';
 import { exportGstr1Csv } from '@/shared/utils/csvExport';
 import { generateInvoiceWhatsAppUrl } from '@/shared/utils/whatsappShare';
+import { formatIndianDate } from '@/shared/utils/date';
 import { TaxReportsModal } from './TaxReportsModal';
 
 interface InvoicesTemplateProps {
@@ -105,12 +106,12 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
     { 
       key: 'invoice_date', 
       header: 'Issue Date', 
-      render: row => <span>{new Date(row.invoice_date).toLocaleDateString('en-IN')}</span> 
+      render: row => <span>{formatIndianDate(row.invoice_date)}</span> 
     },
     { 
       key: 'due_date', 
       header: 'Due Date', 
-      render: row => <span>{new Date(row.due_date).toLocaleDateString('en-IN')}</span> 
+      render: row => <span>{formatIndianDate(row.due_date)}</span> 
     },
     { 
       key: 'total', 

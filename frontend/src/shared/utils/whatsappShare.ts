@@ -1,3 +1,5 @@
+import { formatIndianDate } from '@/shared/utils/date';
+
 export interface InvoiceShareParams {
   invoiceNumber: string;
   total: number;
@@ -19,7 +21,7 @@ export function generateInvoiceWhatsAppUrl(params: InvoiceShareParams): string {
     `• *Amount Due:* ₹${total.toLocaleString('en-IN')}\n`;
 
   if (dueDate) {
-    message += `• *Due Date:* ${new Date(dueDate).toLocaleDateString('en-IN')}\n`;
+    message += `• *Due Date:* ${formatIndianDate(dueDate)}\n`;
   }
 
   if (portalUrl) {
