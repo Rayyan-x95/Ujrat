@@ -1,7 +1,7 @@
 """Invoices API endpoints with tax calculation and state machine enforcement."""
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, Field
 
 from backend.app.core.security import get_current_user
@@ -16,6 +16,7 @@ from backend.app.schemas.tax import (
 )
 from backend.app.services.tax_engine import calculate_invoice_tax
 from backend.app.services.state_machines import InvoiceStateMachine, StateMachineError
+from backend.app.core.db_errors import map_db_error
 
 router = APIRouter()
 
@@ -38,7 +39,7 @@ class InvoiceCreateRequest(BaseModel):
     invoice_number: str
     invoice_date: str
     due_date: str
-    items: List[InvoiceLineCreate]
+    items: List[InvoiceLineCreate] = Field(max_length=200)
     discount_type: Optional[str] = "fixed"
     discount_value: Optional[float] = 0.0
     discount_scope: Optional[str] = "before_tax"
@@ -61,6 +62,8 @@ async def list_invoices(
     client_id: Optional[str] = None,
     project_id: Optional[str] = None,
     status: Optional[str] = None,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     """List invoices scoped to workspace."""
@@ -83,7 +86,7 @@ async def list_invoices(
     if status:
         query = query.eq("status", status)
 
-    res = query.order("invoice_date", desc=True).execute()
+    res = query.order("invoice_date", desc=True).range(offset, offset + limit - 1).execute()
     return res.data or []
 
 
@@ -163,7 +166,6 @@ async def create_invoice(
 
     tax_breakdown = calculate_invoice_tax(calc_req)
 
-    # Insert invoice header
     # Column names must match public.invoices: there is no client_id (the
     # client comes from the project), no total_tax and no grand_total - the
     # column is "total" - and no terms column.
@@ -206,18 +208,11 @@ async def create_invoice(
         "notes": request.notes,
     }
 
-    inv_insert = sb.table("invoices").insert(inv_data).execute()
-    if not inv_insert.data:
-        raise HTTPException(status_code=500, detail="Failed to create invoice header")
-    created_invoice = inv_insert.data[0]
-    invoice_id = created_invoice["id"]
-
-    # Insert line items
-    line_inserts = []
+    # Item payloads for the atomic RPC: invoice_id and workspace_id are set
+    # inside the transaction; "amount" mirrors line_total for the legacy col.
+    item_payload = []
     for line in tax_breakdown.line_items:
-        line_inserts.append({
-            "invoice_id": invoice_id,
-            "workspace_id": workspace_id,
+        item_payload.append({
             "description": line.description,
             "quantity": line.quantity,
             "rate": line.rate,
@@ -236,10 +231,25 @@ async def create_invoice(
             "unit": line.unit,
         })
 
-    if line_inserts:
-        sb.table("invoice_items").insert(line_inserts).execute()
-
-    return {**created_invoice, "tax_breakdown": tax_breakdown.model_dump(), "line_items": line_inserts}
+    # Atomic create - header + items in ONE transaction. The previous code did
+    # two bare inserts; a crash in between left a full-total invoice with zero
+    # items, uncorrectable after issue.
+    try:
+        rpc_res = sb.rpc(
+            "create_invoice_transactional_service",
+            {
+                "p_workspace_id": workspace_id,
+                "p_invoice_data": inv_data,
+                "p_invoice_items": item_payload,
+            },
+        ).execute()
+    except Exception as exc:
+        raise map_db_error(exc)
+    if not rpc_res.data:
+        raise HTTPException(status_code=500, detail="Failed to create invoice")
+    created_invoice = rpc_res.data["invoice"]
+    invoice_items = rpc_res.data.get("invoice_items") or []
+    return {**created_invoice, "tax_breakdown": tax_breakdown.model_dump(), "line_items": invoice_items}
 
 
 @router.get("/{invoice_id}", response_model=Dict[str, Any])

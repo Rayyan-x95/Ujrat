@@ -82,7 +82,11 @@ export class PaymentRepository {
     paymentId: string,
     verifierId: string,
     status: 'completed' | 'failed',
-    notes?: string
+    notes?: string,
+    // Optimistic concurrency: when supplied, the update only applies if the
+    // row is still in this status, so a second verifier racing a settled
+    // payment matches zero rows instead of writing over the first decision.
+    expectedStatus?: Payment['status']
   ): Promise<Payment> {
     const updateData: PaymentUpdate = {
       status,
@@ -91,13 +95,17 @@ export class PaymentRepository {
       notes: notes || null,
     };
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('payments')
       .update(updateData)
       .eq('id', paymentId)
-      .eq('workspace_id', workspaceId)
-      .select()
-      .single();
+      .eq('workspace_id', workspaceId);
+
+    if (expectedStatus !== undefined) {
+      query = query.eq('status', expectedStatus);
+    }
+
+    const { data, error } = await query.select().single();
 
     if (error) throw new Error(error.message);
     return data as Payment;

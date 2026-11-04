@@ -1,12 +1,13 @@
 """Projects API endpoints with state machine enforcement and workspace isolation."""
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, Field
 
 from backend.app.core.security import get_current_user
 from backend.app.core.database import get_supabase_client
 from backend.app.services.state_machines import ProjectStateMachine, StateMachineError
+from backend.app.core.db_errors import map_db_error
 
 router = APIRouter()
 
@@ -37,6 +38,8 @@ class ProjectUpdateRequest(BaseModel):
 async def list_projects(
     client_id: Optional[str] = None,
     status: Optional[str] = None,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     """List all projects scoped to workspace."""
@@ -56,7 +59,7 @@ async def list_projects(
     if status:
         query = query.eq("status", status)
 
-    res = query.order("created_at", desc=True).execute()
+    res = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
     return res.data or []
 
 
@@ -71,6 +74,11 @@ async def create_project(
         raise HTTPException(status_code=400, detail="Missing workspace context")
 
     sb = get_supabase_client()
+    status = request.status or "lead"
+    if status not in ProjectStateMachine.allowed:
+        # Creates bypass transitions; an unknown status string would enter the
+        # DB and fight the state machine on the very next update.
+        raise HTTPException(status_code=400, detail=f"Invalid project status '{status}'")
     # Column names must match public.projects: the timeline columns are
     # timeline_start / timeline_end and there is no currency column.
     data = {
@@ -78,12 +86,15 @@ async def create_project(
         "client_id": request.client_id,
         "name": request.name.strip(),
         "description": request.description,
-        "status": request.status or "lead",
+        "status": status,
         "budget": request.budget or 0.0,
         "timeline_start": request.start_date,
         "timeline_end": request.end_date,
     }
-    res = sb.table("projects").insert(data).execute()
+    try:
+        res = sb.table("projects").insert(data).execute()
+    except Exception as exc:
+        raise map_db_error(exc)
     if not res.data:
         raise HTTPException(status_code=500, detail="Failed to create project")
     return res.data[0]

@@ -27,7 +27,8 @@ class PortalPaymentSubmissionRequest(BaseModel):
     invoice_id: str
     amount: float = Field(gt=0, allow_inf_nan=False)
     utr_number: str
-    notes: Optional[str] = None
+    # `notes` was accepted here but the RPC takes no such parameter - every
+    # note was silently dropped. Dropped until the RPC gains the column.
 
 
 @router.get("/project", response_model=Dict[str, Any])

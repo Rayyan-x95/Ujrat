@@ -25,6 +25,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Rate limit the portal (SECURITY DEFINER RPCs) and tax-calculation (CPU) paths.
+from backend.app.core.rate_limit import RateLimitMiddleware
+
+app.add_middleware(RateLimitMiddleware)
+
 # Include v1 operational routes
 app.include_router(api_router, prefix="/api/v1")
 

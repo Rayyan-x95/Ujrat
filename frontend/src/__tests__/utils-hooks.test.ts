@@ -81,7 +81,7 @@ describe('DashboardService Fallback Logic', () => {
         return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { full_name: 'Fallback User' }, error: null }) }) }) };
       }
       if (table === 'clients') {
-        return { select: () => ({ eq: () => ({ is: async () => ({ count: 5, error: null }) }) }) };
+        return { select: () => ({ eq: () => ({ is: () => ({ limit: async () => ({ count: 5, error: null }) }) }) }) };
       }
       if (table === 'projects') {
         return { select: () => ({ eq: () => ({ is: async () => ({ data: [{ status: 'proposal' }], error: null }) }) }) };

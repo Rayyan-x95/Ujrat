@@ -161,7 +161,7 @@ describe('Sprint 2: Financial System Hardening Test Suite', () => {
       expect(InvoiceRepository.update).toHaveBeenCalledWith('workspace-999', 'invoice-123', {
         outstanding_balance: 0,
         status: 'paid',
-      });
+      }, 'pending_verification');
     });
   });
 });

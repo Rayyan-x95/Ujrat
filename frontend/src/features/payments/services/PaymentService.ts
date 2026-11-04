@@ -495,7 +495,9 @@ export class PaymentService {
         paymentId,
         profileId,
         status,
-        notes
+        notes,
+        // Race guard: only verify from the status this decision was computed on.
+        payment.status
       );
 
       if (invoice && nextInvoiceStatus !== undefined && outstandingBalance !== undefined) {
@@ -511,7 +513,7 @@ export class PaymentService {
         await InvoiceRepository.update(workspaceId, invoice.id, {
           outstanding_balance: outstandingBalance,
           status: nextInvoiceStatus,
-        });
+        }, invoice.status as InvoiceStatus);
       }
 
       return { success: true, data: updatedPayment };

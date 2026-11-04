@@ -1,0 +1,134 @@
+{
+  "_comment": "Golden parity fixture shared by backend/tests/test_parity.py and frontend/src/__tests__/tax-parity.test.ts. Both engines (Python Tax Engine 2.0 and TypeScript InvoiceCalculator) must reproduce `expected` exactly - identical integer-paise arithmetic, so strict float equality. Cases: intra 18%, inter 18%, zero-rated LUT export, TDS 194J, after-tax discount with half-up rounding.",
+  "cases": [
+    {
+      "name": "intra_state_18",
+      "input": {
+        "freelancer": { "is_gst_registered": true, "gstin": "29ABCDE1234F1Z5", "state": "Karnataka", "tax_scheme": "regular" },
+        "client": { "gstin": "29XYZAB5678K1Z3", "state": "Karnataka", "country": "India" },
+        "items": [{ "description": "IT consulting", "quantity": 1, "rate": 10000, "gst_rate": 18 }],
+        "tds": null
+      },
+      "expected": {
+        "subtotal": 10000,
+        "discount_amount": 0,
+        "taxable_amount": 10000,
+        "cgst": 900,
+        "sgst": 900,
+        "igst": 0,
+        "cess": 0,
+        "total_gst": 1800,
+        "round_off": 0,
+        "grand_total": 11800,
+        "tds_rate": 0,
+        "tds_amount": 0,
+        "net_receivable": 11800,
+        "is_interstate": false,
+        "is_zero_rated": false,
+        "is_reverse_charge": false,
+        "place_of_supply": "intra_state",
+        "supply_type": "taxable",
+        "tax_scheme": "regular",
+        "currency": "INR"
+      }
+    },
+    {
+      "name": "inter_state_18",
+      "input": {
+        "freelancer": { "is_gst_registered": true, "gstin": "29ABCDE1234F1Z5", "state": "Karnataka", "tax_scheme": "regular" },
+        "client": { "gstin": "27ADEAB1234H1U9", "state": "Maharashtra", "country": "India" },
+        "items": [{ "description": "IT consulting", "quantity": 1, "rate": 10000, "gst_rate": 18 }],
+        "tds": null
+      },
+      "expected": {
+        "subtotal": 10000,
+        "taxable_amount": 10000,
+        "cgst": 0,
+        "sgst": 0,
+        "igst": 1800,
+        "total_gst": 1800,
+        "round_off": 0,
+        "grand_total": 11800,
+        "net_receivable": 11800,
+        "is_interstate": true,
+        "is_zero_rated": false,
+        "place_of_supply": "inter_state",
+        "supply_type": "taxable",
+        "currency": "INR"
+      }
+    },
+    {
+      "name": "export_lut_zero_rated",
+      "input": {
+        "freelancer": { "is_gst_registered": true, "gstin": "29ABCDE1234F1Z5", "state": "Karnataka", "tax_scheme": "regular", "lut_number": "LUT20260001" },
+        "client": { "state": "", "gstin": "", "country": "United States" },
+        "items": [{ "description": "Design retainer (export)", "quantity": 1, "rate": 10000, "gst_rate": 18 }],
+        "tds": null
+      },
+      "expected": {
+        "subtotal": 10000,
+        "taxable_amount": 10000,
+        "cgst": 0,
+        "sgst": 0,
+        "igst": 0,
+        "total_gst": 0,
+        "round_off": 0,
+        "grand_total": 10000,
+        "net_receivable": 10000,
+        "tds_amount": 0,
+        "is_zero_rated": true,
+        "place_of_supply": "export",
+        "supply_type": "zero_rated_lut",
+        "currency": "INR"
+      }
+    },
+    {
+      "name": "tds_194j_intra",
+      "input": {
+        "freelancer": { "is_gst_registered": true, "gstin": "29ABCDE1234F1Z5", "state": "Karnataka", "tax_scheme": "regular" },
+        "client": { "gstin": "29XYZAB5678K1Z3", "state": "Karnataka", "country": "India" },
+        "items": [{ "description": "IT consulting", "quantity": 1, "rate": 10000, "gst_rate": 18 }],
+        "tds": { "section": "194J", "rate": null }
+      },
+      "expected": {
+        "subtotal": 10000,
+        "taxable_amount": 10000,
+        "cgst": 900,
+        "sgst": 900,
+        "igst": 0,
+        "total_gst": 1800,
+        "grand_total": 11800,
+        "tds_rate": 10,
+        "tds_amount": 1000,
+        "net_receivable": 10800,
+        "place_of_supply": "intra_state",
+        "supply_type": "taxable"
+      }
+    },
+    {
+      "name": "after_tax_discount_half_up",
+      "input": {
+        "freelancer": { "is_gst_registered": true, "gstin": "29ABCDE1234F1Z5", "state": "Karnataka", "tax_scheme": "regular" },
+        "client": { "gstin": "29XYZAB5678K1Z3", "state": "Karnataka", "country": "India" },
+        "items": [{ "description": "Hook design", "quantity": 1, "rate": 333.33, "gst_rate": 18 }],
+        "invoiceDiscount": { "type": "fixed", "value": 12.34, "scope": "after_tax" },
+        "tds": null
+      },
+      "expected": {
+        "subtotal": 333.33,
+        "discount_amount": 12.34,
+        "post_tax_discount": 12.34,
+        "taxable_amount": 333.33,
+        "cgst": 30,
+        "sgst": 30,
+        "igst": 0,
+        "total_gst": 60,
+        "round_off": 0.01,
+        "grand_total": 381,
+        "net_receivable": 381,
+        "place_of_supply": "intra_state",
+        "currency": "INR"
+      }
+    }
+  ]
+}

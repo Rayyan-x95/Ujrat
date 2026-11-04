@@ -1,7 +1,7 @@
 import { supabase } from '@/shared/lib/supabaseClient';
 import { getPaginationBounds, toPaginatedResult, softDeleteRecord } from '@/shared/utils/repository';
 import { sanitizeSearchTerm } from '@/shared/utils/sanitize';
-import type { Invoice, InvoiceWithItems, InvoiceInsert, InvoiceUpdate, InvoiceItemInsert, QueryOptions, PaginatedResult } from '@/shared/types';
+import type { Invoice, InvoiceStatus, InvoiceWithItems, InvoiceInsert, InvoiceUpdate, InvoiceItemInsert, QueryOptions, PaginatedResult } from '@/shared/types';
 
 export class InvoiceRepository {
   static async getAll(
@@ -153,13 +153,16 @@ export class InvoiceRepository {
     } as any;
   }
 
-  static async update(workspaceId: string, id: string, invoiceData: InvoiceUpdate): Promise<Invoice> {
-    const { data, error } = await (supabase.from('invoices') as any)
-      .update(invoiceData)
-      .eq('id', id)
-      .eq('workspace_id', workspaceId)
-      .select()
-      .single();
+  static async update(workspaceId: string, id: string, invoiceData: InvoiceUpdate, expectedStatus?: InvoiceStatus): Promise<Invoice> {
+    let query = (supabase.from('invoices') as any).update(invoiceData).eq('id', id).eq('workspace_id', workspaceId);
+
+    if (expectedStatus !== undefined) {
+      // Optimistic concurrency: the verify path re-checks the status it
+      // computed from, so a concurrent settlement can't be overwritten.
+      query = query.eq('status', expectedStatus);
+    }
+
+    const { data, error } = await query.select().single();
 
     if (error) throw new Error(error.message);
     return data;

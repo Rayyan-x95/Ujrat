@@ -62,18 +62,21 @@ export const InvoicePrintView: React.FC = () => {
   const settings = data.settings;
   const client = data.client;
 
-  // Run pure InvoiceCalculator calculation for complete fidelity
-  const { breakdown: taxResult, lineItems } = calculateInvoiceTax({
+  // Recompute ONLY what the invoice doesn't store (declarations, place of
+  // supply) using the snapshot's own fields. Every printed amount reads the
+  // stored invoice columns below - re-running the tax math from today's
+  // settings or rules would silently rewrite issued invoices.
+  const { breakdown: taxFallback, lineItems } = calculateInvoiceTax({
     freelancer: {
-      is_gst_registered: settings?.is_gst_registered ?? false,
-      gstin: settings?.gstin || invoice.freelancer_gstin,
-      state: settings?.state || invoice.freelancer_state,
-      tax_scheme: (settings?.tax_scheme as any) || invoice.tax_scheme || 'regular',
-      lut_number: settings?.lut_number || invoice.lut_number,
+      is_gst_registered: Boolean(invoice.freelancer_gstin),
+      gstin: invoice.freelancer_gstin,
+      state: invoice.freelancer_state,
+      tax_scheme: (invoice.tax_scheme as any) || 'regular',
+      lut_number: invoice.lut_number,
     },
     client: {
-      gstin: client?.gstin || invoice.client_gstin,
-      state: client?.state || invoice.client_state,
+      gstin: invoice.client_gstin || client?.gstin,
+      state: invoice.client_state || client?.state,
     },
     items: (invoice.invoice_items || []).map((item: any) => ({
       description: item.description,
@@ -98,13 +101,34 @@ export const InvoicePrintView: React.FC = () => {
     isReverseCharge: Boolean(invoice.is_reverse_charge),
     currency: (invoice.currency as any) || 'INR',
     exchangeRate: Number(invoice.exchange_rate || 1.0),
-    lutNumber: invoice.lut_number || settings?.lut_number,
+    lutNumber: invoice.lut_number,
   });
 
-  const currency = taxResult.currency;
+  const placeOfSupply = taxFallback.place_of_supply;
+  const declarations = taxFallback.declarations || [];
+
+  // Issued amounts from the stored columns, never recomputed.
+  const currency = (invoice.currency as any) || 'INR';
+  const subtotal = Number(invoice.subtotal ?? 0);
+  const discountAmount = Number(invoice.discount_amount ?? 0);
+  const discountScope = (invoice.discount_scope as any) || 'before_tax';
+  const taxableAmount = Number(invoice.taxable_amount ?? 0);
+  const cgst = Number(invoice.cgst ?? 0);
+  const sgst = Number(invoice.sgst ?? 0);
+  const igst = Number(invoice.igst ?? 0);
+  const cess = Number(invoice.cess_amount ?? 0);
+  const roundOff = Number(invoice.round_off ?? 0);
+  const grandTotal = Number(invoice.total ?? 0);
+  const tdsSection = invoice.tds_section;
+  const tdsRate = Number(invoice.tds_rate ?? 0);
+  const tdsAmount = Number(invoice.tds_amount ?? 0);
+  const netReceivable = Number(invoice.net_receivable ?? grandTotal);
+  const exchangeRate = Number(invoice.exchange_rate ?? 1);
+  const inrTotal = Number(invoice.inr_total ?? 0);
+  const upiAmount = Number(invoice.outstanding_balance ?? invoice.total ?? grandTotal);
+
   const upiId = settings?.upi_id || '';
   const merchantName = settings?.company_name || 'Freelancer';
-  const upiAmount = Number(taxResult.inr_net_receivable !== undefined && taxResult.inr_net_receivable > 0 ? taxResult.inr_net_receivable : taxResult.inr_grand_total || taxResult.net_receivable || taxResult.grand_total);
   const upiParams = new URLSearchParams({
     pa: upiId,
     pn: merchantName,
@@ -114,8 +138,6 @@ export const InvoicePrintView: React.FC = () => {
     tn: `Invoice ${invoice.invoice_number}`,
   }).toString();
   const upiUrl = `upi://pay?${upiParams}`;
-
-  const declarations = taxResult.declarations || [];
 
   const handlePrint = () => {
     window.print();
@@ -160,10 +182,10 @@ export const InvoicePrintView: React.FC = () => {
               <span className="font-medium text-neutral-500">Due Date:</span>
               <span className="text-neutral-900">{formatIndianDate(invoice.due_date)}</span>
 
-              {taxResult.place_of_supply && (
+              {placeOfSupply && (
                 <>
                   <span className="font-medium text-neutral-500">Place of Supply:</span>
-                  <span className="text-neutral-900 uppercase font-semibold">{taxResult.place_of_supply.replace(/_/g, ' ')}</span>
+                  <span className="text-neutral-900 uppercase font-semibold">{placeOfSupply.replace(/_/g, ' ')}</span>
                 </>
               )}
 
@@ -260,79 +282,79 @@ export const InvoicePrintView: React.FC = () => {
           <div className="text-right space-y-1.5 text-neutral-600">
             <div className="flex justify-between">
               <span className="text-neutral-500">Subtotal:</span>
-              <span className="font-semibold text-neutral-900">{formatCurrency(taxResult.subtotal, currency)}</span>
+              <span className="font-semibold text-neutral-900">{formatCurrency(subtotal, currency)}</span>
             </div>
 
-            {taxResult.discount_amount > 0 && (
+            {discountAmount > 0 && (
               <div className="flex justify-between text-emerald-600">
-                <span>Discount ({taxResult.discount_scope === 'before_tax' ? 'Pre-Tax' : 'Post-Tax'}):</span>
-                <span>-{formatCurrency(taxResult.discount_amount, currency)}</span>
+                <span>Discount ({discountScope === 'before_tax' ? 'Pre-Tax' : 'Post-Tax'}):</span>
+                <span>-{formatCurrency(discountAmount, currency)}</span>
               </div>
             )}
 
             <div className="flex justify-between text-neutral-700 font-medium">
               <span>Taxable Value:</span>
-              <span>{formatCurrency(taxResult.taxable_amount, currency)}</span>
+              <span>{formatCurrency(taxableAmount, currency)}</span>
             </div>
 
-            {taxResult.cgst > 0 && (
+            {cgst > 0 && (
               <div className="flex justify-between text-neutral-500">
                 <span>CGST:</span>
-                <span className="font-semibold text-neutral-900">{formatCurrency(taxResult.cgst, currency)}</span>
+                <span className="font-semibold text-neutral-900">{formatCurrency(cgst, currency)}</span>
               </div>
             )}
-            {taxResult.sgst > 0 && (
+            {sgst > 0 && (
               <div className="flex justify-between text-neutral-500">
                 <span>SGST:</span>
-                <span className="font-semibold text-neutral-900">{formatCurrency(taxResult.sgst, currency)}</span>
+                <span className="font-semibold text-neutral-900">{formatCurrency(sgst, currency)}</span>
               </div>
             )}
-            {taxResult.igst > 0 && (
+            {igst > 0 && (
               <div className="flex justify-between text-neutral-500">
                 <span>IGST:</span>
-                <span className="font-semibold text-neutral-900">{formatCurrency(taxResult.igst, currency)}</span>
+                <span className="font-semibold text-neutral-900">{formatCurrency(igst, currency)}</span>
               </div>
             )}
-            {taxResult.cess > 0 && (
+            {cess > 0 && (
               <div className="flex justify-between text-neutral-500">
                 <span>CESS:</span>
-                <span className="font-semibold text-neutral-900">{formatCurrency(taxResult.cess, currency)}</span>
+                <span className="font-semibold text-neutral-900">{formatCurrency(cess, currency)}</span>
               </div>
             )}
 
-            {taxResult.round_off !== 0 && (
+            {roundOff !== 0 && (
               <div className="flex justify-between text-neutral-500 text-[11px]">
                 <span>Round Off:</span>
-                <span className="font-mono">{taxResult.round_off > 0 ? '+' : ''}{taxResult.round_off.toFixed(2)}</span>
+                <span className="font-mono">{roundOff > 0 ? '+' : ''}{roundOff.toFixed(2)}</span>
               </div>
             )}
 
             <div className="flex justify-between border-t border-neutral-200 pt-2 font-bold text-neutral-900 text-sm">
               <span>Grand Total:</span>
-              <span>{formatCurrency(taxResult.grand_total, currency)}</span>
+              <span>{formatCurrency(grandTotal, currency)}</span>
             </div>
 
-            {taxResult.tds_amount > 0 && (
+            {tdsAmount > 0 && (
               <div className="flex justify-between text-amber-700 text-[11px] pt-1">
-                <span>TDS Withheld ({TDS_SECTIONS[taxResult.tds_section || '']?.name || taxResult.tds_section} @ {taxResult.tds_rate}%):</span>
-                <span className="font-mono">-{formatCurrency(taxResult.tds_amount, currency)}</span>
+                <span>TDS Withheld ({TDS_SECTIONS[tdsSection || '']?.name || tdsSection} @ {tdsRate}%):</span>
+                <span className="font-mono">-{formatCurrency(tdsAmount, currency)}</span>
               </div>
             )}
 
-            {taxResult.tds_amount > 0 && (
+            {tdsAmount > 0 && (
               <div className="flex justify-between border-t border-neutral-200 pt-1.5 font-extrabold text-emerald-700 text-sm">
                 <span>Net Receivable:</span>
-                <span>{formatCurrency(taxResult.net_receivable, currency)}</span>
+                <span>{formatCurrency(netReceivable, currency)}</span>
               </div>
             )}
 
             <div className="text-[11px] text-neutral-500 mt-2 italic capitalize">
-              Amount in words: {currency === 'INR' ? numberToIndianRupeeWords(taxResult.net_receivable || taxResult.grand_total) : `${currency} ${(taxResult.net_receivable || taxResult.grand_total).toFixed(2)} Only`}
+              Amount in words: {currency === 'INR' ? numberToIndianRupeeWords(netReceivable || grandTotal) : `${currency} ${(netReceivable || grandTotal).toFixed(2)} Only`}
             </div>
 
             {currency !== 'INR' && (
               <div className="text-[10px] text-neutral-400 mt-1 font-mono">
-                Exchange Rate: 1 {currency} = {taxResult.exchange_rate} INR (INR Total: ₹{taxResult.inr_grand_total.toLocaleString('en-IN')})
+                Exchange Rate: 1 {currency} = {exchangeRate} INR (INR Total: ₹{inrTotal.toLocaleString('en-IN')})
               </div>
             )}
           </div>

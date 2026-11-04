@@ -8,7 +8,9 @@ export class EmailLogRepository {
       .select('*')
       .eq('workspace_id', workspaceId)
       .eq('project_id', projectId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      // Log history is bounded, not critical data.
+      .limit(500);
 
     if (error) throw new Error(error.message);
     return data || [];

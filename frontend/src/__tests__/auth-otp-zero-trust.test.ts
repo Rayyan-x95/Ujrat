@@ -29,7 +29,8 @@ describe('OTP Zero-Knowledge & Brute-Force Defense Suite (F-006 / F-008)', () =>
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         gte: vi.fn().mockReturnThis(),
-        order: vi.fn().mockResolvedValue({ data: mockLogs, error: null }),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue({ data: mockLogs, error: null }),
         single: vi.fn().mockResolvedValue({ data: null, error: null }),
       } as any);
 

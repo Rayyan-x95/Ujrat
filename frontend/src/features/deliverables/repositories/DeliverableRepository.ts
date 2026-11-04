@@ -11,7 +11,9 @@ export class DeliverableRepository {
       .eq('project_id', projectId)
       .eq('workspace_id', workspaceId)
       .is('deleted_at', null)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      // Non-critical list view; dashboards page through getAll. 500 is well past any real project.
+      .limit(500);
 
     if (error) throw new Error(error.message);
     return data || [];

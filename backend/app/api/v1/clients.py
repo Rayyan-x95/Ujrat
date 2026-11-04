@@ -1,12 +1,13 @@
 """Clients API endpoints with strict workspace isolation."""
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, Field
 
 from backend.app.core.security import get_current_user
 from backend.app.core.database import get_supabase_client
 from backend.app.services.tax_engine import validate_gstin_format
+from backend.app.core.db_errors import map_db_error
 
 router = APIRouter()
 
@@ -43,6 +44,8 @@ class ClientUpdateRequest(BaseModel):
 
 @router.get("", response_model=List[Dict[str, Any]])
 async def list_clients(
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     """List all active clients for the current workspace."""
@@ -57,6 +60,7 @@ async def list_clients(
         .eq("workspace_id", workspace_id)
         .is_("deleted_at", "null")
         .order("created_at", desc=True)
+        .range(offset, offset + limit - 1)
         .execute()
     )
     return res.data or []
@@ -75,7 +79,12 @@ async def create_client(
     pan = request.pan
     if request.gstin:
         val = validate_gstin_format(request.gstin)
-        if val["is_valid"] and not pan:
+        if not val["is_valid"]:
+            # Unused-before-this-fix helper: unvalidated GSTINs used to flow
+            # into invoices (client_gstin, state-code fallback) and statutory
+            # output downstream.
+            raise HTTPException(status_code=400, detail=f"Invalid GSTIN: {str(request.gstin).strip()}")
+        if not pan:
             pan = val.get("pan")
 
     if not request.email:
@@ -99,7 +108,10 @@ async def create_client(
     }
 
     sb = get_supabase_client()
-    res = sb.table("clients").insert(data).execute()
+    try:
+        res = sb.table("clients").insert(data).execute()
+    except Exception as exc:
+        raise map_db_error(exc)
     if not res.data:
         raise HTTPException(status_code=500, detail="Failed to create client")
 
@@ -150,7 +162,9 @@ async def update_client(
     update_data.pop("is_sez", None)
     if "gstin" in update_data and update_data["gstin"]:
         val = validate_gstin_format(update_data["gstin"])
-        if val["is_valid"] and not update_data.get("pan"):
+        if not val["is_valid"]:
+            raise HTTPException(status_code=400, detail=f"Invalid GSTIN: {str(update_data['gstin']).strip()}")
+        if not update_data.get("pan"):
             update_data["pan"] = val.get("pan")
 
     res = (

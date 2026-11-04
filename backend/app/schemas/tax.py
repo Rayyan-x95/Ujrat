@@ -61,7 +61,7 @@ class TDSInput(BaseModel):
 class TaxCalculationRequest(BaseModel):
     freelancer: FreelancerTaxProfile
     client: ClientTaxProfile
-    items: List[InvoiceItemTaxInput]
+    items: List[InvoiceItemTaxInput] = Field(max_length=200)
     invoiceDiscount: Optional[InvoiceDiscountInput] = None
     tds: Optional[TDSInput] = None
     isReverseCharge: Optional[bool] = False

@@ -21,7 +21,14 @@ class TestFastAPIEndpoints(unittest.TestCase):
         cls.client = TestClient(app)
         # Generate valid mock Bearer JWT
         cls.token = jwt.encode(
-            {"sub": "usr-12345", "email": "test@ujrat.in", "workspace_id": "ws-12345", "role": "authenticated"},
+            {
+                "sub": "usr-12345",
+                "email": "test@ujrat.in",
+                # Only app_metadata.workspace_id is trusted (security.py) - the
+                # top-level claim is ignored by design.
+                "app_metadata": {"workspace_id": "ws-12345"},
+                "role": "authenticated",
+            },
             settings.SUPABASE_JWT_SECRET,
             algorithm="HS256",
         )

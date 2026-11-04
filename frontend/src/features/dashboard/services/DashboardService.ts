@@ -72,7 +72,9 @@ export class DashboardService {
     try {
       const [profileRes, clientsRes, projectsRes, invoicesRes, activitiesRes] = await Promise.allSettled([
         profileId ? supabase.from('profiles').select('full_name').eq('id', profileId).maybeSingle() : Promise.resolve({ data: null, error: null }),
-        supabase.from('clients').select('id', { count: 'exact' }).eq('workspace_id', workspaceId).is('deleted_at', null),
+        // Count only - the metric is client count; .limit(1) keeps the row
+        // scan off the wire while the exact count still comes back.
+        supabase.from('clients').select('id', { count: 'exact' }).eq('workspace_id', workspaceId).is('deleted_at', null).limit(1),
         supabase.from('projects').select('status').eq('workspace_id', workspaceId).is('deleted_at', null),
         supabase.from('invoices').select('total, status, created_at').eq('workspace_id', workspaceId).is('deleted_at', null),
         profileId

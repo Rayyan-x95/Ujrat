@@ -1,12 +1,13 @@
 """Payments API endpoints."""
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, Field
 
 from backend.app.services.upi_service import UPIService, UPILinkParams
 from backend.app.core.security import get_current_user
 from backend.app.core.database import get_supabase_client
+from backend.app.core.db_errors import map_db_error
 
 router = APIRouter()
 
@@ -93,6 +94,8 @@ async def verify_utr(
 @router.get("", response_model=List[Dict[str, Any]])
 async def list_payments(
     invoice_id: Optional[str] = None,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     """List payments strictly scoped to current workspace."""
@@ -106,7 +109,7 @@ async def list_payments(
         query = query.eq("invoice_id", invoice_id)
     query = query.order("created_at", desc=True)
 
-    res = query.execute()
+    res = query.range(offset, offset + limit - 1).execute()
     return res.data or []
 
 
@@ -151,13 +154,16 @@ async def record_payment(
     # invoice lock + idempotent transaction_reference handling).
     import uuid as _uuid
     tx_ref = request.transaction_reference or f"MANUAL-{_uuid.uuid4()}"
-    rpc_res = sb.rpc("reconcile_gateway_payment", {
-        "p_invoice_id": request.invoice_id,
-        "p_amount": request.amount,
-        "p_transaction_id": tx_ref,
-        "p_gateway": request.payment_method or "UPI",
-        "p_metadata": {"notes": request.notes, "paid_at": request.paid_at},
-    }).execute()
+    try:
+        rpc_res = sb.rpc("reconcile_gateway_payment", {
+            "p_invoice_id": request.invoice_id,
+            "p_amount": request.amount,
+            "p_transaction_id": tx_ref,
+            "p_gateway": request.payment_method or "UPI",
+            "p_metadata": {"notes": request.notes, "paid_at": request.paid_at},
+        }).execute()
+    except Exception as exc:
+        raise map_db_error(exc)
     if not rpc_res.data:
         raise HTTPException(status_code=500, detail="Failed to record payment")
     return rpc_res.data
