@@ -2,8 +2,10 @@ import { test, expect } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 
-// Load environment variables from .env
+// Load environment variables from .env (root), then the SPA's frontend/.env
+// for the publishable key the legacy anon var retired out of the root file.
 dotenv.config();
+dotenv.config({ path: 'frontend/.env', override: true });
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
@@ -20,7 +22,7 @@ async function signInAsFreelancer(page: any) {
   }
   await page.goto('/login');
   await page.fill('input[type="email"]', 'portal-test@example.com');
-  await page.fill('input[type="password"]', 'password123');
+  await page.fill('input[type="password"]', 'password12345');
   await page.click('button[type="submit"]');
   await page.waitForURL('**/dashboard', { timeout: 35000 });
 }
@@ -66,7 +68,7 @@ test.describe('Client Portal Flow', () => {
     
     // 3. Attempt login
     await page.fill('input[type="email"]', 'portal-test@example.com');
-    await page.fill('input[type="password"]', 'password123');
+    await page.fill('input[type="password"]', 'password12345');
     await page.click('button[type="submit"]');
     
     try {
@@ -74,10 +76,10 @@ test.describe('Client Portal Flow', () => {
     } catch {
       // User doesn't exist, sign them up
       await page.goto('/signup');
-      await page.locator('input[placeholder="Rohan Sharma"]').fill('Test User');
+      await page.locator('input[placeholder="e.g. Acme Designs"]').fill('Test User');
       await page.fill('input[type="email"]', 'portal-test@example.com');
-      await page.locator('input[type="password"]').first().fill('password123');
-      await page.locator('input[type="password"]').last().fill('password123');
+      await page.locator('input[type="password"]').first().fill('password12345');
+      await page.locator('input[type="password"]').last().fill('password12345');
       await page.click('button[type="submit"]');
       
       try {
@@ -86,7 +88,7 @@ test.describe('Client Portal Flow', () => {
         // Fallback: sign in again if registration redirected to login
         await page.goto('/login');
         await page.fill('input[type="email"]', 'portal-test@example.com');
-        await page.fill('input[type="password"]', 'password123');
+        await page.fill('input[type="password"]', 'password12345');
         await page.click('button[type="submit"]');
         await page.waitForURL('**/dashboard', { timeout: 35000 });
       }
@@ -95,13 +97,16 @@ test.describe('Client Portal Flow', () => {
     // Authenticate the Node.js test supabase client instance for RLS policies
     await supabase.auth.signInWithPassword({
       email: 'portal-test@example.com',
-      password: 'password123',
+      password: 'password12345',
     });
 
     // Ensure the workspace_settings has a upi_id configured so the payment panel is rendered in client portal
+    const { data: { user } } = await supabase.auth.getUser();
     const { data: workspaces } = await supabase
       .from('workspaces')
       .select('id')
+      .eq('profile_id', user?.id ?? '')
+      .is('deleted_at', null)
       .limit(1);
     
     if (workspaces && workspaces[0]) {

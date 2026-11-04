@@ -16,7 +16,7 @@ test.describe('Proposal → Contract Flow', () => {
     
     // 3. Attempt login
     await page.fill('input[type="email"]', 'proposal-test@example.com');
-    await page.fill('input[type="password"]', 'password123');
+    await page.fill('input[type="password"]', 'password12345');
     await page.click('button[type="submit"]');
     
     try {
@@ -24,10 +24,10 @@ test.describe('Proposal → Contract Flow', () => {
     } catch {
       // User doesn't exist, sign them up
       await page.goto('/signup');
-      await page.locator('input[placeholder="Rohan Sharma"]').fill('Test User');
+      await page.locator('input[placeholder="e.g. Acme Designs"]').fill('Test User');
       await page.fill('input[type="email"]', 'proposal-test@example.com');
-      await page.locator('input[type="password"]').first().fill('password123');
-      await page.locator('input[type="password"]').last().fill('password123');
+      await page.locator('input[type="password"]').first().fill('password12345');
+      await page.locator('input[type="password"]').last().fill('password12345');
       await page.click('button[type="submit"]');
       
       try {
@@ -36,7 +36,7 @@ test.describe('Proposal → Contract Flow', () => {
         // Fallback: sign in again if registration redirected to login
         await page.goto('/login');
         await page.fill('input[type="email"]', 'proposal-test@example.com');
-        await page.fill('input[type="password"]', 'password123');
+        await page.fill('input[type="password"]', 'password12345');
         await page.click('button[type="submit"]');
         await page.waitForURL('**/dashboard', { timeout: 35000 });
       }

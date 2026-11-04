@@ -19,7 +19,7 @@ test.describe('Authentication Flow', () => {
   });
 
   test('should navigate to forgot password page', async ({ page }) => {
-    await page.click('text=Forgot?');
+    await page.click('text=Forgot password?');
     await expect(page).toHaveURL('/forgot');
     await expect(page.locator('text=Reset Password')).toBeVisible();
   });
@@ -35,6 +35,6 @@ test.describe('Authentication Flow', () => {
     await page.locator('input[type="password"]').first().fill('123');
     await page.locator('input[type="password"]').last().fill('123');
     await page.click('button[type="submit"]');
-    await expect(page.locator('text=Password must be at least 6 characters')).toBeVisible();
+    await expect(page.locator('text=Password must be at least 12 characters')).toBeVisible();
   });
 });

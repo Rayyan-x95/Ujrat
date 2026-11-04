@@ -147,7 +147,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
                     <button
                       type="button"
                       className="text-[11px] text-primary hover:underline font-medium cursor-pointer"
-                      onClick={() => navigate('/forgot-password')}
+                      onClick={() => navigate('/forgot')}
                     >
                       Forgot password?
                     </button>

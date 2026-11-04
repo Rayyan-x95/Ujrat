@@ -3,12 +3,15 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 
 dotenv.config();
+// The legacy anon key retired from the root .env; the SPA's publishable key
+// (same var name) lives in frontend/.env and is what the API-seeding here needs.
+dotenv.config({ path: 'frontend/.env', override: true });
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-async function signInAsTestUser(page: Page, email = 'e2e-test@example.com', password = 'password123') {
+async function signInAsTestUser(page: Page, email = 'e2e-test@example.com', password = 'password12345') {
   await page.context().clearCookies();
   try {
     await page.evaluate(() => {
@@ -45,14 +48,16 @@ async function clickTab(page: any, tabName: string, isPortal = false) {
   expect(isActive).toBe(true);
 }
 
-async function signUpTestUser(page: Page, email = 'e2e-test@example.com', password = 'password123', name = 'E2E Test User') {
+async function signUpTestUser(page: Page, email = 'e2e-test@example.com', password = 'password12345', name = 'E2E Test User') {
   await page.goto('/signup');
-  await page.locator('input[placeholder="Rohan Sharma"]').fill(name);
+  await page.locator('input[placeholder="e.g. Acme Designs"]').fill(name);
   await page.fill('input[type="email"]', email);
   await page.locator('input[type="password"]').first().fill(password);
   await page.locator('input[type="password"]').last().fill(password);
   await page.click('button[type="submit"]');
-  await page.waitForURL('**/dashboard', { timeout: 35000 });
+  // Signup routes to /login ("check your email" UX), not auto-dashboard.
+  await page.waitForURL('**/login', { timeout: 35000 });
+  await signInAsTestUser(page, email, password);
 }
 
 async function createClientViaAPI(workspaceId: string, clientData: any) {
@@ -105,7 +110,7 @@ test.describe('Complete Freelancer Business Lifecycle', () => {
     test.setTimeout(240000);
     const timestamp = Date.now();
     const testUserEmail = `e2e-${timestamp}@example.com`;
-    const testUserPassword = 'password123';
+    const testUserPassword = 'password12345';
     let workspaceId = '';
     let profileId = '';
     let clientId = '';
