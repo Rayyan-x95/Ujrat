@@ -193,8 +193,7 @@ function Table<T extends object>({
                   {columns.map((_, ci) => (
                     <td key={ci} className="px-4 py-4">
                       <div
-                        className="h-3 bg-secondary animate-pulse rounded-sm"
-                        style={{ width: `${50 + ((ci * 13 + ri * 7) % 38)}%` }}
+                        className={`h-3 bg-secondary animate-pulse rounded-sm ${ci % 2 === 0 ? 'w-[12ch]' : 'w-[16ch]'}`}
                       />
                     </td>
                   ))}

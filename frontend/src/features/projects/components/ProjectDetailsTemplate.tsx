@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/shared/ui/Button';
 import { ProjectStatusBadge } from '@/shared/ui/Badge';
 import { Card } from '@/shared/ui/Card';
@@ -9,7 +10,7 @@ import { ProposalTab } from '@/features/proposals/components/ProposalTab';
 import { ContractTab } from '@/features/contracts/components/ContractTab';
 import { DeliverablesTab } from '@/features/deliverables/components/DeliverablesTab';
 import { InvoicesTab } from '@/features/invoices/components/InvoicesTab';
-import { ChevronLeft, Share2, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Share2, AlertCircle, RotateCcw } from 'lucide-react';
 import { useConfirmPayment } from '@/features/payments';
 
 interface ProjectDetailsProps {
@@ -43,6 +44,7 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
     uploadDeliverable,
     addDeliverableLink,
     generateInvoice,
+    regeneratePortalToken,
     changeStatus,
   } = useProjectDetails({
     workspaceId,
@@ -53,6 +55,24 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
   });
 
   const confirmPaymentMutation = useConfirmPayment(workspaceId, profileId, { addToast });
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && ['brief', 'proposal', 'contract', 'deliverables', 'invoices'].includes(tab)) {
+      setActiveTab(tab as 'brief' | 'proposal' | 'contract' | 'deliverables' | 'invoices');
+    }
+  }, [searchParams, setActiveTab]);
+
+  useEffect(() => {
+    if (searchParams.get('generate') === 'true' && activeTab === 'invoices') {
+      const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent?.includes('Generate Invoice'));
+      if (btn && !(btn as HTMLButtonElement).disabled) btn.click();
+      const next = new URLSearchParams(searchParams);
+      next.delete('generate');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, activeTab, setSearchParams]);
 
   const unwrapFirst = <T,>(val: T | T[] | null | undefined): T | null => Array.isArray(val) ? val[0] || null : val || null;
   const proposal = unwrapFirst(project?.proposals);
@@ -120,11 +140,41 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
     }
   };
 
-  const copyPortalLink = () => {
+  const copyPortalLink = async () => {
     if (!project) return;
     const link = `${window.location.origin}/portal/${project.portal_token}`;
-    navigator.clipboard.writeText(link);
+    await copyLinkToClipboard(link);
     addToast('info', 'Client Portal Link Copied', 'Share this secure URL with the client for passwordless access.');
+  };
+
+  const copyLinkToClipboard = async (link: string) => {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(link);
+      return;
+    }
+    // Fallback for insecure HTTP contexts where the async clipboard is unavailable.
+    const textarea = document.createElement('textarea');
+    textarea.value = link;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    try {
+      document.execCommand('copy');
+    } finally {
+      document.body.removeChild(textarea);
+    }
+  };
+
+  const handleRegeneratePortalLink = async () => {
+    try {
+      const token = await regeneratePortalToken();
+      await copyLinkToClipboard(`${window.location.origin}/portal/${token}`);
+      addToast('success', 'New Portal Link Generated', 'Copied to clipboard. The previous link is now invalid.');
+    } catch {
+      // The mutation already surfaced the failure.
+    }
   };
 
   if (isLoading) {
@@ -314,6 +364,17 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
                 icon={<Share2 className="h-3.5 w-3.5" />}
               >
                 Share Portal
+              </Button>
+            )}
+            {project.portal_token && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRegeneratePortalLink}
+                title="Issue a new link; the old one stops working"
+                icon={<RotateCcw className="h-3.5 w-3.5" />}
+              >
+                New Link
               </Button>
             )}
           </div>

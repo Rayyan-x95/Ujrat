@@ -128,7 +128,6 @@ describe('SECURITY DEFINER Portal RPC Authorization Suite (F-001 / F-002 / F-007
       const result = await PortalService.signContract(validToken, {
         signatureName: 'John Doe',
         ipAddress: '192.168.1.1',
-        emailVerified: true,
       });
 
       expect(result.success).toBe(false);

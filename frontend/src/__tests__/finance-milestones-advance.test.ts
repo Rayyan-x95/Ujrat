@@ -163,5 +163,47 @@ describe('Sprint 2: Financial System Hardening Test Suite', () => {
         status: 'paid',
       }, 'pending_verification');
     });
+
+    it('restores the invoice when a payment attempt is rejected', async () => {
+      const mockInvoice = {
+        id: 'invoice-123',
+        invoice_number: 'INV-001',
+        total: 11800,
+        outstanding_balance: 11800,
+        status: 'pending_verification',
+        due_date: '2099-01-01',
+      };
+      vi.spyOn(InvoiceRepository, 'getById').mockResolvedValue(mockInvoice as any);
+      vi.spyOn(InvoiceRepository, 'update').mockResolvedValue(mockInvoice as any);
+
+      const mockPayment = {
+        id: 'payment-456',
+        invoice_id: 'invoice-123',
+        amount: 11800,
+        status: 'pending',
+        transaction_reference: 'UTR123456789',
+      };
+      vi.spyOn(PaymentRepository, 'getById').mockResolvedValue(mockPayment as any);
+      vi.spyOn(PaymentRepository, 'verifyPayment').mockResolvedValue({
+        ...mockPayment,
+        status: 'failed',
+      } as any);
+
+      const result = await PaymentService.verifyPayment(
+        'workspace-999',
+        'verifier-789',
+        'payment-456',
+        'failed',
+        'UTR not found in bank statement'
+      );
+
+      expect(result.success).toBe(true);
+      expect(InvoiceRepository.update).toHaveBeenCalledWith(
+        'workspace-999',
+        'invoice-123',
+        { status: 'sent' },
+        'pending_verification'
+      );
+    });
   });
 });

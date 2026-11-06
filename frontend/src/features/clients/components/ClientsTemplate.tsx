@@ -10,7 +10,7 @@ import { Input, Textarea } from '@/shared/ui/Input';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { useClients } from '@/features/clients';
 import type { Client } from '@/shared/types';
-import { Plus, Mail, Building, Phone, Archive } from 'lucide-react';
+import { Plus, Mail, Building, Phone, Archive, Users } from 'lucide-react';
 
 interface ClientsTemplateProps {
   workspaceId: string;
@@ -47,18 +47,24 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [nameError, setNameError] = useState('');
+  const [emailError, setEmailError] = useState('');
 
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim()) {
+      if (!name.trim()) setNameError('Name is required.');
+      if (!email.trim()) setEmailError('Email is required.');
       addToast('warning', 'Validation Warning', 'Name and Email are required.');
       return;
     }
+    setNameError('');
+    setEmailError('');
     try {
       setSubmitting(true);
       await addClient({
-        name,
-        email,
+        name: name.trim(),
+        email: email.trim(),
         company: company || null,
         phone: phone || null,
         whatsapp: whatsapp || null,
@@ -68,7 +74,7 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
         gstin: null,
         state: null,
       });
-      addToast('success', 'Client Added Successfully', `${name} has been added to your contacts.`);
+      addToast('success', 'Client Added Successfully', `${name.trim()} has been added to your contacts.`);
       setShowAdd(false);
       
       // Reset fields
@@ -203,6 +209,7 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
         searchable
         searchPlaceholder="Search clients by name or company..."
         emptyState={{
+          icon: <Users className="h-5 w-5" />,
           title: "No Clients Registered Yet",
           description: "Add your first client contact to start drafting proposals, executing contracts, and issuing GST invoices.",
           action: (
@@ -250,8 +257,8 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
       <Dialog open={showAdd} onClose={() => setShowAdd(false)} title="Register New Client" size="md">
         <form onSubmit={handleAddClient} className="space-y-4 pt-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input label="Full Name" placeholder="Arjun Mehta" value={name} onChange={e => setName(e.target.value)} required />
-            <Input label="Email Address" type="email" placeholder="arjun@company.in" value={email} onChange={e => setEmail(e.target.value)} required />
+            <Input label="Full Name" placeholder="Arjun Mehta" value={name} onChange={e => { setName(e.target.value); setNameError(''); }} error={nameError} required />
+            <Input label="Email Address" type="email" placeholder="arjun@company.in" value={email} onChange={e => { setEmail(e.target.value); setEmailError(''); }} error={emailError} required />
             <Input label="Company Name" placeholder="TechCorp India" value={company} onChange={e => setCompany(e.target.value)} />
             <Input label="Phone Number" placeholder="9876543210" value={phone} onChange={e => setPhone(e.target.value)} />
             <Input label="WhatsApp Number" placeholder="9876543210" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} />

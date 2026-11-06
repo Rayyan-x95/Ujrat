@@ -1,17 +1,19 @@
 import { supabase } from '@/shared/lib/supabaseClient';
-import { getPaginationBounds, toPaginatedResult, softDeleteRecord } from '@/shared/utils/repository';
+import { getListPage, softDeleteRecord } from '@/shared/utils/repository';
 import { sanitizeSearchTerm } from '@/shared/utils/sanitize';
 import type { Invoice, InvoiceStatus, InvoiceWithItems, InvoiceInsert, InvoiceUpdate, InvoiceItemInsert, QueryOptions, PaginatedResult } from '@/shared/types';
+
+// List columns only — detail rows come from getById.
+export const INVOICE_LIST_COLUMNS =
+  'id,invoice_number,status,invoice_date,due_date,subtotal,cgst,sgst,igst,total,outstanding_balance,currency,project_id,created_at,projects(id,name,portal_token)';
 
 export class InvoiceRepository {
   static async getAll(
     workspaceId: string,
     options: QueryOptions = {}
   ): Promise<PaginatedResult<InvoiceWithItems>> {
-    const { page, pageSize, from, to } = getPaginationBounds(options);
-
     let query = (supabase.from('invoices') as any)
-      .select('*, projects(id, name, portal_token)', { count: 'exact' })
+      .select(INVOICE_LIST_COLUMNS, { count: 'exact' })
       .eq('workspace_id', workspaceId)
       .is('deleted_at', null);
 
@@ -29,10 +31,7 @@ export class InvoiceRepository {
     const sortOrder = options.sortOrder || 'desc';
     query = query.order(sortBy, { ascending: sortOrder === 'asc' });
 
-    const { data, error, count } = await query.range(from, to);
-    if (error) throw new Error(error.message);
-
-    return toPaginatedResult(data, count, page, pageSize);
+    return getListPage<InvoiceWithItems>(query, options);
   }
 
   static async getById(workspaceId: string, id: string): Promise<InvoiceWithItems | null> {
@@ -141,7 +140,15 @@ export class InvoiceRepository {
         .select();
 
       if (itemsErr) {
-        await (supabase.from('invoices') as any).delete().eq('id', invoiceId);
+        // Compensating rollback for the just-created header. Scoped to this
+        // workspace (defense in depth — RLS already bounds this, but a
+        // bare-id delete is one keystroke from cross-tenant if RLS ever
+        // loosens) and soft-deleted rather than hard-deleted, matching
+        // every other delete path.
+        await (supabase.from('invoices') as any)
+          .update({ deleted_at: new Date().toISOString() })
+          .eq('id', invoiceId)
+          .eq('workspace_id', workspaceId);
         throw new Error(itemsErr.message || 'Failed to create invoice items');
       }
       insertedItems = inserted || [];

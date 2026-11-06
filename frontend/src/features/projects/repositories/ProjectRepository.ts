@@ -1,18 +1,20 @@
 import { supabase } from '@/shared/lib/supabaseClient';
 import { sanitizeSearchTerm } from '@/shared/utils/sanitize';
-import { getPaginationBounds, toPaginatedResult, softDeleteRecord } from '@/shared/utils/repository';
+import { getListPage, softDeleteRecord } from '@/shared/utils/repository';
 import type { Project, ProjectWithClient, ProjectInsert, ProjectUpdate, QueryOptions, PaginatedResult } from '@/shared/types';
+
+// List columns only — detail rows come from getById.
+export const PROJECT_LIST_COLUMNS =
+  'id,name,status,budget,timeline_start,timeline_end,client_id,created_at,clients(id,name)';
 
 export class ProjectRepository {
   static async getAll(
     workspaceId: string,
     options: QueryOptions = {}
   ): Promise<PaginatedResult<ProjectWithClient>> {
-    const { page, pageSize, from, to } = getPaginationBounds(options);
-
     let query = supabase
       .from('projects')
-      .select('*, clients(*)', { count: 'exact' })
+      .select(PROJECT_LIST_COLUMNS, { count: 'exact' })
       .eq('workspace_id', workspaceId)
       .is('deleted_at', null);
 
@@ -35,10 +37,7 @@ export class ProjectRepository {
     const sortOrder = options.sortOrder || 'desc';
     query = query.order(sortBy, { ascending: sortOrder === 'asc' });
 
-    const { data, error, count } = await query.range(from, to);
-    if (error) throw new Error(error.message);
-
-    return toPaginatedResult(data as unknown as ProjectWithClient[], count, page, pageSize);
+    return (await getListPage(query, options)) as unknown as PaginatedResult<ProjectWithClient>;
   }
 
   static async getById(workspaceId: string, id: string): Promise<ProjectWithClient | null> {
@@ -50,8 +49,27 @@ export class ProjectRepository {
       .is('deleted_at', null)
       .single();
 
-    if (error) return null;
-    return data as unknown as ProjectWithClient;
+    if (error || !data) return null;
+    const result = data as unknown as ProjectWithClient;
+    // Embedded relations don't inherit the parent's soft-delete filter, so
+    // null out any soft-deleted child record (clients/briefs/etc. all have
+    // a deleted_at column). Embeds that come back as arrays stay arrays.
+    const notDeleted = <T extends { deleted_at?: string | null }>(v: T | T[] | null | undefined): T | T[] | null | undefined => {
+      if (Array.isArray(v)) {
+        return v.filter((item) => !(item as { deleted_at?: string | null }).deleted_at) as T[];
+      }
+      if ((v as { deleted_at?: string | null } | null | undefined)?.deleted_at) {
+        return null;
+      }
+      return (v as T | null | undefined) ?? null;
+    };
+    return {
+      ...result,
+      clients: notDeleted(result.clients) as ProjectWithClient['clients'],
+      project_briefs: notDeleted(result.project_briefs) as ProjectWithClient['project_briefs'],
+      proposals: notDeleted(result.proposals) as ProjectWithClient['proposals'],
+      contracts: notDeleted(result.contracts) as ProjectWithClient['contracts'],
+    };
   }
 
   static async create(workspaceId: string, projectData: ProjectInsert): Promise<Project> {
@@ -83,5 +101,28 @@ export class ProjectRepository {
 
   static async softDelete(workspaceId: string, id: string): Promise<void> {
     return softDeleteRecord('projects', workspaceId, id);
+  }
+
+  /**
+   * Rotate the passwordless portal credential. The old token stops working
+   * immediately, so this is the recovery path for an expired or leaked link.
+   */
+  static async regeneratePortalToken(workspaceId: string, id: string): Promise<Project> {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await this.update(workspaceId, id, {
+          portal_token: crypto.randomUUID().replace(/-/g, ''),
+          portal_token_expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+        });
+      } catch (e: any) {
+        // Retry once on the unique index: randomUUID collisions are
+        // astronomically unlikely, but on write failure the user’s action
+        // fails with a raw Postgres error.
+        if (attempt === 1 || !(e?.code === '23505' || e?.message?.includes('duplicate key'))) {
+          throw e;
+        }
+      }
+    }
+    throw new Error('Could not generate a unique portal token');
   }
 }

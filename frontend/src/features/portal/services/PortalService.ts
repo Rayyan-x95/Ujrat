@@ -12,6 +12,8 @@ export interface PortalData {
   contract: Contract | null;
   invoices: InvoiceWithItems[];
   deliverables: Deliverable[];
+  lastViewedAt?: string | null;
+  viewCount?: number;
 }
 
 import { ContractStateMachine, InvoiceStateMachine } from '@/shared/utils/StateMachine';
@@ -21,7 +23,31 @@ export class PortalService {
     try {
       if (!token) throw new Error('Portal token is required');
 
-      // Fetch all portal info in parallel securely
+      // Single-RPC bundle is the primary path. The legacy 7-RPC fan-out below
+      // remains as a fallback for database instances where the RPC is absent.
+      try {
+        const bundle = await PortalRepository.getBundle(token);
+        if (bundle?.project) {
+          return {
+            success: true,
+            data: {
+              project: bundle.project,
+              client: bundle.client ?? null,
+              settings: bundle.settings ?? null,
+              proposal: bundle.proposal ?? null,
+              contract: bundle.contract ?? null,
+              invoices: bundle.invoices ?? [],
+              deliverables: bundle.deliverables ?? [],
+              lastViewedAt: bundle.lastViewedAt ?? null,
+              viewCount: bundle.viewCount ?? 0,
+            },
+          };
+        }
+        throw new Error('Invalid security token or project not found');
+      } catch (bundleError: any) {
+        if (bundleError?.message === 'Invalid security token or project not found') throw bundleError;
+      }
+
       const [project, client, settings, proposal, contract, invoices, deliverables] = await Promise.all([
         PortalRepository.getProject(token),
         PortalRepository.getClient(token),
@@ -44,33 +70,10 @@ export class PortalService {
           contract,
           invoices,
           deliverables,
+          lastViewedAt: null,
+          viewCount: 0,
         },
       };
-    } catch (e: any) {
-      return { success: false, error: e };
-    }
-  }
-
-  static async generateVerificationCode(token: string): Promise<Result<string>> {
-    try {
-      const email = await PortalRepository.generateVerificationCode(token);
-      const { error: funcErr } = await supabase.functions.invoke('send-email', {
-        body: { portalToken: token }
-      });
-      if (funcErr) {
-        console.error('[PortalService] Failed to trigger OTP email dispatch:', funcErr);
-        throw new Error(funcErr.message || 'Failed to dispatch verification code email');
-      }
-      return { success: true, data: email };
-    } catch (e: any) {
-      return { success: false, error: e };
-    }
-  }
-
-  static async verifyCode(token: string, code: string): Promise<Result<boolean>> {
-    try {
-      const isVerified = await PortalRepository.verifyCode(token, code);
-      return { success: true, data: isVerified };
     } catch (e: any) {
       return { success: false, error: e };
     }
@@ -81,7 +84,6 @@ export class PortalService {
     signatureData: {
       signatureName: string;
       ipAddress?: string | null;
-      emailVerified?: boolean;
       signatureImage?: string | null;
       signatureType?: string;
     }
@@ -104,24 +106,14 @@ export class PortalService {
         ip_address: signatureData.ipAddress,
       });
 
+      // No emails are sent on sign. The RPC records the signature only.
       await PortalRepository.submitSignature(
         token,
         validated.signature_name,
         validated.ip_address || '',
-        signatureData.emailVerified ?? false,
         signatureData.signatureImage ?? null,
         signatureData.signatureType || 'drawn'
       );
-
-      // The RPC records the "Agreement Signed" email in email_logs; the edge
-      // function sends the newest pending log of this project. Without this
-      // call the freelancer never hears that the client signed.
-      const { error: emailErr } = await supabase.functions.invoke('send-email', {
-        body: { portalToken: token }
-      });
-      if (emailErr) {
-        console.error('[PortalService] Failed to trigger signature notification email:', emailErr);
-      }
 
       return { success: true, data: undefined };
     } catch (e: any) {
@@ -138,6 +130,10 @@ export class PortalService {
       const invoice = invoices.find(i => i.id === paymentData.invoiceId);
       if (!invoice) {
         throw new Error('Invoice not found');
+      }
+
+      if (invoice.status === 'pending_verification') {
+        throw new Error('A payment for this invoice is already awaiting verification');
       }
 
       // Enforce State Machine validation

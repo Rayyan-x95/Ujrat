@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { redactPortalToken } from '@/shared/utils/sanitize';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, lazy, Suspense } from 'react';
 
@@ -48,7 +49,7 @@ function PageTracker() {
 
   useEffect(() => {
     import('@/shared/lib/posthog').then((m) => {
-      m.trackPageView(location.pathname + location.search);
+      m.trackPageView(redactPortalToken(location.pathname + location.search));
     }).catch(() => {
       // Non-blocking analytics
     });

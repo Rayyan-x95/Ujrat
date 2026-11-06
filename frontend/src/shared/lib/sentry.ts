@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/react';
+import { deepRedact } from '@/shared/utils/sanitize';
 
 export function initSentry() {
   const dsn = import.meta.env.VITE_SENTRY_DSN;
@@ -22,22 +23,29 @@ export function initSentry() {
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
     debug: import.meta.env.DEV,
+    // Transaction events (traces) are NOT routed through beforeSend —
+    // they need their own hook:
+    beforeSendTransaction(transactionEvent) {
+      return deepRedact(transactionEvent);
+    },
     beforeSend(event) {
       // Filter out development errors
       if (import.meta.env.DEV) {
         console.debug('[Sentry] Event captured:', event);
       }
-      
-      // Don't send cancelled requests
-      if (event.exception) {
-        for (const exc of event.exception.values || []) {
+
+      // The portal URL contains the passwordless bearer token; never ship it.
+      // Askew shapes (span descriptions, span data, tags) sneak past point-fixes —
+      // redact every string in the event.
+      const redacted = deepRedact(event);
+      if (redacted.exception) {
+        for (const exc of redacted.exception.values || []) {
           if (exc.value?.includes('AbortError') || exc.value?.includes('Cancelled')) {
             return null;
           }
         }
       }
-      
-      return event;
+      return redacted;
     },
     ignoreErrors: [
       'ResizeObserver loop limit exceeded',

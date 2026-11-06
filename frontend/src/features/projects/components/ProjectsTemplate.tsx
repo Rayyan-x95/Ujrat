@@ -11,8 +11,9 @@ import { Input, Select, CurrencyInput } from '@/shared/ui/Input';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { useProjects } from '@/features/projects';
 import { useClients } from '@/features/clients';
+import { formatCurrency } from '@/shared/utils/currency';
 import type { ProjectWithClient } from '@/shared/types';
-import { Plus, Calendar1 as Calendar, Coins, ArrowRight, FolderClosed, Users, AlertCircle } from 'lucide-react';
+import { Plus, Calendar1 as Calendar, Coins, ArrowRight, FolderClosed, Users, AlertCircle, Briefcase } from 'lucide-react';
 
 interface ProjectsTemplateProps {
   workspaceId: string;
@@ -48,13 +49,19 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [nameError, setNameError] = useState('');
+  const [clientError, setClientError] = useState('');
 
   const handleAddProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !clientId) {
+      if (!name.trim()) setNameError('Project name is required.');
+      if (!clientId) setClientError('Client selection is required.');
       addToast('warning', 'Validation Warning', 'Project Name and Client selection are required.');
       return;
     }
+    setNameError('');
+    setClientError('');
 
     try {
       setSubmitting(true);
@@ -134,7 +141,7 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
       render: row => (
         <span className="font-semibold text-foreground flex items-center justify-end gap-1 font-mono">
           <Coins className="h-3 w-3 text-muted-foreground/50" />
-          ₹{row.budget.toLocaleString('en-IN')}
+          {formatCurrency(row.budget)}
         </span>
       ) 
     },
@@ -212,6 +219,7 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
         searchable
         searchPlaceholder="Search project name..."
         emptyState={{
+          icon: <Briefcase className="h-5 w-5" />,
           title: "No Active Projects Yet",
           description: "Initialize your first project pipeline to manage briefs, send digital proposals, execute contracts, and issue GST invoices.",
           action: clients.length === 0 ? (
@@ -264,13 +272,14 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
             </div>
           )}
 
-          <Input label="Project Name" placeholder="E.g., Brand Strategy & React App" value={name} onChange={e => setName(e.target.value)} required />
+          <Input label="Project Name" placeholder="E.g., Brand Strategy & React App" value={name} onChange={e => { setName(e.target.value); setNameError(''); }} error={nameError} required />
           
           <Select
             label="Target Client"
             options={clientOptions}
             value={clientId}
-            onChange={e => setClientId(e.target.value)}
+            onChange={e => { setClientId(e.target.value); setClientError(''); }}
+            error={clientError}
             disabled={clients.length === 0}
             required
           />

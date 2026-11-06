@@ -4,11 +4,7 @@ import { DashboardService } from '@/features/dashboard';
 export function useDashboard(workspaceId: string, profileId: string) {
   const dashboardQuery = useQuery({
     queryKey: ['dashboard', workspaceId, profileId],
-    queryFn: async () => {
-      const res = await DashboardService.getDashboardData(workspaceId, profileId);
-      if (res.success === false) throw res.error;
-      return res.data;
-    },
+    queryFn: () => DashboardService.getDashboardData(workspaceId, profileId),
     enabled: Boolean(workspaceId),
     staleTime: 30000,
     retry: 1,

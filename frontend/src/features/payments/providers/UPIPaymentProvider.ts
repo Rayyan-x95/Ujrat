@@ -44,10 +44,6 @@ export class UPIPaymentProvider {
     return `upi://pay?${query}`;
   }
 
-  generateQRCodeString(params: PaymentRequestParams): string {
-    return this.generateDeepLink(params);
-  }
-
   generateAppSpecificDeepLink(params: PaymentRequestParams, schemePrefix: string): string {
     const queryString = this.generateDeepLink(params).replace('upi://pay?', '');
     return `${schemePrefix}${queryString}`;

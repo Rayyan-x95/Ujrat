@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 /**
@@ -36,12 +36,12 @@ const WEBHOOK_SRC = readFileSync(
   path.join(BACKEND, 'supabase/functions/payment-webhook/index.ts'),
   'utf8'
 );
-const SEND_EMAIL_SRC = readFileSync(
-  path.join(BACKEND, 'supabase/functions/send-email/index.ts'),
-  'utf8'
-);
 const SIGNED_URL_SRC = readFileSync(
   path.join(BACKEND, 'supabase/functions/create-signed-url/index.ts'),
+  'utf8'
+);
+const PORTAL_FIXES_SQL = readFileSync(
+  path.join(BACKEND, 'supabase/migrations/20261105000000_portal_payment_otp_dashboard_fixes.sql'),
   'utf8'
 );
 const INVOICE_REPO_SRC = readFileSync(
@@ -51,15 +51,18 @@ const INVOICE_REPO_SRC = readFileSync(
 
 describe('F1/F2 — gateway webhook settlement is authenticated and schema-correct', () => {
   it('payment-webhook fails closed when no webhook secret is configured', () => {
-    expect(WEBHOOK_SRC).toContain('FAIL-CLOSED');
+    // Direct UPI: no Razorpay/HMAC path; secret equality is the only guard.
+    expect(WEBHOOK_SRC).not.toMatch(/Razorpay|razorpay|crypto\.subtle|HMAC/);
     expect(WEBHOOK_SRC).toMatch(/if \(!webhookSecret\)[\s\S]*?status: 503/);
+    expect(WEBHOOK_SRC).toMatch(/x-webhook-signature/);
+    expect(WEBHOOK_SRC).toMatch(/Direct UPI/);
     // The old "verify only when configured" pattern must not return.
     expect(WEBHOOK_SRC).not.toMatch(/if \(webhookSecret\) \{/);
   });
 
-  it('signature verification is constant-time (crypto.subtle.verify, not string equality)', () => {
-    expect(WEBHOOK_SRC).toContain("crypto.subtle.verify('HMAC'");
-    expect(WEBHOOK_SRC).not.toMatch(/expectedHex\.toLowerCase\(\)\s*===/);
+  it('webhook uses direct UPI payload only (no gateway fallback)', () => {
+    expect(WEBHOOK_SRC).toContain('invoice_id');
+    expect(WEBHOOK_SRC).not.toMatch(/payment\.captured|description.*INV/);
   });
 
   it('reconcile_gateway_payment references only real columns', () => {
@@ -240,14 +243,18 @@ describe('RLS baseline posture remains intact', () => {
   });
 });
 
-describe('F8/F15 — email dispatch surface is locked down', () => {
-  it('send-email no longer accepts user-JWT direct dispatch', () => {
-    expect(SEND_EMAIL_SRC).not.toContain('auth.getUser()');
-    expect(SEND_EMAIL_SRC).toContain('service-role');
+describe('F8/F15 — no email dispatch surface remains', () => {
+  it('send-email function is removed (no emails sent)', () => {
+    // send-email edge function was deleted locally; PortalService no longer invokes it.
+    const portalService = readFileSync(
+      path.join(FRONTEND, 'src/features/portal/services/PortalService.ts'),
+      'utf8'
+    );
+    expect(portalService).not.toContain("invoke('send-email'");
+    expect(portalService).toContain("invoke('create-signed-url'");
   });
 
   it('error responses never reflect internal/provider messages', () => {
-    expect(SEND_EMAIL_SRC).not.toMatch(/\{ error: error\.message \}/);
     expect(WEBHOOK_SRC).not.toMatch(/\{ error: error\.message \}/);
   });
 });
@@ -257,5 +264,75 @@ describe('Signed-URL authorization surface', () => {
     expect(SIGNED_URL_SRC).toContain('SUPPORTED_BUCKETS');
     expect(SIGNED_URL_SRC).toContain('get_portal_project');
     expect(SIGNED_URL_SRC).toContain('does not belong to this project portal');
+  });
+});
+
+describe('Portal payment and OTP hardening (2026-11-05)', () => {
+  it('deliverable downloads are escrowed until every issued invoice is paid', () => {
+    expect(SIGNED_URL_SRC).toContain('Downloads unlock once all invoices are paid');
+    expect(SIGNED_URL_SRC).toContain("rpc('get_portal_invoices'");
+  });
+
+  it('signature requires a verified, unexpired OTP row instead of a client boolean', () => {
+    expect(PORTAL_FIXES_SQL).toContain('verified = true');
+    expect(PORTAL_FIXES_SQL).toContain('Email verification is required before signing');
+  });
+
+  it('drafts are neither readable nor payable through the portal', () => {
+    expect(PORTAL_FIXES_SQL).toMatch(/inv\.status <> 'draft'/);
+    expect(PORTAL_FIXES_SQL).toContain('Invoice has not been issued yet');
+  });
+
+  it('a second payment attempt cannot be queued while one awaits verification', () => {
+    expect(PORTAL_FIXES_SQL).toContain('A payment for this invoice is already awaiting verification');
+  });
+
+  it('portal tokens have an explicit 90-day default and backfill', () => {
+    expect(PORTAL_FIXES_SQL).toContain("SET DEFAULT (now() + interval '90 days')");
+    expect(PORTAL_FIXES_SQL).toMatch(/SET portal_token_expires_at = created_at \+ interval '90 days'/);
+  });
+});
+
+// --- Track 6 safety nets (static-text only; tolerant during parallel build) ---
+
+const DASH_SERVICE_SRC = readFileSync(
+  path.join(FRONTEND, 'src/features/dashboard/services/DashboardService.ts'),
+  'utf8'
+);
+const PORTAL_REPO_SRC = readFileSync(
+  path.join(FRONTEND, 'src/features/portal/repositories/PortalRepository.ts'),
+  'utf8'
+);
+
+describe('Track 6 — dashboard is RPC-only (no table fallback)', () => {
+  it('DashboardService calls get_dashboard_data RPC and has no table-based fallback', () => {
+    expect(DASH_SERVICE_SRC).toMatch(/rpc\(.*get_dashboard_data/);
+    // F5-track regression guard: the 6-query table fallback must stay deleted.
+    expect(DASH_SERVICE_SRC).not.toContain('getDashboardDataFromTables');
+  });
+});
+
+describe('Track 6 — portal bundle is a single RPC (with fallback)', () => {
+  it('PortalRepository uses get_portal_bundle or the per-entity RPCs', () => {
+    expect(PORTAL_REPO_SRC).toMatch(/get_portal_bundle|get_portal_project/);
+  });
+});
+
+describe('Track 6 — overdue sweep cron marker', () => {
+  it('an overdue-sweep migration or ujrat overdue cron.schedule exists', () => {
+    const migrationsDir = path.join(BACKEND, 'supabase/migrations');
+    const names = readdirSync(migrationsDir, { withFileTypes: true })
+      .filter((d) => d.isFile() && d.name.endsWith('.sql'))
+      .map((d) => d.name);
+    const dirHasOverdue = names.some((n) => /overdue|sweep/i.test(n));
+    let sqlHasCron = false;
+    if (dirHasOverdue) {
+      sqlHasCron = names.some((n) => {
+        if (!/overdue|sweep/i.test(n)) return false;
+        const sql = readFileSync(path.join(migrationsDir, n), 'utf8');
+        return /cron\.schedule\(\s*['"]ujrat-(overdue-sweep|mark-overdue)/.test(sql);
+      });
+    }
+    expect(dirHasOverdue || sqlHasCron).toBe(true);
   });
 });

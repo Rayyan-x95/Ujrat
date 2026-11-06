@@ -2,6 +2,8 @@ import { supabase } from '@/shared/lib/supabaseClient';
 import type { Result } from '@/shared/types';
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+// UI-only hint: warn before upload for large images.
+export const IMAGE_WARNING_THRESHOLD_BYTES = 2 * 1024 * 1024; // 2MB
 
 const ALLOWED_MIME_TYPES: Record<string, string[]> = {
   avatars: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],

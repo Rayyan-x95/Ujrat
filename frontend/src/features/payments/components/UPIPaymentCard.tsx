@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/Input';
-import { UPIPaymentProvider } from '../providers/UPIPaymentProvider';
 import { SUPPORTED_UPI_APPS } from '../constants/PaymentConstants';
 import { PaymentService } from '../services/PaymentService';
 import { PortalService } from '@/features/portal/services/PortalService';
@@ -39,19 +38,17 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  const provider = useMemo(() => new UPIPaymentProvider(), []);
   const [linkError, setLinkError] = useState<string | null>(null);
 
   const deepLinkUri = useMemo(() => {
     try {
-      const uri = provider.generateDeepLink({
-        workspaceId,
-        invoiceId,
-        invoiceNumber,
-        amount,
-        currency,
-        payeeVpa,
+      const uri = PaymentService.generateUpiLink({
+        vpa: payeeVpa,
+        amountPaise: Math.round(amount * 100),
+        note: `Invoice ${invoiceNumber}`,
         payeeName,
+        reference: `INV-${invoiceNumber}`,
+        currency,
       });
       setLinkError(null);
       return uri;
@@ -59,7 +56,7 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
       setLinkError(err?.message || 'Invalid payment link parameters.');
       return '';
     }
-  }, [workspaceId, invoiceId, invoiceNumber, amount, currency, payeeVpa, payeeName, provider]);
+  }, [invoiceNumber, amount, currency, payeeVpa, payeeName]);
 
   const handleCopy = async (text: string, fieldName: string) => {
     try {
@@ -79,18 +76,9 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
   };
 
   const handleLaunchApp = (schemePrefix?: string) => {
-    let targetLink = deepLinkUri;
-    if (schemePrefix) {
-      try {
-        targetLink = provider.generateAppSpecificDeepLink(
-          { workspaceId, invoiceId, invoiceNumber, amount, currency, payeeVpa, payeeName },
-          schemePrefix
-        );
-      } catch {
-        if (addToast) addToast('error', 'Launch Failed', 'Invalid UPI parameters.');
-        return;
-      }
-    }
+    const targetLink = schemePrefix
+      ? `${schemePrefix}${deepLinkUri.replace('upi://pay?', '')}`
+      : deepLinkUri;
     window.location.href = targetLink;
   };
 

@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ProjectService } from '../services/ProjectService';
-import { fetchAllPages } from '@/shared/utils/repository';
 import type { Project } from '@/shared/types';
 
 export function useProjects(workspaceId: string, profileId: string) {
@@ -9,13 +8,11 @@ export function useProjects(workspaceId: string, profileId: string) {
   const projectsQuery = useQuery({
     queryKey: ['projects', workspaceId],
     queryFn: async () => {
-      // Fetch every project: a single request is capped at 100 rows and the
-      // list is rendered in full.
-      return fetchAllPages(async (page) => {
-        const res = await ProjectService.listProjects(workspaceId, { page, pageSize: 100 });
-        if (res.success === false) throw res.error;
-        return res.data;
-      });
+      // Single round-trip: repository getListPage issues one .range() +
+      // count:exact (1000 = Supabase per-request cap, not a 100-row loop).
+      const res = await ProjectService.listProjects(workspaceId, { page: 1, pageSize: 1000 });
+      if (res.success === false) throw res.error;
+      return res.data;
     },
     enabled: !!workspaceId,
   });

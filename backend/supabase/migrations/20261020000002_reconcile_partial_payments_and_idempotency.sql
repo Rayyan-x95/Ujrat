@@ -45,20 +45,8 @@ BEGIN
     RAISE EXCEPTION 'Transaction id is required';
   END IF;
 
-  -- Idempotency: same gateway transaction must never settle twice.
-  SELECT id INTO v_existing_payment_id
-  FROM public.payments
-  WHERE transaction_reference = p_transaction_id;
-
-  IF v_existing_payment_id IS NOT NULL THEN
-    RETURN jsonb_build_object(
-      'success', true,
-      'idempotent', true,
-      'message', 'Transaction already reconciled',
-      'payment_id', v_existing_payment_id
-    );
-  END IF;
-
+  -- Lock the invoice first so concurrent deliveries of the same capture
+  -- serialise before either reaches the insert.
   SELECT * INTO v_invoice
   FROM public.invoices
   WHERE id = p_invoice_id AND deleted_at IS NULL
@@ -74,6 +62,20 @@ BEGIN
 
   IF v_invoice.status = 'cancelled' THEN
     RAISE EXCEPTION 'Cancelled invoices cannot be reconciled';
+  END IF;
+
+  -- Idempotency: same gateway transaction must never settle twice.
+  SELECT id INTO v_existing_payment_id
+  FROM public.payments
+  WHERE transaction_reference = p_transaction_id;
+
+  IF v_existing_payment_id IS NOT NULL THEN
+    RETURN jsonb_build_object(
+      'success', true,
+      'idempotent', true,
+      'message', 'Transaction already reconciled',
+      'payment_id', v_existing_payment_id
+    );
   END IF;
 
   IF p_amount > COALESCE(v_invoice.outstanding_balance, v_invoice.total) THEN

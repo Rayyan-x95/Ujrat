@@ -113,4 +113,31 @@ describe('UPI Deep Link Payment System Test Suite', () => {
       expect(res.isValid).toBe(false);
     });
   });
+
+  it('7. PaymentService.generateUpiLink builds an INR paise link and rejects bad VPAs / amounts', () => {
+    const link = PaymentService.generateUpiLink({
+      vpa: 'freelancer@upi',
+      amountPaise: 1500000,
+      note: 'Invoice INV-2026-001',
+    });
+
+    expect(link).toContain('upi://pay?');
+    expect(link).toContain('pa=freelancer%40upi');
+    expect(link).toContain('am=15000.00');
+    expect(link).toContain('cu=INR');
+    expect(link).toContain('tn=Invoice+INV-2026-001');
+
+    expect(() =>
+      PaymentService.generateUpiLink({ vpa: 'paytm', amountPaise: 10000 }),
+    ).toThrow('Invalid UPI VPA.');
+    expect(() =>
+      PaymentService.generateUpiLink({ vpa: 'payee@upe', amountPaise: 0 }),
+    ).toThrow('Payment amount must be a positive integer (paise).');
+    expect(() =>
+      PaymentService.generateUpiLink({ vpa: 'payee@upe', amountPaise: 150.5 }),
+    ).toThrow('Payment amount must be a positive integer (paise).');
+    expect(() =>
+      PaymentService.generateUpiLink({ vpa: 'payee@upe', amountPaise: 10000, currency: 'USD' }),
+    ).toThrow('require INR');
+  });
 });

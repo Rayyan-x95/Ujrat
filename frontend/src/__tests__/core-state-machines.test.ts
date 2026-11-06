@@ -70,6 +70,18 @@ describe('State Machines', () => {
     it('draft -> partially_paid should be invalid', () => {
       expect(InvoiceStateMachine.validate('draft', 'partially_paid')).toBe(false);
     });
+
+    it('draft -> pending_verification should be invalid (drafts are not issued)', () => {
+      expect(InvoiceStateMachine.validate('draft', 'pending_verification')).toBe(false);
+    });
+
+    it('overdue -> pending_verification should be valid (late payment submission)', () => {
+      expect(InvoiceStateMachine.validate('overdue', 'pending_verification')).toBe(true);
+    });
+
+    it('partially_paid -> pending_verification should be valid (balance submission)', () => {
+      expect(InvoiceStateMachine.validate('partially_paid', 'pending_verification')).toBe(true);
+    });
   });
 
   describe('PaymentStateMachine', () => {

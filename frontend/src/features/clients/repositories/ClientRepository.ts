@@ -1,7 +1,10 @@
 import { supabase } from '@/shared/lib/supabaseClient';
 import { sanitizeSearchTerm } from '@/shared/utils/sanitize';
-import { getPaginationBounds, toPaginatedResult, softDeleteRecord } from '@/shared/utils/repository';
+import { getListPage, softDeleteRecord } from '@/shared/utils/repository';
 import type { Client, ClientInsert, ClientUpdate, QueryOptions, PaginatedResult } from '@/shared/types';
+
+// List columns only — detail rows come from getById.
+export const CLIENT_LIST_COLUMNS = 'id,name,email,company,created_at';
 
 export class ClientRepository {
   static async getAll(
@@ -12,11 +15,9 @@ export class ClientRepository {
       throw new Error('Workspace ID is required');
     }
 
-    const { page, pageSize, from, to } = getPaginationBounds(options);
-
     let query = supabase
       .from('clients')
-      .select('*', { count: 'exact' })
+      .select(CLIENT_LIST_COLUMNS, { count: 'exact' })
       .eq('workspace_id', workspaceId)
       .is('deleted_at', null);
 
@@ -31,10 +32,7 @@ export class ClientRepository {
     const sortOrder = options.sortOrder || 'asc';
     query = query.order(sortBy, { ascending: sortOrder === 'asc' });
 
-    const { data, error, count } = await query.range(from, to);
-    if (error) throw new Error(error.message);
-
-    return toPaginatedResult(data, count, page, pageSize);
+    return getListPage<Client>(query, options);
   }
 
   static async getById(workspaceId: string, id: string): Promise<Client | null> {

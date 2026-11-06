@@ -18,20 +18,17 @@ export function useClientPortal(portalToken: string) {
     mutationFn: async ({
       signatureName,
       ipAddress,
-      emailVerified = true,
       signatureImage,
       signatureType,
     }: {
       signatureName: string;
       ipAddress?: string | null;
-      emailVerified?: boolean;
       signatureImage?: string | null;
       signatureType?: string;
     }) => {
       const res = await PortalService.signContract(portalToken, {
         signatureName,
         ipAddress: ipAddress ?? null,
-        emailVerified,
         signatureImage: signatureImage ?? null,
         signatureType: signatureType ?? 'drawn',
       });
@@ -87,18 +84,6 @@ export function useClientPortal(portalToken: string) {
     },
   });
 
-  const generateVerificationCode = async () => {
-    const res = await PortalService.generateVerificationCode(portalToken);
-    if (res.success === false) throw res.error;
-    return res.data;
-  };
-
-  const verifyCode = async (code: string) => {
-    const res = await PortalService.verifyCode(portalToken, code);
-    if (res.success === false) throw res.error;
-    return res.data;
-  };
-
   const downloadDeliverable = async (fileUrl: string) => {
     const res = await PortalService.getSignedDownloadUrl(portalToken, fileUrl);
     if (res.success === false) throw res.error;
@@ -113,8 +98,6 @@ export function useClientPortal(portalToken: string) {
     submitPayment: submitPaymentMutation.mutateAsync,
     submitFeedback: submitFeedbackMutation.mutateAsync,
     approveProposal: approveProposalMutation.mutateAsync,
-    generateVerificationCode,
-    verifyCode,
     downloadDeliverable,
   };
 }

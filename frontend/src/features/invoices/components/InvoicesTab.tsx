@@ -6,6 +6,7 @@ import { Badge } from '@/shared/ui/Badge';
 import { Receipt, PlusCircle, Printer, Copy, MessageSquareShare } from 'lucide-react';
 import { COMMON_FREELANCE_SAC_CODES } from '../constants/sacCodes';
 import { generateInvoiceWhatsAppUrl } from '@/shared/utils/whatsappShare';
+import { formatCurrency } from '@/shared/utils/currency';
 
 interface InvoicesTabProps {
   invoices: any[];
@@ -173,7 +174,7 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
                 </div>
                 <div className="border-t border-border-subtle pt-3.5 flex justify-between items-baseline select-text">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">Total Value (INR)</span>
-                  <span className="text-base font-bold text-foreground font-mono">₹{inv.total?.toLocaleString('en-IN')}</span>
+                  <span className="text-base font-bold text-foreground font-mono">{inv.total != null ? formatCurrency(inv.total) : '—'}</span>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 mt-4">

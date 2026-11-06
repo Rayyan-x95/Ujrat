@@ -68,11 +68,11 @@ export type FinancialEventType =
 // Composite domain model aggregates with proper joined types
 // Using unknown for relations since Supabase doesn't have FK relationships defined
 export interface ProjectWithClient extends Project {
-  clients?: Client | null;
-  project_briefs?: ProjectBrief | null;
-  proposals?: Proposal | null;
-  contracts?: Contract | null;
-  invoices?: Invoice[];
+  clients?: Client | null | undefined;
+  project_briefs?: ProjectBrief | null | undefined;
+  proposals?: Proposal | null | undefined;
+  contracts?: Contract | null | undefined;
+  invoices?: Invoice[] | undefined;
 }
 
 export interface InvoiceWithItems extends Invoice {

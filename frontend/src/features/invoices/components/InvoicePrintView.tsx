@@ -9,6 +9,7 @@ import { calculateInvoiceTax } from '@/features/invoices/tax/InvoiceCalculator';
 import { TDS_SECTIONS } from '@/features/invoices/tax/TaxTypes';
 import { formatCurrency, numberToIndianRupeeWords } from '@/shared/utils/currency';
 import { formatIndianDate } from '@/shared/utils/date';
+import { UPIPaymentProvider } from '@/features/payments/providers/UPIPaymentProvider';
 
 export const InvoicePrintView: React.FC = () => {
   const { portalToken, invoiceId } = useParams<{ portalToken: string; invoiceId: string }>();
@@ -129,15 +130,23 @@ export const InvoicePrintView: React.FC = () => {
 
   const upiId = settings?.upi_id || '';
   const merchantName = settings?.company_name || 'Freelancer';
-  const upiParams = new URLSearchParams({
-    pa: upiId,
-    pn: merchantName,
-    am: upiAmount.toFixed(2),
-    cu: 'INR',
-    tr: invoice.id,
-    tn: `Invoice ${invoice.invoice_number}`,
-  }).toString();
-  const upiUrl = `upi://pay?${upiParams}`;
+  // Reuse the validated NPCI builder (VPA/amount checks + real currency).
+  const upiUrl = (() => {
+    try {
+      const provider = new UPIPaymentProvider();
+      return provider.generateDeepLink({
+        workspaceId: '',
+        invoiceId: invoice.id,
+        payeeVpa: upiId,
+        payeeName: merchantName,
+        amount: upiAmount,
+        currency: currency || 'INR',
+        invoiceNumber: invoice.invoice_number,
+      });
+    } catch {
+      return '';
+    }
+  })();
 
   const handlePrint = () => {
     window.print();
@@ -354,7 +363,7 @@ export const InvoicePrintView: React.FC = () => {
 
             {currency !== 'INR' && (
               <div className="text-[10px] text-neutral-400 mt-1 font-mono">
-                Exchange Rate: 1 {currency} = {exchangeRate} INR (INR Total: ₹{inrTotal.toLocaleString('en-IN')})
+                Exchange Rate: 1 {currency} = {exchangeRate} INR (INR Total: {formatCurrency(inrTotal, 'INR')})
               </div>
             )}
           </div>

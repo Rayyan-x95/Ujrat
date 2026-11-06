@@ -6,7 +6,9 @@ import { getCorsHeaders } from "../_shared/cors.ts"
 const SIGNED_URL_TTL_SECONDS = 60 * 60
 const SIGNED_URL_RATE_LIMIT_MAX_REQUESTS = 30
 const SIGNED_URL_RATE_LIMIT_WINDOW_SECONDS = 15 * 60
+const PAID_CHECK_CACHE_TTL_MS = 60_000
 const SUPPORTED_BUCKETS = new Set(['deliverables', 'invoices'])
+const paidCheckCache = new Map<string, { expires: number; paid: boolean }>()
 
 type CreateSignedUrlRequest = {
   bucket: string
@@ -15,18 +17,13 @@ type CreateSignedUrlRequest = {
 }
 
 type PortalDeliverable = { file_url: string | null }
-type PortalInvoice = { pdf_url: string | null }
+type PortalInvoice = { pdf_url: string | null; status?: string }
 
 function jsonResponse(body: Record<string, string>, status: number, headers: HeadersInit = {}): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'Content-Type': 'application/json', ...headers },
   })
-}
-
-function getBearerToken(value: string | null): string | null {
-  const bearerPrefix = 'Bearer '
-  return value?.startsWith(bearerPrefix) ? value.slice(bearerPrefix.length) : null
 }
 
 function isCreateSignedUrlRequest(value: unknown): value is CreateSignedUrlRequest {
@@ -61,9 +58,9 @@ serve(async (req) => {
       return json({ error: 'Server environment not fully configured' }, 500)
     }
 
-    if (getBearerToken(req.headers.get('Authorization')) !== SUPABASE_ANON_KEY) {
-      return json({ error: 'Unauthorized' }, 401)
-    }
+    // NOTE: the Supabase anon key is public (shipped in the SPA as VITE_).
+    // Checking the bearer against it proves nothing; the portal token in the
+    // body is the credential, verified below via get_portal_project.
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
@@ -125,8 +122,54 @@ serve(async (req) => {
       }
     }
 
+    // Defense in depth: the authorized file must be a plain storage path
+    // (no leading slash, not empty) and, for project-scoped buckets, live
+    // inside this project's folder prefix. Uploads are stored by
+    // StorageService as `<workspaceId>/<projectId>/<uuid>-<file>`; invoice
+    // PDFs are keyed by invoice, and the token->project RPC above already
+    // restricts which invoice rows (and their pdf_url values) this caller can
+    // name, so an exact pdf_url match is sufficient there.
+    if (isAuthorized) {
+      const safePath = filePath.replace(/^\/+/, '')
+      const isPlainPath = safePath !== '' && safePath === filePath
+      if (!isPlainPath) {
+        isAuthorized = false
+      } else if (bucket === 'deliverables') {
+        const project = (projectData as Array<{ id?: string; workspace_id?: string }>)?.[0]
+        const requiredPrefix = project?.workspace_id && project?.id
+          ? `${project.workspace_id}/${project.id}/`
+          : null
+        if (!requiredPrefix || !safePath.startsWith(requiredPrefix)) {
+          isAuthorized = false
+        }
+      }
+    }
+
     if (!isAuthorized) {
       return json({ error: 'Access denied: file does not belong to this project portal' }, 403)
+    }
+
+    // Escrow: deliverables stay locked until every issued invoice is settled.
+    // Draft invoices are excluded by get_portal_invoices, so an unpublished
+    // draft cannot lock a delivered project.
+    if (bucket === 'deliverables') {
+      const cached = paidCheckCache.get(token)
+      let hasUnpaidInvoice: boolean
+      if (cached && cached.expires > Date.now()) {
+        hasUnpaidInvoice = !cached.paid
+      } else {
+        const { data: invoices, error: invoiceErr } = await supabase.rpc('get_portal_invoices', { token_val: token })
+        if (invoiceErr) {
+          return json({ error: 'Unable to verify payment status' }, 503)
+        }
+        hasUnpaidInvoice = ((invoices as PortalInvoice[]) || []).some(
+          (invoice) => invoice.status !== 'paid' && invoice.status !== 'cancelled',
+        )
+        paidCheckCache.set(token, { expires: Date.now() + PAID_CHECK_CACHE_TTL_MS, paid: !hasUnpaidInvoice })
+      }
+      if (hasUnpaidInvoice) {
+        return json({ error: 'Downloads unlock once all invoices are paid' }, 403)
+      }
     }
 
     // 3. Generate signed URL using service role client (bypasses RLS for portal downloads)
@@ -139,7 +182,7 @@ serve(async (req) => {
       return json({ error: 'Failed to create signed URL' }, 500)
     }
 
-    return json({ signedUrl: signedData.signedUrl }, 200)
+    return json({ signedUrl: signedData.signedUrl }, 200, { 'Cache-Control': 'public, max-age=3600, immutable' })
   } catch (error: unknown) {
     console.error('Unexpected signed URL failure:', error)
     return json({ error: 'Internal server error' }, 500)

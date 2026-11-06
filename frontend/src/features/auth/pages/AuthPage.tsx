@@ -5,6 +5,14 @@ import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/Input';
 import { useAuth } from '../hooks/useAuth';
 import { useToastStore } from '@/shared/hooks/useToastStore';
+import { SEOMeta } from '@/shared/ui/SEOMeta';
+
+const AUTH_SEO: Record<AuthPageProps['mode'], { title: string; description: string; path: string }> = {
+  signin: { title: 'Sign In', description: 'Sign in to Ujrat to manage clients, invoices and zero-fee UPI payments.', path: '/login' },
+  signup: { title: 'Sign Up', description: 'Create a free Ujrat workspace for GST invoicing, contracts and UPI payments.', path: '/signup' },
+  forgot: { title: 'Forgot Password', description: 'Reset your Ujrat password to regain access to your workspace.', path: '/forgot' },
+  reset: { title: 'Reset Password', description: 'Set a new password for your Ujrat account.', path: '/reset' },
+};
 
 export interface AuthPageProps {
   mode: 'signin' | 'signup' | 'forgot' | 'reset';
@@ -100,6 +108,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
+      <SEOMeta title={AUTH_SEO[mode].title} description={AUTH_SEO[mode].description} canonicalPath={AUTH_SEO[mode].path} />
       <AuthLayout>
         <form onSubmit={handleAuth} className="space-y-5">
           <div className="text-center space-y-1.5 mb-6">

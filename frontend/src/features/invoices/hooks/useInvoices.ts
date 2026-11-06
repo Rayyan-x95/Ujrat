@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { InvoiceService } from '@/features/invoices';
-import { fetchAllPages } from '@/shared/utils/repository';
 import type { InvoiceItem, InvoiceWithItems, PaginatedResult } from '@/shared/types';
 
 export function useInvoices(workspaceId: string, profileId: string) {
@@ -9,15 +8,11 @@ export function useInvoices(workspaceId: string, profileId: string) {
   const invoicesQuery = useQuery({
     queryKey: ['invoices', workspaceId],
     queryFn: async (): Promise<PaginatedResult<InvoiceWithItems>> => {
-      // The dashboard cards and the GSTR-1 CSV are computed from this list, so
-      // they need every invoice of the workspace, not only the first page.
-      // One request (1000 = Supabase per-request cap) instead of a sequential
-      // 100-row page loop — on a ~1 s RTT link, page loops are the wait.
-      return fetchAllPages(async (page) => {
-        const res = await InvoiceService.listInvoices(workspaceId, { page, pageSize: 1000 });
-        if (res.success === false) throw res.error;
-        return res.data;
-      });
+      // Single round-trip: repository getListPage issues one .range() +
+      // count:exact (1000 = Supabase per-request cap, not a 100-row loop).
+      const res = await InvoiceService.listInvoices(workspaceId, { page: 1, pageSize: 1000 });
+      if (res.success === false) throw res.error;
+      return res.data;
     },
     enabled: !!workspaceId,
   });

@@ -10,7 +10,5 @@
     "validate:security": "node scripts/validate-security.mjs",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "@ujrat/shared-types": "*"
-  }
+  "dependencies": {}
 }

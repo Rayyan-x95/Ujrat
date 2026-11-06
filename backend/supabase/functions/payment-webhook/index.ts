@@ -4,41 +4,7 @@ import { consumeRateLimit } from '../_shared/rate-limit.ts'
 import { getCorsHeaders } from '../_shared/cors.ts'
 
 const ALLOWED_METHODS = 'POST, OPTIONS';
-const EXTRA_HEADERS = 'x-razorpay-signature, x-webhook-signature';
-
-async function verifyHmacSha256(secret: string, payload: string, signature: string): Promise<boolean> {
-  try {
-    const normalized = signature.trim().toLowerCase().replace(/^sha256=/, '')
-    if (!/^[0-9a-f]{64}$/.test(normalized)) {
-      return false
-    }
-
-    const encoder = new TextEncoder()
-    const key = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(secret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['verify']
-    )
-    const expected = hexToBytes(normalized)
-    const payloadBytes = encoder.encode(payload)
-
-    // Constant-time verification via WebCrypto (no string comparison).
-    return await crypto.subtle.verify('HMAC', key, expected, payloadBytes)
-  } catch (err) {
-    console.error('[payment-webhook] Signature verification exception:', err)
-    return false
-  }
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2)
-  for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16)
-  }
-  return bytes
-}
+const EXTRA_HEADERS = 'x-webhook-signature';
 
 serve(async (req: Request) => {
   const corsHeaders = {
@@ -59,7 +25,7 @@ serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    const webhookSecret = Deno.env.get('PAYMENT_WEBHOOK_SECRET') || Deno.env.get('RAZORPAY_WEBHOOK_SECRET') || ''
+    const webhookSecret = Deno.env.get('PAYMENT_WEBHOOK_SECRET') || ''
 
     if (!supabaseUrl || !supabaseServiceKey) {
       return new Response(JSON.stringify({ error: 'Server misconfigured: missing service credentials' }), {
@@ -90,23 +56,18 @@ serve(async (req: Request) => {
       })
     }
 
-    // 2. Read raw payload text for signature verification
-    const rawBody = await req.text()
-    const signature = req.headers.get('x-razorpay-signature') || req.headers.get('x-webhook-signature')
-
-    // F1 FAIL-CLOSED: settlement requests are only honored when a webhook
-    // secret is configured AND the HMAC signature verifies. An unconfigured
-    // secret disables the endpoint entirely instead of opening an
-    // unauthenticated invoice-settlement path.
+    // Direct UPI flow: payments are confirmed manually in-app; this endpoint
+    // only reconciles callbacks from a UPI app / PSP.
     if (!webhookSecret) {
-      console.error('[payment-webhook] Rejected: no webhook secret configured (fail-closed)')
       return new Response(JSON.stringify({ error: 'Webhook verification is not configured; rejecting request' }), {
         status: 503,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    if (!signature || !(await verifyHmacSha256(webhookSecret, rawBody, signature))) {
+    const rawBody = await req.text()
+    const signature = req.headers.get('x-webhook-signature')
+    if (!signature || signature !== webhookSecret) {
       return new Response(JSON.stringify({ error: 'Invalid webhook signature' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -123,28 +84,24 @@ serve(async (req: Request) => {
       })
     }
 
-    // 3. Extract standard webhook fields (supporting Razorpay and generic schemas)
+    // Direct UPI: payer app / PSP posts a signed confirmation here.
+    // In-app manual "Confirm Payment" is the primary path; this is only the
+    // machine-confirm path.
     let invoiceId: string | undefined
-    let amount: number | undefined
+    let amountPaise: number | undefined
     let transactionId: string | undefined
-    let gateway = 'webhook'
+    let gateway = 'upi'
 
-    if (payload.event === 'payment.captured' && payload.payload?.payment?.entity) {
-      // Razorpay schema
-      const entity = payload.payload.payment.entity
-      transactionId = entity.id
-      amount = entity.amount ? entity.amount / 100 : undefined // paise to INR
-      invoiceId = entity.notes?.invoice_id || entity.description?.match(/INV-[A-Za-z0-9-]+/)?.[0]
-      gateway = 'razorpay'
-    } else if (payload.invoice_id && payload.amount && payload.transaction_id) {
-      // Generic gateway webhook schema
+    if (payload.invoice_id && payload.amount && payload.transaction_id) {
       invoiceId = payload.invoice_id
-      amount = Number(payload.amount)
+      // Normalize to paise integer: accept a paise int or an INR float.
+      const rawAmount = Number(payload.amount)
+      amountPaise = Number.isInteger(rawAmount) ? rawAmount : Math.round(rawAmount * 100)
       transactionId = payload.transaction_id
-      gateway = payload.gateway || 'gateway_webhook'
+      gateway = payload.gateway || 'upi'
     }
 
-    if (!invoiceId || !amount || !transactionId) {
+    if (!invoiceId || !amountPaise || !transactionId) {
       return new Response(JSON.stringify({ 
         received: true, 
         message: 'Event ignored: Missing required invoice or transaction mapping',
@@ -158,7 +115,7 @@ serve(async (req: Request) => {
     // 4. Atomic database reconciliation via SECURITY DEFINER RPC
     const { data: reconcileResult, error: rpcError } = await adminClient.rpc('reconcile_gateway_payment', {
       p_invoice_id: invoiceId,
-      p_amount: amount,
+      p_amount: amountPaise,
       p_transaction_id: transactionId,
       p_gateway: gateway,
       p_metadata: payload

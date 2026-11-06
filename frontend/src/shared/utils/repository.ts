@@ -65,6 +65,26 @@ export async function fetchAllPages<T>(
 }
 
 /**
+ * Single-round-trip list fetch: exactly one `.range()` honoring
+ * `count: 'exact'` (callers select with `{ count: 'exact' }`).
+ * Replaces the 100-row `fetchAllPages` loops in list hooks.
+ */
+export async function getListPage<T>(
+  query: {
+    range: (
+      from: number,
+      to: number,
+    ) => PromiseLike<{ data: any; error: any; count?: any }>;
+  },
+  options: QueryOptions = {},
+): Promise<PaginatedResult<T>> {
+  const { page, pageSize, from, to } = getPaginationBounds(options);
+  const { data, error, count } = await query.range(from, to);
+  if (error) throw new Error(error.message);
+  return toPaginatedResult(data as T[] | null, count ?? null, page, pageSize) as PaginatedResult<T>;
+}
+
+/**
  * Reusable defense-in-depth soft delete for workspace-scoped records.
  */
 export async function softDeleteRecord(

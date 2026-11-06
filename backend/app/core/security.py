@@ -68,11 +68,10 @@ async def get_current_user(
             except Exception:
                 workspace_id = None
         if not workspace_id:
-            # Last resort: bind to a pseudo-tenant keyed by the user id. Safe
-            # because both trusted paths above (app_metadata, profile_id-scoped
-            # DB lookup) already resolve; this can only produce an empty tenant,
-            # never another user's workspace.
-            workspace_id = user_id
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Workspace context could not be resolved",
+            )
 
         return AuthenticatedUser(
             user_id=user_id,

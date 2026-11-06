@@ -261,6 +261,16 @@ export function useProjectDetails({
     onError: (e: any) => addToast('error', 'Status Change Failed', e.message),
   });
 
+  const regeneratePortalToken = useMutation({
+    mutationFn: async () => unwrapResult(await ProjectService.regeneratePortalToken(workspaceId, projectId)),
+    onSuccess: (token) => {
+      queryClient.invalidateQueries({ queryKey: ['project', workspaceId, projectId] });
+      addToast('success', 'New portal link generated', 'The previous link no longer works.');
+      return token;
+    },
+    onError: (e: any) => addToast('error', 'Could not regenerate link', e.message),
+  });
+
   return {
     project,
     proposal,
@@ -280,6 +290,7 @@ export function useProjectDetails({
     uploadDeliverable: uploadDeliverable.mutateAsync,
     addDeliverableLink: addDeliverableLink.mutateAsync,
     generateInvoice: generateInvoice.mutateAsync,
+    regeneratePortalToken: regeneratePortalToken.mutateAsync,
     submitPayment: submitPayment.mutateAsync,
     verifyPayment: verifyPayment.mutateAsync,
     changeStatus: changeStatus.mutateAsync,

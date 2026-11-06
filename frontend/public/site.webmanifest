@@ -1,11 +1,12 @@
 {
-  "name": "Ujrat Payouts & Workflows",
+  "name": "Ujrat",
   "short_name": "Ujrat",
   "description": "The premium freelance workflow and GST invoicing portal for Indian freelancers.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
+  "categories": ["business", "finance"],
   "icons": [
     {
       "src": "/favicon-transparent.png",
@@ -16,6 +17,12 @@
       "src": "/favicon-transparent.png",
       "sizes": "512x512",
       "type": "image/png"
+    },
+    {
+      "src": "/favicon-transparent.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

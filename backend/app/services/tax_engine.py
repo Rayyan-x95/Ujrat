@@ -115,6 +115,14 @@ def from_paise(paise: int) -> float:
     return round(paise) / 100.0
 
 
+# Precomputed at import: clean state name -> GST code (legacy/(old) entries skipped).
+_STATE_NAME_TO_CODE_CLEAN: Dict[str, str] = {}
+for _name, _code in STATE_NAME_TO_CODE.items():
+    if "(legacy)" in _name or "(old)" in _name:
+        continue
+    _STATE_NAME_TO_CODE_CLEAN[re.sub(r"\s*\([^)]*\)", "", _name).strip()] = _code
+
+
 def extract_state_code(gstin: Optional[str] = None, state_name: Optional[str] = None) -> Optional[str]:
     """Extract 2-digit GST state code from GSTIN or state name."""
     if gstin and re.match(r"^\d{2}", gstin.strip()):
@@ -131,10 +139,7 @@ def extract_state_code(gstin: Optional[str] = None, state_name: Optional[str] = 
 
         best_match_code = None
         max_match_len = 0
-        for name, code in STATE_NAME_TO_CODE.items():
-            if "(legacy)" in name or "(old)" in name:
-                continue
-            clean_name = re.sub(r"\s*\([^)]*\)", "", name).strip()
+        for clean_name, code in _STATE_NAME_TO_CODE_CLEAN.items():
             # Match boundary or substring
             is_match = (
                 normalized == clean_name
@@ -596,6 +601,8 @@ def validate_tax_calculation(result: TaxBreakdownResult) -> Dict[str, Any]:
     header_taxable_paise = to_paise(result.taxable_amount)
 
     line_sum_paise = sum(to_paise(it.taxable_amount) for it in result.line_items)
+    # GST splits round paise per line, so a 1-paise header drift is a normal
+    # rounding artifact, not a mismatch.
     if result.line_items and abs(line_sum_paise - header_taxable_paise) > 1:
         errors.append(
             f"Taxable subtotal mismatch: lines sum to ₹{from_paise(line_sum_paise)} but header reports ₹{result.taxable_amount}"
@@ -614,7 +621,7 @@ def validate_tax_calculation(result: TaxBreakdownResult) -> Dict[str, Any]:
     post_tax_discount_paise = to_paise(result.post_tax_discount or 0)
     calc_grand_unrounded_paise = max(0, header_taxable_paise + to_paise(result.total_gst) - post_tax_discount_paise)
     diff_grand = abs(calc_grand_unrounded_paise - to_paise(result.grand_total_unrounded))
-    if diff_grand > 2:
+    if diff_grand > 1:
         errors.append(
             f"Grand total arithmetic divergence: expected ₹{from_paise(calc_grand_unrounded_paise)}, got ₹{result.grand_total_unrounded}"
         )

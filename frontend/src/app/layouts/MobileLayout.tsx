@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard,
   Users, 
@@ -64,6 +64,25 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
+  const [fabHidden, setFabHidden] = useState(false);
+  const lastScrollYRef = useRef(0);
+
+  // FAB hide-on-scroll: slide away when scrolling down past the dock, show on scroll up.
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      const prev = lastScrollYRef.current;
+      if (y > prev && y > 120) {
+        setFabHidden(true);
+        setFabOpen(false);
+      } else if (y < prev) {
+        setFabHidden(false);
+      }
+      lastScrollYRef.current = y;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Freelancer';
   const userEmail = user?.email || '';
@@ -73,6 +92,21 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
     setFabOpen(false);
     setDrawerOpen(false);
   }, [currentView]);
+
+  // Drawer Escape + body scroll lock (mirrors CommandPalette Escape handling)
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDrawerOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [drawerOpen]);
 
   const handleNavClick = (viewId: string) => {
     onViewChange(viewId);
@@ -133,14 +167,14 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
       </header>
 
       {/* ─── Mobile Scrollable Body ─────────────────────────────────────────── */}
-      <main className="flex-1 px-4 py-4 pb-28 overflow-y-auto">
+      <main className="flex-1 px-4 py-4 pb-32 overflow-y-auto">
         <div className="w-full mx-auto animate-fade-in space-y-4">
           {children}
         </div>
       </main>
 
       {/* ─── Floating Action Button (FAB) Speed Dial ────────────────────────── */}
-      <div className="fixed bottom-20 right-4 z-40 flex flex-col items-end gap-2.5">
+      <div data-testid="fab-container" className={`fixed bottom-[72px] right-4 z-40 flex flex-col items-end gap-2.5 transition-transform duration-200 ${fabHidden ? 'translate-y-full' : 'translate-y-0'}`}>
         {fabOpen && (
           <div className="flex flex-col items-end gap-2 animate-scale-in">
             <button
@@ -203,7 +237,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
                   </span>
                 )}
               </div>
-              <span className="text-[10px] tracking-tight truncate max-w-[64px]">{item.name}</span>
+              <span className="hidden min-[360px]:block text-[10px] tracking-tight truncate max-w-[56px]">{item.name}</span>
               {isActive && (
                 <span className="absolute top-0 w-8 h-0.5 bg-primary rounded-full animate-fade-in" aria-hidden="true" />
               )}
@@ -222,7 +256,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
           />
 
           {/* Drawer Body */}
-          <aside className="relative flex w-72 max-w-[85vw] flex-col bg-surface-raised border-r border-border shadow-xl animate-slide-up z-10">
+          <aside role="dialog" aria-modal="true" aria-label="Navigation drawer" className="relative flex w-72 max-w-[85vw] flex-col bg-surface-raised border-r border-border shadow-xl animate-slide-up z-10">
             {/* Drawer Header */}
             <div className="flex h-14 items-center justify-between px-4 border-b border-border-subtle shrink-0">
               <div className="flex items-center gap-2.5">

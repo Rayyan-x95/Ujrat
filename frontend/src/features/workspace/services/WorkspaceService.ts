@@ -1,18 +1,18 @@
 import { supabase } from '@/shared/lib/supabaseClient';
 import type { Workspace, WorkspaceSettings, Result } from '@/shared/types';
-import { WorkspaceSettingsSchema } from '@/shared/validation/schemas';
+// ponytail: lazy-load WorkspaceSettingsSchema in updateSettings — keeps zod off the auth startup path
 
 export class WorkspaceService {
   static async getWorkspaces(profileId: string): Promise<Result<Workspace[]>> {
     try {
       const { data, error } = await supabase
         .from('workspaces')
-        .select('*')
+        .select('id,name,profile_id,created_at')
         .eq('profile_id', profileId)
         .is('deleted_at', null);
 
       if (error) return { success: false, error: new Error(error.message) };
-      return { success: true, data: data || [] };
+      return { success: true, data: (data || []) as unknown as Workspace[] };
     } catch (e: any) {
       return { success: false, error: e };
     }
@@ -73,6 +73,7 @@ export class WorkspaceService {
 
   static async updateSettings(workspaceId: string, settingsData: Partial<WorkspaceSettings>): Promise<Result<WorkspaceSettings>> {
     try {
+      const { WorkspaceSettingsSchema } = await import('@/shared/validation/schemas');
       const validated = WorkspaceSettingsSchema.partial().parse(settingsData);
 
       let { data, error } = await (supabase

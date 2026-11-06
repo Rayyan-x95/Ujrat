@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Badge } from '@/shared/ui/Badge';
 import { DashboardSkeleton } from '@/shared/ui/Feedback';
+import { formatCurrency } from '@/shared/utils/currency';
 import { useDashboard } from '@/features/dashboard';
+import { useWorkspaceSettings } from '@/features/settings';
 import {
   TrendingUp,
   TrendingDown,
@@ -123,10 +125,17 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, sub, icon: Icon, icon
 
 export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceId, profileId }) => {
   const { metrics, isLoading, isPending, isError, error, refetch } = useDashboard(workspaceId, profileId);
+  const { settings } = useWorkspaceSettings(workspaceId, profileId);
   const navigate = useNavigate();
   const [chartRange, setChartRange] = useState<'month' | 'week'>('month');
   const [hoveredChartIdx, setHoveredChartIdx] = useState<number | null>(null);
-  const [dismissOnboarding, setDismissOnboarding] = useState(false);
+  const [dismissOnboarding, setDismissOnboarding] = useState(() => {
+    try { return localStorage.getItem('ujrat.onboardingDismissed') === '1'; } catch { return false; }
+  });
+  const handleDismissOnboarding = () => {
+    setDismissOnboarding(true);
+    try { localStorage.setItem('ujrat.onboardingDismissed', '1'); } catch {}
+  };
   const todayFormatted = useMemo(() => new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), []);
 
   const actionItems = useMemo(
@@ -229,7 +238,7 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
         hasComparison: true,
         isPositive: diff >= 0,
         pctLabel: `${diff >= 0 ? '+' : ''}${pct}%`,
-        diffLabel: `₹${Math.abs(diff).toLocaleString('en-IN')} ${diff >= 0 ? 'more' : 'less'} than last month`,
+        diffLabel: `${formatCurrency(Math.abs(diff))} ${diff >= 0 ? 'more' : 'less'} than last month`,
       };
     }
     if (thisMonthRev > 0) {
@@ -271,7 +280,7 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
   const unpaidInvoicesCount = metrics.pipeline.find(p => p.label === 'Invoice Shared')?.count || 0;
   const totalPipelineItems = actionItems.reduce((s, i) => s + i.count, 0);
 
-  const isNewWorkspace = metrics.totalClients === 0 && metrics.activeProjects === 0 && metrics.outstanding === 0 && metrics.earnedThisMonth === 0;
+  const showOnboarding = !dismissOnboarding && !(metrics.totalClients > 0 && metrics.activeProjects > 0 && metrics.outstanding > 0);
 
   return (
     <div className="space-y-7 animate-slide-up">
@@ -293,8 +302,20 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
         </div>
       </header>
 
+      {/* ── UPI Readiness Banner ─────────────────────────────────────────────── */}
+      {!settings?.upi_id && (
+        <button
+          onClick={() => navigate('/settings')}
+          className="w-full flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left cursor-pointer transition-colors hover:bg-amber-500/15"
+        >
+          <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+          <span className="text-[12px] font-semibold text-foreground">Add UPI ID to enable QR payments</span>
+          <ArrowRight className="h-3.5 w-3.5 ml-auto text-muted-foreground shrink-0" />
+        </button>
+      )}
+
       {/* ── Day 0 Quick Setup Guide ───────────────────────────────────────────── */}
-      {isNewWorkspace && !dismissOnboarding && (
+      {showOnboarding && (
         <div className="rounded-2xl border border-primary/25 bg-linear-to-br from-primary/5 via-card to-card p-6 space-y-4 shadow-xs relative overflow-hidden">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
@@ -310,7 +331,7 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
               </p>
             </div>
             <button
-              onClick={() => setDismissOnboarding(true)}
+              onClick={handleDismissOnboarding}
               className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-secondary transition-colors cursor-pointer shrink-0"
               title="Dismiss guide"
             >
@@ -320,13 +341,13 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-1">
             <div
-              onClick={() => navigate('/clients')}
+              onClick={() => navigate('/clients?create=true')}
               className="p-4 rounded-xl border border-border/70 bg-card hover:border-primary/50 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between"
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="h-7 w-7 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-xs">
-                    1
+                    {metrics.totalClients > 0 ? <CheckCircle2 className="h-4 w-4" /> : '1'}
                   </div>
                   <Users className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 </div>
@@ -342,13 +363,13 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
             </div>
 
             <div
-              onClick={() => navigate('/projects')}
+              onClick={() => navigate('/projects?create=true')}
               className="p-4 rounded-xl border border-border/70 bg-card hover:border-primary/50 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between"
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="h-7 w-7 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold text-xs">
-                    2
+                    {metrics.activeProjects > 0 ? <CheckCircle2 className="h-4 w-4" /> : '2'}
                   </div>
                   <Briefcase className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 </div>
@@ -370,7 +391,7 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="h-7 w-7 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-xs">
-                    3
+                    {metrics.outstanding > 0 ? <CheckCircle2 className="h-4 w-4" /> : '3'}
                   </div>
                   <FileText className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 </div>
@@ -401,7 +422,7 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
         />
         <StatCard
           label="Unpaid Invoices"
-          value={`₹${metrics.outstanding.toLocaleString('en-IN')}`}
+          value={formatCurrency(metrics.outstanding)}
           sub={`${unpaidInvoicesCount} invoice${unpaidInvoicesCount !== 1 ? 's' : ''} pending payment from clients`}
           icon={BarChart3}
           iconColor="text-amber-500"
@@ -428,6 +449,38 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
         />
       </div>
 
+      {/* ── Payment Aging (RPC buckets from due_date + outstanding_balance) ───── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" data-testid="aging-buckets">
+        <StatCard
+          label="Overdue"
+          value={formatCurrency(metrics.aging.overdue)}
+          sub="Past due_date, still unpaid"
+          icon={AlertCircle}
+          iconColor="text-destructive"
+          iconBg="bg-destructive/10"
+          trend={metrics.aging.overdue > 0 ? { positive: false, label: 'Due' } : null}
+          onClick={() => navigate('/invoices')}
+        />
+        <StatCard
+          label="Due in 7 days"
+          value={formatCurrency(metrics.aging.due_7d)}
+          sub="Due on or before today + 7 days"
+          icon={Clock}
+          iconColor="text-amber-500"
+          iconBg="bg-amber-500/10"
+          onClick={() => navigate('/invoices')}
+        />
+        <StatCard
+          label="Later"
+          value={formatCurrency(metrics.aging.later)}
+          sub="Due after the next 7 days"
+          icon={BarChart3}
+          iconColor="text-blue-500"
+          iconBg="bg-blue-500/10"
+          onClick={() => navigate('/invoices')}
+        />
+      </div>
+
       {/* ── Main Two-Column Grid ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
@@ -442,7 +495,7 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
                 <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider select-none m-0">Monthly Revenue</p>
                 <div className="flex items-center gap-2.5 mt-1">
                   <span className="font-display text-3xl font-bold tracking-tight text-foreground tabular-nums">
-                    ₹{metrics.earnedThisMonth.toLocaleString('en-IN')}
+                    {formatCurrency(metrics.earnedThisMonth)}
                   </span>
                   {revenueComparison.hasComparison && (
                     <div
@@ -615,7 +668,7 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
                             fill="hsl(var(--foreground))"
                             fontWeight="700"
                           >
-                            ₹{p.val.toLocaleString('en-IN')}
+                            {formatCurrency(p.val)}
                           </text>
                         </g>
                       )}
@@ -695,7 +748,7 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
               </span>
             </div>
             <p className="font-display text-3xl font-bold text-foreground tracking-tight tabular-nums m-0">
-              ₹{metrics.earnedThisMonth.toLocaleString('en-IN')}
+              {formatCurrency(metrics.earnedThisMonth)}
             </p>
             <div className="space-y-1.5 pt-1">
               <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">

@@ -54,13 +54,13 @@ ProjectStateMachine = StateMachine(
 
 InvoiceStateMachine = StateMachine(
     allowed={
-        "draft": ["sent", "pending_verification", "cancelled"],
+        "draft": ["sent", "cancelled"],
         "sent": ["viewed", "pending_verification", "paid", "partially_paid", "overdue", "cancelled"],
         "viewed": ["pending_verification", "paid", "partially_paid", "overdue", "cancelled"],
         "pending_verification": ["paid", "partially_paid", "sent", "overdue", "cancelled"],
-        "partially_paid": ["paid", "overdue", "cancelled"],
+        "partially_paid": ["paid", "overdue", "cancelled", "pending_verification"],
         "paid": [],
-        "overdue": ["paid", "partially_paid", "cancelled"],
+        "overdue": ["paid", "partially_paid", "cancelled", "pending_verification"],
         "cancelled": [],
     },
     action_name="Invoice Status Updated",

@@ -43,9 +43,5 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
   },
-  expect: {
-    toHaveScreenshot: {
-      maxDiffPixels: 100,
-    },
-  },
+
 });

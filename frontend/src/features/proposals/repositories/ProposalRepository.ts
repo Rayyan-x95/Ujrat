@@ -20,6 +20,7 @@ export class ProposalRepository {
       .select('*')
       .eq('proposal_id', proposal.id)
       .eq('workspace_id', workspaceId)
+      .is('deleted_at', null)
       .order('sort_order', { ascending: true });
 
     return {
@@ -44,6 +45,7 @@ export class ProposalRepository {
       .select('*')
       .eq('proposal_id', proposal.id)
       .eq('workspace_id', workspaceId)
+      .is('deleted_at', null)
       .order('sort_order', { ascending: true });
 
     return {
@@ -144,13 +146,7 @@ export class ProposalRepository {
   }
 
   static async deleteSection(workspaceId: string, sectionId: string): Promise<void> {
-    const { error } = await supabase
-      .from('proposal_sections')
-      .delete()
-      .eq('id', sectionId)
-      .eq('workspace_id', workspaceId);
-
-    if (error) throw new Error(error.message);
+    return softDeleteRecord('proposal_sections', workspaceId, sectionId);
   }
 
   static async softDelete(workspaceId: string, id: string): Promise<void> {

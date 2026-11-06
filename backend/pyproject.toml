@@ -15,7 +15,6 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "supabase>=2.10.0",
     "pyjwt[crypto]>=2.9.0",
-    "httpx>=0.28.0",
 ]
 
 [project.optional-dependencies]

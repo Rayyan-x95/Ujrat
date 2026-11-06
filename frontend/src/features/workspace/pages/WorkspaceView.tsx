@@ -37,23 +37,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ view }) => {
 
   const { user, workspaceId, profileId, authLoading, signOut: handleSignOut } = useAuth();
 
-  // Preload all workspace component chunks in idle time for instant (0ms) tab switching
-  React.useEffect(() => {
-    const preloadAll = () => {
-      loadDashboard();
-      loadClients();
-      loadProjects();
-      loadInvoices();
-      loadPayments();
-      loadSettings();
-    };
-    if ('requestIdleCallback' in window) {
-      (window as any).requestIdleCallback(preloadAll);
-    } else {
-      setTimeout(preloadAll, 200);
-    }
-  }, []);
-
   // getPortalToken and getInvoiceDetails are called directly via services
   // inside event handlers rather than pre-loading full collections via hooks,
   // which was firing redundant Supabase fetches on every WorkspaceView mount.
@@ -99,10 +82,28 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ view }) => {
     }
   }, [workspaceId, navigate, addToast]);
 
-  if (authLoading || (user && !workspaceId)) {
+  if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (user && !workspaceId) {
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <DashboardLayout
+          currentView={view === 'project-details' ? 'projects' : view}
+          onViewChange={handleViewChange}
+          breadcrumbs={['Ujrat Workspace', view.toUpperCase()]}
+          user={user}
+          workspaceId={workspaceId}
+          profileId={profileId}
+          onQuickAction={handleQuickAction}
+        >
+          <div className="flex items-center justify-center p-24"><Spinner size="lg" /></div>
+        </DashboardLayout>
       </div>
     );
   }

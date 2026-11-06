@@ -90,10 +90,10 @@ export class ContractService {
 
   static async signContract(
     workspaceId: string,
-    profileId: string,
+    _profileId: string,
     projectId: string,
     contractId: string,
-    signatureData: { signature_name: string; ip_address?: string | null }
+    signatureData: { signature_name: string; ip_address?: string | null; signature_image?: string | null; signature_type?: string }
   ): Promise<Result<ContractSignature>> {
     try {
       const project = await ProjectRepository.getById(workspaceId, projectId);
@@ -142,42 +142,19 @@ export class ContractService {
         ip_address: signatureData.ip_address || '0.0.0.0',
       });
 
-      const signature = await ContractRepository.addSignature(workspaceId, {
-        workspace_id: workspaceId,
-        contract_id: contractId,
-        signature_name: validated.signature_name,
-        signature_date: new Date().toISOString(),
-        ip_address: validated.ip_address ?? '0.0.0.0',
+      const { data, error } = await (supabase as any).rpc('sign_contract_transactional', {
+        p_workspace_id: workspaceId,
+        p_project_id: projectId,
+        p_signature_name: validated.signature_name,
+        p_signature_image: signatureData.signature_image ?? null,
+        p_signature_type: signatureData.signature_type ?? 'typed',
+        p_ip: validated.ip_address ?? '0.0.0.0',
       });
 
-      let contractUpdated = false;
-      try {
-        await ContractRepository.update(workspaceId, contractId, { status: 'signed' });
-        contractUpdated = true;
-        await ProjectRepository.update(workspaceId, projectId, { status: 'contract_signed' });
-      } catch (updateErr) {
-        if (contractUpdated) {
-          try {
-            await ContractRepository.update(workspaceId, contractId, { status: contract.status as ContractStatus });
-          } catch {}
-        }
-        try {
-          await (supabase as any)
-            .from('contract_signatures')
-            .delete()
-            .eq('id', signature.id)
-            .eq('workspace_id', workspaceId);
-        } catch {}
-        throw updateErr;
-      }
+      if (error) throw new Error(error.message);
 
-      await LoggingService.logActivity({
-        workspaceId,
-        profileId,
-        projectId,
-        action: 'Contract Signed',
-        details: { contractId, signatureName: validated.signature_name },
-      });
+      const signature = (Array.isArray(data) ? data[0] : data) as ContractSignature;
+      if (!signature) throw new Error('Contract signature was not persisted');
 
       return { success: true, data: signature };
     } catch (e) {

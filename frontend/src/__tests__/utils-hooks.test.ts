@@ -43,7 +43,7 @@ describe('Hooks Service Delegation Logic', () => {
   });
 });
 
-describe('DashboardService Fallback Logic', () => {
+describe('DashboardService RPC-Only Logic', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -52,6 +52,13 @@ describe('DashboardService Fallback Logic', () => {
     vi.mocked(supabase.rpc).mockResolvedValue({
       data: {
         profile_name: 'Jane Doe',
+        metrics: {
+          total_clients: 3,
+          outstanding: 5000,
+          earned_this_month: 1500,
+          monthly_revenue: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+          aging: { overdue: 2000, due_7d: 1500, later: 1500 },
+        },
         activities: [],
         invoices: [{ total: 5000, status: 'paid', created_at: '2026-01-01T00:00:00Z' }],
         projects: [{ status: 'in_progress' }],
@@ -61,49 +68,23 @@ describe('DashboardService Fallback Logic', () => {
     } as any);
 
     const res = await DashboardService.getDashboardData('ws_123', 'prof_123');
-    expect(res.success).toBe(true);
-    if (res.success) {
-      expect(res.data.profileName).toBe('Jane Doe');
-      expect(res.data.totalClients).toBe(3);
-      expect(res.data.activeProjects).toBe(1);
-    }
+    expect(res.profileName).toBe('Jane Doe');
+    expect(res.totalClients).toBe(3);
+    expect(res.activeProjects).toBe(1);
+    expect(res.aging).toEqual({ overdue: 2000, due_7d: 1500, later: 1500 });
   });
 
-  it('falls back to table queries when RPC fails', async () => {
+  it('throws on RPC error with no table fallback', async () => {
     vi.mocked(supabase.rpc).mockResolvedValue({
       data: null,
       error: { message: 'function get_dashboard_data does not exist' },
     } as any);
+    vi.mocked(supabase.from).mockClear();
 
-    // Mock table queries called by Promise.all inside getDashboardDataFromTables
-    const mockFrom = vi.fn().mockImplementation((table: string) => {
-      if (table === 'profiles') {
-        return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { full_name: 'Fallback User' }, error: null }) }) }) };
-      }
-      if (table === 'clients') {
-        return { select: () => ({ eq: () => ({ is: () => ({ limit: async () => ({ count: 5, error: null }) }) }) }) };
-      }
-      if (table === 'projects') {
-        return { select: () => ({ eq: () => ({ is: async () => ({ data: [{ status: 'proposal' }], error: null }) }) }) };
-      }
-      if (table === 'invoices') {
-        return { select: () => ({ eq: () => ({ is: async () => ({ data: [{ total: 2000, status: 'paid', created_at: '2026-01-01' }], error: null }) }) }) };
-      }
-      if (table === 'activity_logs') {
-        return { select: () => ({ eq: () => ({ eq: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }) }) }) }) };
-      }
-      return {};
+    await expect(DashboardService.getDashboardData('ws_123', 'prof_123')).rejects.toMatchObject({
+      message: 'function get_dashboard_data does not exist',
     });
-
-    vi.mocked(supabase.from).mockImplementation(mockFrom as any);
-
-    const res = await DashboardService.getDashboardData('ws_123', 'prof_123');
-    expect(res.success).toBe(true);
-    if (res.success) {
-      expect(res.data.profileName).toBe('Fallback User');
-      expect(res.data.totalClients).toBe(5);
-      expect(res.data.activeProjects).toBe(1);
-    }
+    expect(supabase.from).not.toHaveBeenCalled();
   });
 });
 

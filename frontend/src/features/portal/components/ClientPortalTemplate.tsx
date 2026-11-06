@@ -6,12 +6,13 @@ import { Textarea } from '@/shared/ui/Input';
 import { AlertBanner, ClientPortalSkeleton } from '@/shared/ui/Feedback';
 import { useClientPortal } from '@/features/portal';
 import type { Invoice } from '@/shared/types';
-import { formatIndianDate } from '@/shared/utils/date';
+import { formatCurrency } from '@/shared/utils/currency';
 import { useToastStore } from '@/shared/hooks/useToastStore';
 import { UPIPaymentCard } from '@/features/payments/components/UPIPaymentCard';
 
 
 import { SignaturePad } from './SignaturePad';
+import { PortalInvoiceTable } from './PortalInvoiceTable';
 
 import { 
   Lock, 
@@ -55,6 +56,8 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
   const contract = portalData?.contract || null;
   const invoices = portalData?.invoices || [];
   const deliverables = portalData?.deliverables || [];
+  // Escrow: the edge function enforces this too; the UI just explains it.
+  const hasUnpaidInvoices = invoices.some(inv => inv.status !== 'paid' && inv.status !== 'cancelled');
 
   const handleApproveProposal = async () => {
     try {
@@ -84,7 +87,6 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
         signatureName: signature.name,
         signatureImage: signature.image,
         signatureType: signature.type,
-        emailVerified: true,
       });
       addToast('success', 'Agreement Signed & Executed', 'Contract digitally signed. The freelancer has been notified.');
       setActiveTab('overview');
@@ -99,6 +101,10 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
 
   const handleDownloadDeliverable = async (name: string, fileUrl?: string | null) => {
     if (fileUrl) {
+      if (hasUnpaidInvoices) {
+        addToast('warning', 'Downloads locked', 'Deliverables unlock once every issued invoice is paid.');
+        return;
+      }
       if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
         window.open(fileUrl, '_blank', 'noopener,noreferrer');
         return;
@@ -240,7 +246,7 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
                 <div className="border border-border p-4.5 rounded-lg space-y-4 bg-surface/30">
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block select-none">Project Value</span>
-                    <p className="text-xl font-bold text-foreground mt-0.5 m-0 font-mono">₹{proposal.pricing?.toLocaleString('en-IN') || 0}</p>
+                    <p className="text-xl font-bold text-foreground mt-0.5 m-0 font-mono">{formatCurrency(proposal.pricing || 0)}</p>
                   </div>
                   {proposal.scope && (
                     <div>
@@ -356,30 +362,13 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
               {invoices.length === 0 ? (
                 <p className="text-xs text-muted-foreground italic m-0 bg-surface/30 p-4 border border-dashed rounded text-center">No invoices issued for this project workspace yet.</p>
               ) : (
-                <div className="space-y-2">
-                  {invoices.map(inv => (
-                    <div
-                      key={inv.id}
-                      onClick={() => setSelectedInvoice(inv)}
-                      className={`flex justify-between items-center p-3 border rounded-lg cursor-pointer transition-colors ${
-                        selectedInvoice?.id === inv.id
-                          ? 'border-primary bg-primary-muted/20'
-                          : 'border-border bg-card hover:bg-surface/30'
-                      }`}
-                    >
-                      <div className="space-y-1">
-                        <p className="text-xs font-semibold text-primary font-mono m-0">{inv.invoice_number}</p>
-                        <p className="text-[10px] text-muted-foreground m-0 select-none">Due date: {formatIndianDate(inv.due_date)}</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold text-foreground font-mono">₹{inv.total.toLocaleString('en-IN')}</span>
-                        <Badge variant={inv.status === 'paid' ? 'success' : inv.status === 'overdue' ? 'destructive' : 'primary'}>
-                          {inv.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <PortalInvoiceTable
+                  invoices={invoices}
+                  upiId={settings?.upi_id}
+                  payeeName={settings?.company_name}
+                  selectedId={selectedInvoice?.id}
+                  onSelect={setSelectedInvoice}
+                />
               )}
             </Card>
 
@@ -423,7 +412,7 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
                   )}
                   <div className="flex justify-between text-small font-bold border-t border-border pt-2 text-foreground">
                     <span>Total Invoiced</span>
-                    <span className="font-mono">₹{selectedInvoice.total.toLocaleString('en-IN')}</span>
+                    <span className="font-mono">{formatCurrency(selectedInvoice.total)}</span>
                   </div>
                 </div>
 
@@ -465,6 +454,13 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
               <p className="text-xs text-muted-foreground italic m-0 bg-surface/30 p-4 border border-dashed rounded text-center">No deliverables shared yet by the freelancer.</p>
             ) : (
               <div className="space-y-2">
+                {hasUnpaidInvoices && (
+                  <AlertBanner
+                    variant="warning"
+                    title="Downloads locked"
+                    message="Deliverables unlock once every issued invoice is paid."
+                  />
+                )}
                 {deliverables.map(deliv => (
                   <div key={deliv.id} className="flex justify-between items-center p-3.5 border border-border bg-card hover:bg-surface/30 rounded-lg transition-colors">
                     <div className="min-w-0 pr-2">
@@ -482,6 +478,7 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
                       variant="outline"
                       size="sm"
                       onClick={() => handleDownloadDeliverable(deliv.name, deliv.file_url)}
+                      disabled={hasUnpaidInvoices}
                       icon={deliv.file_type === 'link' ? <ArrowUpRight className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
                     >
                       {deliv.file_type === 'link' ? 'Open Link' : 'Download'}

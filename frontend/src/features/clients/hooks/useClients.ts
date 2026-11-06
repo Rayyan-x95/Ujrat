@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ClientService } from '@/features/clients';
-import { fetchAllPages } from '@/shared/utils/repository';
 import type { Client } from '@/shared/types';
 
 export function useClients(workspaceId: string, profileId: string) {
@@ -9,13 +8,11 @@ export function useClients(workspaceId: string, profileId: string) {
   const clientsQuery = useQuery({
     queryKey: ['clients', workspaceId],
     queryFn: async () => {
-      // Fetch every client: a single request is capped at 100 rows and the
-      // list is rendered in full.
-      return fetchAllPages(async (page) => {
-        const res = await ClientService.listClients(workspaceId, { page, pageSize: 100 });
-        if (res.success === false) throw res.error;
-        return res.data;
-      });
+      // Single round-trip: repository getListPage issues one .range() +
+      // count:exact (1000 = Supabase per-request cap, not a 100-row loop).
+      const res = await ClientService.listClients(workspaceId, { page: 1, pageSize: 1000 });
+      if (res.success === false) throw res.error;
+      return res.data;
     },
     enabled: !!workspaceId,
   });

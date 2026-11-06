@@ -5,6 +5,7 @@ import { Button } from '@/shared/ui/Button';
 import { Input, Textarea, CurrencyInput } from '@/shared/ui/Input';
 import { useBrief } from '@/features/briefs';
 import type { ProjectWithClient } from '@/shared/types';
+import { formatCurrency } from '@/shared/utils/currency';
 import { Calendar, User, FileText, IndianRupee } from 'lucide-react';
 
 interface BriefTabProps {
@@ -97,7 +98,7 @@ export const BriefTab: React.FC<BriefTabProps> = ({
               <IndianRupee className="h-4.5 w-4.5 text-muted-foreground/60 shrink-0 mt-0.5" />
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Budget</span>
-                <p className="text-small font-semibold text-foreground mt-0.5 m-0">₹{project.budget?.toLocaleString('en-IN') || 0}</p>
+                <p className="text-small font-semibold text-foreground mt-0.5 m-0">{formatCurrency(project.budget || 0)}</p>
               </div>
             </div>
 

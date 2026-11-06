@@ -49,6 +49,15 @@ export class ProjectService {
     }
   }
 
+  static async regeneratePortalToken(workspaceId: string, projectId: string): Promise<Result<string>> {
+    try {
+      const project = await ProjectRepository.regeneratePortalToken(workspaceId, projectId);
+      return { success: true, data: project.portal_token };
+    } catch (e) {
+      return { success: false, error: e as Error };
+    }
+  }
+
   static async addProject(
     workspaceId: string,
     profileId: string,

@@ -6,6 +6,9 @@ interface SEOMetaProps {
   canonicalPath?: string;
   ogType?: 'website' | 'article' | 'product';
   ogImage?: string;
+  ogSiteName?: string;
+  ogLocale?: string;
+  ogImageAlt?: string;
 }
 
 export const SEOMeta: React.FC<SEOMetaProps> = ({
@@ -14,6 +17,9 @@ export const SEOMeta: React.FC<SEOMetaProps> = ({
   canonicalPath = '',
   ogType = 'website',
   ogImage = '/og-image.png',
+  ogSiteName = 'Ujrat',
+  ogLocale = 'en_IN',
+  ogImageAlt,
 }) => {
   useEffect(() => {
     // 1. Update Title
@@ -53,13 +59,16 @@ export const SEOMeta: React.FC<SEOMetaProps> = ({
     updateMetaTag('property', 'og:url', canonicalUrl);
     updateMetaTag('property', 'og:type', ogType);
     updateMetaTag('property', 'og:image', ogImage.startsWith('http') ? ogImage : `${baseUrl}${ogImage}`);
+    updateMetaTag('property', 'og:site_name', ogSiteName);
+    updateMetaTag('property', 'og:locale', ogLocale);
+    updateMetaTag('property', 'og:image:alt', ogImageAlt ?? fullTitle);
 
     // 5. Update Twitter Cards
     updateMetaTag('name', 'twitter:card', 'summary_large_image');
     updateMetaTag('name', 'twitter:title', fullTitle);
     updateMetaTag('name', 'twitter:description', description);
     updateMetaTag('name', 'twitter:image', ogImage.startsWith('http') ? ogImage : `${baseUrl}${ogImage}`);
-  }, [title, description, canonicalPath, ogType, ogImage]);
+  }, [title, description, canonicalPath, ogType, ogImage, ogSiteName, ogLocale, ogImageAlt]);
 
   return null; // Side-effect only component
 };

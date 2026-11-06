@@ -3,6 +3,17 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
 import path from 'path'
+import { execFileSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
+
+// Prerender SEO shell (scripts/prerender.mjs, no deps): dist/</route>/index.html per public route.
+const prerenderPlugin = () => ({
+  name: 'ujrat-prerender',
+  closeBundle() {
+    const script = path.resolve(__dirname, '../scripts/prerender.mjs')
+    if (existsSync(script)) execFileSync(process.execPath, [script], { stdio: 'inherit' })
+  },
+})
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -16,6 +27,7 @@ export default defineConfig({
     },
   },
   plugins: [
+    prerenderPlugin(),
     react(),
     tailwindcss(),
     ...(process.env.NODE_ENV === 'production' ? [sentryVitePlugin({
@@ -28,7 +40,7 @@ export default defineConfig({
     })] : []),
   ],
   build: {
-    sourcemap: true,
+    sourcemap: !!process.env.SENTRY_AUTH_TOKEN,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -45,8 +57,11 @@ export default defineConfig({
             if (id.includes('lucide-react') || id.includes('qrcode.react')) {
               return 'vendor-icons';
             }
-            if (id.includes('@sentry') || id.includes('posthog')) {
-              return 'vendor-monitoring';
+            if (id.includes('@sentry')) {
+              return 'vendor-sentry';
+            }
+            if (id.includes('posthog')) {
+              return 'vendor-posthog';
             }
             if (id.includes('zod')) {
               return 'vendor-validation';

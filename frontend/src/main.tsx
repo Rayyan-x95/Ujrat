@@ -25,7 +25,7 @@ const initMonitoringAndSW = () => {
 };
 
 if ('requestIdleCallback' in window) {
-  (window as any).requestIdleCallback(initMonitoringAndSW);
+  (window as any).requestIdleCallback(initMonitoringAndSW, { timeout: 3000 });
 } else {
-  setTimeout(initMonitoringAndSW, 200);
+  setTimeout(initMonitoringAndSW, 3000);
 }

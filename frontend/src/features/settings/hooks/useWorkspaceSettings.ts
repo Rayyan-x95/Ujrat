@@ -15,6 +15,8 @@ export function useWorkspaceSettings(workspaceId: string, profileId: string) {
       return res.data;
     },
     enabled: !!workspaceId,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
   });
 
   const profileQuery = useQuery({

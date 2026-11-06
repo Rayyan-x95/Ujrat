@@ -23,6 +23,19 @@ export interface PortalSettings {
   lut_number: string | null;
 }
 
+/** Raw single-call portal payload from get_portal_bundle. */
+export interface PortalBundleRaw {
+  project: Project | null;
+  client: Client | null;
+  settings: PortalSettings | null;
+  proposal: Proposal | null;
+  contract: Contract | null;
+  invoices: InvoiceWithItems[];
+  deliverables: Deliverable[];
+  lastViewedAt?: string | null;
+  viewCount?: number;
+}
+
 export class PortalRepository {
   static async getProject(token: string): Promise<Project | null> {
     const { data, error } = await supabase.rpc('get_portal_project', { token_val: token });
@@ -58,10 +71,11 @@ export class PortalRepository {
     const { data, error } = await supabase.rpc('get_portal_invoices', { token_val: token });
     if (error) throw new Error(error.message);
     const invoices = (data || []) as InvoiceWithItems[];
-    // A silent failure here would render GST invoices without their line-level
-    // tax breakdown — surface it.
+    // Line items are best-effort here: get_portal_bundle already returns them
+    // joined server-side, and this fallback must not blank the portal when the
+    // items RPC degrades. Missing items render as an empty tax breakdown.
     const { data: items, error: itemsError } = await supabase.rpc('get_portal_invoice_items', { token_val: token });
-    if (itemsError) throw new Error(itemsError.message);
+    if (itemsError || !items) return invoices.map((inv) => ({ ...inv, invoice_items: inv.invoice_items || [] }));
     const byInvoice = new Map<string, any[]>();
     (items || []).forEach((it: any) => {
       const arr = byInvoice.get(it.invoice_id) || [];
@@ -77,23 +91,29 @@ export class PortalRepository {
     return data || [];
   }
 
+  static async getBundle(token: string): Promise<PortalBundleRaw | null> {
+    const { data, error } = await (supabase.rpc as any)('get_portal_bundle', { token_val: token });
+    if (error) throw new Error(error.message);
+    if (!data) return null;
+    return (Array.isArray(data) ? data[0] : data) as PortalBundleRaw;
+  }
+
   static async submitSignature(
     token: string,
     name: string,
     ip: string,
-    verified: boolean = false,
     signatureImage?: string | null,
     signatureType: string = 'drawn'
-  ): Promise<void> {
-    const { error } = await supabase.rpc('submit_portal_signature', {
+  ): Promise<string | null> {
+    const { data, error } = await supabase.rpc('submit_portal_signature', {
       token_val: token,
       sig_name: name,
       ip_addr: ip,
-      email_verified: verified,
       sig_image: signatureImage ?? null,
       sig_type: signatureType,
     });
     if (error) throw new Error(error.message);
+    return data ?? null;
   }
 
   static async submitPayment(
@@ -126,17 +146,5 @@ export class PortalRepository {
       token_val: token,
     });
     if (error) throw new Error(error.message);
-  }
-
-  static async generateVerificationCode(token: string): Promise<string> {
-    const { data, error } = await supabase.rpc('generate_portal_verification', { token_val: token });
-    if (error) throw new Error(error.message);
-    return data;
-  }
-
-  static async verifyCode(token: string, code: string): Promise<boolean> {
-    const { data, error } = await (supabase.rpc as any)('verify_portal_code', { token_val: token, entered_code: code });
-    if (error) throw new Error(error.message);
-    return !!data;
   }
 }

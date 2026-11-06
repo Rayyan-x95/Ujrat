@@ -67,7 +67,7 @@ ujrat/ (repo root)
 │   ├── tests/                     # Backend Python unit & integration tests (unittest)
 │   ├── supabase/                  # Authoritative Supabase directory
 │   │   ├── migrations/            # 000_baseline.sql and timestamped migrations
-│   │   └── functions/             # Deno Edge Functions (send-email, payment-webhook, health, etc.)
+│   │   └── functions/             # Deno Edge Functions (payment-webhook, create-signed-url)
 │   ├── scripts/                   # Validation scripts (validate-migrations.mjs, validate-security.mjs)
 │   ├── pyproject.toml             # Python packaging, ruff, pytest settings
 │   ├── requirements.txt           # Python backend dependencies

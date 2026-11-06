@@ -68,6 +68,41 @@ export class PaymentService {
   }
 
   /**
+   * Generates a UPI deep link (paise integer in). Rejects non-INR currency,
+   * a malformed VPA, and non-positive / non-integer paise amounts.
+   */
+  static generateUpiLink(params: {
+    vpa: string;
+    amountPaise: number;
+    note?: string;
+    payeeName?: string;
+    reference?: string;
+    currency?: string;
+  }): string {
+    const currency = (params.currency || 'INR').toUpperCase();
+    if (currency !== 'INR') {
+      throw new Error('UPI payments require INR currency.');
+    }
+    const vpa = (params.vpa || '').trim();
+    if (!/^[\w.-]+@[\w.-]+$/.test(vpa)) {
+      throw new Error('Invalid UPI VPA.');
+    }
+    if (!Number.isInteger(params.amountPaise) || params.amountPaise <= 0) {
+      throw new Error('Payment amount must be a positive integer (paise).');
+    }
+
+    const query = new URLSearchParams({
+      pa: vpa,
+      pn: (params.payeeName || 'Payee').trim() || 'Payee',
+      am: (params.amountPaise / 100).toFixed(2),
+      cu: currency,
+      ...(params.reference ? { tr: params.reference } : {}),
+      ...(params.note?.trim() ? { tn: params.note.trim() } : {}),
+    }).toString();
+    return `upi://pay?${query}`;
+  }
+
+  /**
    * Generates a formal payment receipt record
    */
   static async generateReceipt(
@@ -449,6 +484,27 @@ export class PaymentService {
             });
           }
         }
+      } else {
+        // A rejection must not leave the invoice stuck in pending_verification;
+        // restore the status implied by the balance that is still owed.
+        invoice = await InvoiceRepository.getById(workspaceId, payment.invoice_id);
+        if (invoice && invoice.status === 'pending_verification') {
+          const total = Number(invoice.total || 0);
+          const outstanding = Number(invoice.outstanding_balance ?? total);
+          const isOverdue = invoice.due_date ? parseLocalDate(invoice.due_date).getTime() < Date.now() : false;
+          nextInvoiceStatus = outstanding <= 0
+            ? 'paid'
+            : outstanding < total
+              ? (isOverdue ? 'overdue' : 'partially_paid')
+              : (isOverdue ? 'overdue' : 'sent');
+
+          if (nextInvoiceStatus !== invoice.status) {
+            transitionInvoice = InvoiceStateMachine.transition(invoice.status as InvoiceStatus, nextInvoiceStatus, {
+              invoiceId: invoice.id,
+              invoiceNumber: invoice.invoice_number,
+            });
+          }
+        }
       }
 
       await LoggingService.logActivity({
@@ -500,7 +556,7 @@ export class PaymentService {
         payment.status
       );
 
-      if (invoice && nextInvoiceStatus !== undefined && outstandingBalance !== undefined) {
+      if (invoice && nextInvoiceStatus !== undefined) {
         if (transitionInvoice) {
           await LoggingService.logActivity({
             workspaceId,
@@ -511,8 +567,8 @@ export class PaymentService {
         }
 
         await InvoiceRepository.update(workspaceId, invoice.id, {
-          outstanding_balance: outstandingBalance,
           status: nextInvoiceStatus,
+          ...(outstandingBalance !== undefined ? { outstanding_balance: outstandingBalance } : {}),
         }, invoice.status as InvoiceStatus);
       }
 

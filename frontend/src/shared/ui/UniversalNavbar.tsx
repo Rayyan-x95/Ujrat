@@ -29,12 +29,14 @@ export const UniversalNavbar: React.FC<UniversalNavbarProps> = ({ activePath = '
         <div className="flex items-center gap-8">
           <Link to="/" className="flex items-center gap-2.5 group select-none">
             <img
-              src="/favicon-transparent.png"
+              src="/favicon.svg"
               alt="Ujrat"
               width={32}
               height={32}
               className="h-8 w-8 object-contain shrink-0 transition-transform duration-300 group-hover:scale-105"
               draggable={false}
+              decoding="async"
+              fetchPriority="high"
             />
             <span className="font-bold text-lg font-display tracking-tight text-foreground">
               Ujrat

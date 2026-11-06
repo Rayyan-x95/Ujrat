@@ -8,6 +8,7 @@ import Table from '@/shared/ui/Table';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { Check, Search, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
+import { formatCurrency } from '@/shared/utils/currency';
 
 interface PaymentsTemplateProps {
   workspaceId: string;
@@ -63,7 +64,7 @@ export const PaymentsTemplate: React.FC<PaymentsTemplateProps> = ({
             {row.invoices?.invoice_number || '—'}
           </p>
           <p className="text-[10px] text-muted-foreground m-0 mt-0.5">
-            Invoice Total: ₹{row.invoices?.total?.toLocaleString('en-IN') || '0'}
+            Invoice Total: {row.invoices?.total ? formatCurrency(row.invoices.total) : '0'}
           </p>
         </div>
       ),
@@ -82,7 +83,7 @@ export const PaymentsTemplate: React.FC<PaymentsTemplateProps> = ({
       header: 'Payment Value',
       render: row => (
         <span className="font-semibold text-foreground font-mono">
-          ₹{row.amount?.toLocaleString('en-IN')}
+          {row.amount != null ? formatCurrency(row.amount) : '—'}
         </span>
       ),
     },
@@ -222,7 +223,7 @@ export const PaymentsTemplate: React.FC<PaymentsTemplateProps> = ({
             </div>
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Amount:</span>
-              <span className="font-mono font-bold text-success">₹{paymentToConfirm?.amount?.toLocaleString('en-IN')}</span>
+              <span className="font-mono font-bold text-success">{paymentToConfirm?.amount != null ? formatCurrency(paymentToConfirm.amount) : '—'}</span>
             </div>
           </div>
           <p className="text-small text-muted-foreground leading-relaxed">

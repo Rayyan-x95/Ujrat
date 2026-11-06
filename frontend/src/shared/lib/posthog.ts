@@ -1,4 +1,5 @@
 import posthog from 'posthog-js';
+import { deepRedact, redactPortalToken } from '@/shared/utils/sanitize';
 
 let initialized = false;
 
@@ -29,49 +30,20 @@ export function initPostHog() {
     person_profiles: 'identified_only',
     respect_dnt: true,
     mask_all_element_attributes: true,
+    // Autocapture is off, but pageleave and error events still carry the URL;
+    // strip the portal bearer token before anything is sent.
+    before_send: (event) => (event ? deepRedact(event) : event),
   });
 
   initialized = true;
-}
-
-export function identifyUser(userId: string, traits?: Record<string, unknown>) {
-  if (!initialized) {
-    return;
-  }
-  
-  posthog.identify(userId, {
-    ...traits,
-    last_seen: new Date().toISOString(),
-  });
-}
-
-export function trackEvent(eventName: string, properties?: Record<string, unknown>) {
-  if (!initialized) {
-    return;
-  }
-  
-  posthog.capture(eventName, {
-    ...properties,
-    timestamp: new Date().toISOString(),
-  });
 }
 
 export function trackPageView(url: string, title?: string) {
   if (!initialized) return;
   
   posthog.capture('$pageview', {
-    $current_url: url,
+    $current_url: redactPortalToken(url),
     $title: title || document.title,
   });
 }
 
-export function resetUser() {
-  if (!initialized) return;
-  posthog.reset();
-}
-
-export function isPostHogInitialized() {
-  return initialized;
-}
-
-export { posthog };

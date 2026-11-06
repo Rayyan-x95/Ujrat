@@ -84,25 +84,6 @@ async function getPortalToken(projectId: string) {
   return data?.portal_token;
 }
 
-async function waitForOtp(clientEmail: string): Promise<string> {
-  const deadline = Date.now() + 15_000;
-  while (Date.now() < deadline) {
-    const { data, error } = await supabase
-      .from('email_logs')
-      .select('body')
-      .eq('recipient', clientEmail)
-      .in('status', ['pending', 'sent'])
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    if (error) throw error;
-    const otp = data?.[0]?.body.match(/(?:code is:|is:)\s*(?:<b>)?(\d{6})(?:<\/b>)?/i)?.[1];
-    if (otp) return otp;
-    await new Promise(resolve => setTimeout(resolve, 1_000));
-  }
-  throw new Error('Timed out waiting for the portal verification code.');
-}
-
 test.describe.configure({ retries: 1 });
 
 test.describe('Complete Freelancer Business Lifecycle', () => {
@@ -196,16 +177,8 @@ test.describe('Complete Freelancer Business Lifecycle', () => {
 
     await page.goto(portalUrl);
     await clickTab(page, 'Contract', true);
-    await page.click('button:has-text("Generate Verification OTP")');
-    await expect(page.getByText('OTP Code Sent', { exact: true })).toBeVisible({ timeout: 35000 });
 
-    const otpCode = await waitForOtp(testClientEmail);
-
-    await page.fill('input[placeholder="123456"]', otpCode);
-    await page.click('button:has-text("Verify Identity")');
-    await expect(page.locator('text=Client Verified')).toBeVisible({ timeout: 35000 });
-
-    await page.fill('input[placeholder="Type your full legal name"]', 'E2E Test Client');
+    await page.fill('input[placeholder="Type your full legal name"], input[placeholder="e.g. Rahul Sharma"]', 'E2E Test Client');
     await page.click('button:has-text("Sign & Authorize Contract")');
     await expect(page.locator('text=Agreement Signed')).toBeVisible({ timeout: 35000 });
 

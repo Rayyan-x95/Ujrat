@@ -22,10 +22,26 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null);
 
+const WORKSPACE_CACHE_KEY = 'ujrat.workspaceId';
+
+function readWorkspaceCache(): string {
+  try {
+    return localStorage.getItem(WORKSPACE_CACHE_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function writeWorkspaceCache(id: string) {
+  try {
+    if (id) localStorage.setItem(WORKSPACE_CACHE_KEY, id);
+  } catch {}
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const addToast = useToastStore((state) => state.addToast);
   const [user, setUser] = useState<User | null>(null);
-  const [workspaceId, setWorkspaceId] = useState<string>('');
+  const [workspaceId, setWorkspaceId] = useState<string>(readWorkspaceCache);
   const [profileId, setProfileId] = useState<string>('');
   const [authLoading, setAuthLoading] = useState(true);
   const activeWorkspaceInitRef = useRef<Map<string, Promise<string>>>(new Map());
@@ -42,7 +58,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const workspacesRes = await WorkspaceService.getWorkspaces(userId);
         if (workspacesRes.success && workspacesRes.data.length > 0) {
-          return workspacesRes.data[0]?.id || '';
+          const id = workspacesRes.data[0]?.id || '';
+          writeWorkspaceCache(id);
+          return id;
         }
 
         // NOTE: there is no `workspace_members` table (single-owner workspaces
@@ -51,18 +69,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // 404 and spams the console. Fall straight through to the
         // get-or-create below.
 
-        // The DB trigger creates the workspace asynchronously relative to the
-        // client session; a single retry absorbs that lag and avoids a noisy
-        // POST /workspaces → 409 that createWorkspace() would otherwise have
-        // to recover from.
-        await new Promise((resolve) => setTimeout(resolve, 200));
-        const retryRes = await WorkspaceService.getWorkspaces(userId);
-        if (retryRes.success && retryRes.data.length > 0) {
-          return retryRes.data[0]?.id || '';
-        }
-
         const createRes = await WorkspaceService.createWorkspace(userId, 'My Workspace');
         if (createRes.success && createRes.data) {
+          writeWorkspaceCache(createRes.data.id);
           return createRes.data.id;
         }
         return '';
@@ -78,20 +87,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchSession = useCallback(async () => {
+    const cached = readWorkspaceCache();
+    if (cached) setWorkspaceId(cached);
     try {
       setAuthLoading(true);
       const res = await AuthService.getCurrentUser();
       if (res.success && res.data) {
         setUser(res.data);
         setProfileId(res.data.id);
-        const wsId = await ensureWorkspace(res.data.id);
-        setWorkspaceId(wsId);
+        setAuthLoading(false);
+        ensureWorkspace(res.data.id).then(setWorkspaceId).catch(() => {});
       } else {
         setUser(null);
+        setAuthLoading(false);
       }
     } catch {
       setUser(null);
-    } finally {
       setAuthLoading(false);
     }
   }, [ensureWorkspace]);
@@ -119,21 +130,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (typedSession?.user) {
         setUser(typedSession.user);
         setProfileId(typedSession.user.id);
-        try {
-          const wsId = await ensureWorkspace(typedSession.user.id);
-          if (isMounted) {
-            setWorkspaceId(wsId);
-          }
-        } catch {
-          if (isMounted) setWorkspaceId('');
-        }
+        const cached = readWorkspaceCache();
+        if (isMounted && cached) setWorkspaceId(cached);
+        if (isMounted) setAuthLoading(false);
+        ensureWorkspace(typedSession.user.id)
+          .then((wsId) => { if (isMounted) setWorkspaceId(wsId); })
+          .catch(() => { if (isMounted) setWorkspaceId(''); });
+        return;
       } else {
         setUser(null);
         setWorkspaceId('');
         setProfileId('');
-      }
-      if (isMounted) {
-        setAuthLoading(false);
+        if (isMounted) setAuthLoading(false);
       }
     });
     return () => {
@@ -144,6 +152,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     await AuthService.signOut();
+    try {
+      localStorage.removeItem(WORKSPACE_CACHE_KEY);
+    } catch {}
     setUser(null);
     setWorkspaceId('');
     setProfileId('');

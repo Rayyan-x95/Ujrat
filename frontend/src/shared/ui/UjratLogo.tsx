@@ -15,12 +15,13 @@ export const UjratLogo: React.FC<UjratLogoProps> = ({
     return (
       <div className={`inline-flex items-center gap-2.5 select-none ${className}`}>
         <img
-          src="/favicon-transparent.png"
+          src="/favicon.svg"
           alt="Ujrat"
           height={size}
           width={size}
           className="object-contain shrink-0 transition-transform duration-300 group-hover:scale-105"
           draggable={false}
+          decoding="async"
         />
         <span 
           className="font-bold font-display tracking-tight text-foreground"
@@ -35,12 +36,13 @@ export const UjratLogo: React.FC<UjratLogoProps> = ({
   // Icon-only: transparent U+arrow mark
   return (
     <img
-      src="/favicon-transparent.png"
+      src="/favicon.svg"
       alt="Ujrat"
       height={size}
       width={size}
       className={`object-contain select-none shrink-0 ${className}`}
       draggable={false}
+      decoding="async"
     />
   );
 };

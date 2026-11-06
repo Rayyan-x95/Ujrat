@@ -1,5 +1,11 @@
 import { supabase } from '@/shared/lib/supabaseClient';
-import type { Result, ActivityLog } from '@/shared/types';
+import type { ActivityLog } from '@/shared/types';
+
+export interface DashboardAging {
+  overdue: number;
+  due_7d: number;
+  later: number;
+}
 
 export interface DashboardMetrics {
   profileName: string;
@@ -10,6 +16,7 @@ export interface DashboardMetrics {
   pipeline: { label: string; count: number; variant: 'outline' | 'primary' | 'success' | 'warning' }[];
   activities: ActivityLog[];
   monthlyRevenue: number[];
+  aging: DashboardAging;
 }
 
 export class DashboardService {
@@ -23,98 +30,74 @@ export class DashboardService {
       pipeline: [],
       activities: [],
       monthlyRevenue: new Array(12).fill(0),
+      aging: { overdue: 0, due_7d: 0, later: 0 },
     };
   }
 
-  static async getDashboardData(workspaceId: string, profileId: string): Promise<Result<DashboardMetrics>> {
-    if (!workspaceId) {
-      return { success: true, data: this.getEmptyMetrics('Freelancer') };
-    }
+  static async getDashboardData(workspaceId: string, profileId: string): Promise<DashboardMetrics> {
+    if (!workspaceId) return this.getEmptyMetrics('Freelancer');
 
-    try {
-      const { data: rpcData, error: rpcError } = await supabase.rpc('get_dashboard_data', {
-        p_workspace_id: workspaceId,
-        p_profile_id: profileId || '',
-      });
+    const { data: rpcData, error: rpcError } = await supabase.rpc('get_dashboard_data', {
+      p_workspace_id: workspaceId,
+      p_profile_id: profileId || '',
+    });
+    if (rpcError) throw rpcError;
+    if (!rpcData) throw new Error('Dashboard RPC returned no data');
 
-      if (!rpcError && rpcData) {
-        const raw = rpcData as any;
-        const profileName = raw.profile?.name || raw.profile_name || 'Freelancer';
-        const totalClients = raw.metrics?.total_clients ?? raw.total_clients ?? 0;
-        const projects = raw.recent_projects || raw.projects || [];
-        const invoices = raw.recent_invoices || raw.invoices || [];
-        const activities = raw.recent_activities || raw.activities || [];
+    const raw = rpcData as {
+      profile?: { name?: string };
+      profile_name?: string;
+      metrics?: {
+        total_clients?: number;
+        outstanding?: number;
+        earned_this_month?: number;
+        monthly_revenue?: unknown[];
+        aging?: { overdue?: number; due_7d?: number; later?: number };
+      };
+      aging?: { overdue?: number; due_7d?: number; later?: number };
+      total_clients?: number;
+      recent_projects?: { status: string }[];
+      projects?: { status: string }[];
+      recent_invoices?: { total: number | null; outstanding_balance?: number | null; status: string; created_at: string }[];
+      invoices?: { total: number | null; outstanding_balance?: number | null; status: string; created_at: string }[];
+      recent_activities?: ActivityLog[];
+      activities?: ActivityLog[];
+    };
 
-        const result = this.calculateMetrics(
-          profileName,
-          totalClients,
-          projects,
-          invoices,
-          activities
-        );
-        if (result.success && raw.metrics) {
-          if (raw.metrics.outstanding !== undefined) result.data.outstanding = Number(raw.metrics.outstanding) || 0;
-          if (raw.metrics.earned_this_month !== undefined) result.data.earnedThisMonth = Number(raw.metrics.earned_this_month) || 0;
-        }
-        return result;
+    const profileName = raw.profile?.name || raw.profile_name || 'Freelancer';
+    const totalClients = raw.metrics?.total_clients ?? raw.total_clients ?? 0;
+    const projects = raw.recent_projects || raw.projects || [];
+    const invoices = raw.recent_invoices || raw.invoices || [];
+    const activities = raw.recent_activities || raw.activities || [];
+
+    const agingRaw = raw.metrics?.aging ?? raw.aging ?? { overdue: 0, due_7d: 0, later: 0 };
+    const aging: DashboardAging = {
+      overdue: Number(agingRaw.overdue) || 0,
+      due_7d: Number(agingRaw.due_7d) || 0,
+      later: Number(agingRaw.later) || 0,
+    };
+
+    const result = this.calculateMetrics(profileName, totalClients, projects, invoices, activities, aging);
+    if (raw.metrics) {
+      if (raw.metrics.outstanding !== undefined) result.outstanding = Number(raw.metrics.outstanding) || 0;
+      if (raw.metrics.earned_this_month !== undefined) result.earnedThisMonth = Number(raw.metrics.earned_this_month) || 0;
+      if (Array.isArray(raw.metrics.monthly_revenue)) {
+        result.monthlyRevenue = raw.metrics.monthly_revenue.map((v: unknown) => Number(v) || 0);
       }
-
-      return await this.getDashboardDataFromTables(workspaceId, profileId);
-    } catch {
-      return await this.getDashboardDataFromTables(workspaceId, profileId);
     }
-  }
-
-  private static async getDashboardDataFromTables(
-    workspaceId: string,
-    profileId: string
-  ): Promise<Result<DashboardMetrics>> {
-    try {
-      const [profileRes, clientsRes, projectsRes, invoicesRes, activitiesRes] = await Promise.allSettled([
-        profileId ? supabase.from('profiles').select('full_name').eq('id', profileId).maybeSingle() : Promise.resolve({ data: null, error: null }),
-        // Count only - the metric is client count; .limit(1) keeps the row
-        // scan off the wire while the exact count still comes back.
-        supabase.from('clients').select('id', { count: 'exact' }).eq('workspace_id', workspaceId).is('deleted_at', null).limit(1),
-        supabase.from('projects').select('status').eq('workspace_id', workspaceId).is('deleted_at', null),
-        supabase.from('invoices').select('total, status, created_at').eq('workspace_id', workspaceId).is('deleted_at', null),
-        profileId
-          ? supabase
-              .from('activity_logs')
-              .select('id, workspace_id, profile_id, project_id, action, details, created_at')
-              .eq('workspace_id', workspaceId)
-              .eq('profile_id', profileId)
-              .order('created_at', { ascending: false })
-              .limit(5)
-          : supabase
-              .from('activity_logs')
-              .select('id, workspace_id, profile_id, project_id, action, details, created_at')
-              .eq('workspace_id', workspaceId)
-              .order('created_at', { ascending: false })
-              .limit(5),
-      ]);
-
-      const profileName = (profileRes.status === 'fulfilled' && (profileRes.value as any)?.data?.full_name) || 'Freelancer';
-      const totalClients = (clientsRes.status === 'fulfilled' && (clientsRes.value as any)?.count) || 0;
-      const projects = (projectsRes.status === 'fulfilled' && ((projectsRes.value as any)?.data || [])) as { status: string }[];
-      const invoiceData = (invoicesRes.status === 'fulfilled' && ((invoicesRes.value as any)?.data || [])) as { total: number | null; status: string; created_at: string }[];
-      const activities = (activitiesRes.status === 'fulfilled' && ((activitiesRes.value as any)?.data || [])) as ActivityLog[];
-
-      return this.calculateMetrics(profileName, totalClients, projects, invoiceData, activities);
-    } catch {
-      return { success: true, data: this.getEmptyMetrics('Freelancer') };
-    }
+    return result;
   }
 
   private static calculateMetrics(
     profileName: string,
     totalClients: number,
     projects: { status: string }[],
-    invoiceData: { total: number | null; status: string; created_at: string }[],
-    activities: ActivityLog[]
-  ): Result<DashboardMetrics> {
+    invoiceData: { total: number | null; outstanding_balance?: number | null; status: string; created_at: string }[],
+    activities: ActivityLog[],
+    aging: DashboardAging = { overdue: 0, due_7d: 0, later: 0 }
+  ): DashboardMetrics {
     let activeProjects = 0;
     let outstanding = 0;
-    let earnedThisMonth = 0;
     const pipelineMap = new Map<string, number>();
     const monthlyRevenue = new Array(12).fill(0);
 
@@ -132,18 +115,8 @@ export class DashboardService {
 
     (invoiceData || []).forEach((inv) => {
       if (!inv) return;
-      const amount = Number(inv.total) || 0;
-      if (inv.status === 'paid') {
-        earnedThisMonth += amount;
-        if (inv.created_at) {
-          const monthIndex = new Date(inv.created_at).getMonth();
-          if (monthIndex >= 0 && monthIndex < 12) {
-            monthlyRevenue[monthIndex] += amount;
-          }
-        }
-      } else if (inv.status !== 'cancelled') {
-        outstanding += amount;
-      }
+      if (inv.status === 'paid' || inv.status === 'cancelled' || inv.status === 'draft') return;
+      outstanding += Number(inv.outstanding_balance ?? inv.total) || 0;
     });
 
     const pipelineVariants: Record<string, 'outline' | 'primary' | 'success' | 'warning'> = {
@@ -160,17 +133,15 @@ export class DashboardService {
     }));
 
     return {
-      success: true,
-      data: {
         profileName: profileName || 'Freelancer',
         activeProjects,
         outstanding,
-        earnedThisMonth,
+        earnedThisMonth: 0,
         totalClients,
         pipeline,
         activities: activities || [],
         monthlyRevenue,
-      },
+        aging,
     };
   }
 }

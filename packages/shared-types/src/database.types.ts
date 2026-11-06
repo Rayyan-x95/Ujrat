@@ -69,6 +69,7 @@ export type ProjectsRow = {
   notes: string | null;
   status: string;
   portal_token: string;
+  portal_token_expires_at?: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -474,7 +475,7 @@ export type Database = {
       projects: {
         Row: ProjectsRow;
         Insert: Omit<ProjectsRow, 'id' | 'created_at' | 'updated_at' | 'deleted_at' | 'portal_token'>;
-        Update: Partial<Omit<ProjectsRow, 'id' | 'created_at' | 'updated_at' | 'deleted_at' | 'portal_token'>>;
+        Update: Partial<Omit<ProjectsRow, 'id' | 'created_at' | 'updated_at' | 'deleted_at'>>;
         Relationships: [
           {
             foreignKeyName: 'projects_workspace_id_fkey';

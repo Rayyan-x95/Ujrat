@@ -41,11 +41,12 @@ export class WaitlistService {
     const { name, email, service } = parsed.data;
 
     try {
-      const { data, error } = await supabase
+      // No .select() after insert: anonymous callers have INSERT but not
+      // SELECT on waitlist, so reading the row back fails RLS even though the
+      // insert succeeded.
+      const { error } = await supabase
         .from('waitlist')
-        .insert({ name, email, service })
-        .select()
-        .single();
+        .insert({ name, email, service });
 
       if (error) {
         if (error.code === '23505' || error.message?.includes('duplicate key') || error.message?.includes('waitlist_email_unique_idx')) {
@@ -59,7 +60,7 @@ export class WaitlistService {
 
       return {
         success: true,
-        data: { ...(data as WaitlistRecord), name, email, service, alreadyRegistered: false },
+        data: { name, email, service, alreadyRegistered: false },
       };
     } catch (err: any) {
       return { success: false, error: err instanceof Error ? err : new Error(String(err)) };

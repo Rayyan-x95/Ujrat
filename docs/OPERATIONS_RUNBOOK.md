@@ -15,7 +15,8 @@ This runbook covers operational routines, emergency incident responses, security
    - **Supabase Edge Functions**: `SUPABASE_SERVICE_ROLE_KEY`
 4. Redeploy frontend and Edge functions:
    ```bash
-   npx supabase functions deploy send-email
+   npx supabase functions deploy payment-webhook --no-verify-jwt
+   npx supabase functions deploy create-signed-url --no-verify-jwt
    ```
 
 ### Open-Source Email Transports (Plunk / SMTP / Postal) Configuration
@@ -110,8 +111,8 @@ LIMIT 50;
 ## 5. Automated Payment Gateway Webhook & Reconciliation
 
 ### Supported Gateways
-- **Razorpay**: Webhook event `payment.captured`
-- **Cashfree / Stripe / Generic**: Custom webhook events with HMAC-SHA256 signature verification
+- **Direct UPI / generic PSP**: HMAC-SHA256 signature in `x-webhook-signature` on `payment-webhook`
+  (no Razorpay — UPI deep links only, per decision)
 
 ### Webhook Configuration
 1. In the gateway dashboard (e.g., Razorpay Dashboard > Settings > Webhooks), create a new webhook endpoint:
@@ -150,7 +151,7 @@ Before promoting any release to production:
 - [ ] Verify production bundle builds cleanly: `npm run build`
 - [ ] Verify RLS migrations applied to target Supabase instance (`npm run validate:migrations`).
 - [ ] Ensure Supabase edge functions deployed and secrets configured:
-  - `send-email` (`SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` or `POSTAL_API_KEY`)
   - `payment-webhook` (`PAYMENT_WEBHOOK_SECRET`)
+  - `create-signed-url` (portal token in request body; no secret)
 - [ ] Verify CORS headers and domain whitelist in Supabase Edge Functions.
 

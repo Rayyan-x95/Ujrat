@@ -82,20 +82,7 @@ describe('WaitlistService Test Suite', () => {
     });
 
     it('handles successful waitlist insertion', async () => {
-      const mockInsert = vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({
-            data: {
-              id: '123e4567-e89b-12d3-a456-426614174000',
-              name: 'Kabir Khan',
-              email: 'kabir@creative.in',
-              service: 'Video Editing',
-              created_at: new Date().toISOString(),
-            },
-            error: null,
-          }),
-        }),
-      });
+      const mockInsert = vi.fn().mockResolvedValue({ error: null });
 
       vi.spyOn(supabase, 'from').mockReturnValue({
         insert: mockInsert,
@@ -117,16 +104,11 @@ describe('WaitlistService Test Suite', () => {
     });
 
     it('gracefully handles duplicate email registration (Postgres 23505)', async () => {
-      const mockInsert = vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({
-            data: null,
-            error: {
-              code: '23505',
-              message: 'duplicate key value violates unique constraint "waitlist_email_unique_idx"',
-            },
-          }),
-        }),
+      const mockInsert = vi.fn().mockResolvedValue({
+        error: {
+          code: '23505',
+          message: 'duplicate key value violates unique constraint "waitlist_email_unique_idx"',
+        },
       });
 
       vi.spyOn(supabase, 'from').mockReturnValue({

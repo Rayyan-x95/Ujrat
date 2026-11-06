@@ -12,6 +12,7 @@
     "dev": "npm run dev --workspace=@ujrat/frontend",
     "dev:backend": "python -m uvicorn backend.app.main:app --reload --port 8000",
     "build": "npm run build --workspace=@ujrat/frontend",
+    "prerender": "node scripts/prerender.mjs",
     "lint": "oxlint frontend",
     "typecheck": "tsc -b --noEmit",
     "validate:migrations": "node backend/scripts/validate-migrations.mjs",
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
+    "dotenv": "^16.0.0",
     "oxlint": "^1.69.0",
     "typescript": "~6.0.2"
   },
