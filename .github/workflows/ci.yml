@@ -62,13 +62,13 @@ jobs:
           )
           FAIL=0
           for p in "${PATTERNS[@]}"; do
-            if git grep -I -n -E "$p" $(git rev-list --all) -- . ':!package-lock.json' 2>/dev/null | head -5; then
+            if git grep -I -n -E "$p" $(git rev-list --all) -- . ':!package-lock.json' ':!.github/workflows/ci.yml' 2>/dev/null | head -5; then
               echo "::error::Potential secret matching pattern detected"
               FAIL=1
             fi
             if grep -RInE "$p" --exclude-dir=node_modules --exclude-dir=dist \
                --exclude-dir=.venv --exclude-dir=__pycache__ --exclude-dir=.pytest_cache --exclude-dir=.artifacts \
-               --exclude=package-lock.json --exclude=.env* --exclude='*.env*' . 2>/dev/null | head -5; then
+               --exclude=package-lock.json --exclude=.env* --exclude='*.env*' --exclude=ci.yml . 2>/dev/null | head -5; then
               echo "::error::Potential secret in working tree"
               FAIL=1
             fi
