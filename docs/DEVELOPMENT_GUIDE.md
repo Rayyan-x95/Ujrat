@@ -47,7 +47,6 @@ The web application will be available at `http://localhost:5173` and the backend
 | `VITE_SUPABASE_URL` | Supabase project API URL | Yes | `https://xxxx.supabase.co` |
 | `VITE_SUPABASE_ANON_KEY` | Public anonymous client API key | Yes | `eyJhbGciOi...` |
 | `VITE_APP_URL` | Application base URL | Yes | `https://ujrat.ninety5.in` |
-| `VITE_SENTRY_DSN` | Sentry Error Tracking DSN | No | `https://xxx@sentry.io/xxx` |
 
 ### Server-Side Secrets (Never bundle with `VITE_`)
 

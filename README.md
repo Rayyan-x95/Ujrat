@@ -475,16 +475,6 @@ SMTP_PORT=587
 SMTP_USER=noreply@ujrat.ninety5.in
 SMTP_PASS=your_smtp_password
 SMTP_FROM="Ujrat <noreply@ujrat.ninety5.in>"
-
-# Sentry Error Tracking (Optional)
-VITE_SENTRY_DSN=your-sentry-dsn
-SENTRY_ORG=your-sentry-org
-SENTRY_PROJECT=your-sentry-project
-SENTRY_AUTH_TOKEN=your-sentry-auth-token
-
-# PostHog Analytics (Optional)
-VITE_POSTHOG_KEY=your-posthog-key
-VITE_POSTHOG_HOST=https://app.posthog.com
 ```
 
 ---

@@ -51,7 +51,6 @@ Ujrat is organized as an npm-workspaces monorepo:
 ## Env & deploy
 
 - Dev requires `.env` (copy `.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_APP_URL`.
-- `vite.config.ts` activates the Sentry sourcemap plugin whenever `NODE_ENV=production`; production builds read `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`.
 - `vercel.json` owns SPA rewrites and a strict CSP/security headers. Any new external origin (API host, CDN, font/image source) must be added to the matching CSP directive there, or it breaks in production only.
 
 ## Conventions & gotchas

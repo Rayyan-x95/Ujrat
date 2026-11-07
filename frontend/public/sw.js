@@ -32,15 +32,13 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Exclude Supabase, Sentry, PostHog, Google Fonts, and non-GET requests from caching.
+  // Exclude Supabase, Google Fonts, and non-GET requests from caching.
   // Cross-origin font CSS must bypass the SW: the page CSP `connect-src`
   // governs fetch() inside the worker, and a cache-first put() of an
   // opaque/CSP-blocked response breaks the stylesheet load.
   if (
     request.method !== 'GET' ||
     url.hostname.includes('supabase.co') ||
-    url.hostname.includes('sentry.io') ||
-    url.hostname.includes('posthog.com') ||
     url.hostname.includes('fonts.googleapis.com') ||
     url.hostname.includes('fonts.gstatic.com') ||
     url.pathname.startsWith('/functions/v1') ||

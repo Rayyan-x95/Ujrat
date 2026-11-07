@@ -1,7 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { redactPortalToken } from '@/shared/utils/sanitize';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEffect, lazy, Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 
 // UI Components
 import { Spinner, ToastContainer } from '@/shared/ui/Feedback';
@@ -44,21 +43,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-// PageTracker triggers unified analytics on route transitions
-function PageTracker() {
-  const location = useLocation();
-
-  useEffect(() => {
-    import('@/shared/lib/posthog').then((m) => {
-      m.trackPageView(redactPortalToken(location.pathname + location.search));
-    }).catch(() => {
-      // Non-blocking analytics
-    });
-  }, [location]);
-
-  return null;
-}
 
 // Minimal loading fallback shown while lazy chunks download
 function RouteLoader() {
@@ -152,7 +136,6 @@ export function AppShell() {
   return (
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
-        <PageTracker />
         <AuthProvider>
           <UjratApp />
         </AuthProvider>

@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { sentryVitePlugin } from '@sentry/vite-plugin'
 import path from 'path'
 import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
@@ -31,17 +30,8 @@ export default defineConfig({
     prerenderPlugin(),
     react(),
     tailwindcss(),
-    ...(process.env.NODE_ENV === 'production' ? [sentryVitePlugin({
-      org: process.env.SENTRY_ORG,
-      project: process.env.SENTRY_PROJECT,
-      authToken: process.env.SENTRY_AUTH_TOKEN,
-      sourcemaps: {
-        assets: './dist/**',
-      },
-    })] : []),
   ],
   build: {
-    sourcemap: !!process.env.SENTRY_AUTH_TOKEN,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -57,12 +47,6 @@ export default defineConfig({
             }
             if (id.includes('lucide-react') || id.includes('qrcode.react')) {
               return 'vendor-icons';
-            }
-            if (id.includes('@sentry')) {
-              return 'vendor-sentry';
-            }
-            if (id.includes('posthog')) {
-              return 'vendor-posthog';
             }
             if (id.includes('zod')) {
               return 'vendor-validation';

@@ -18,12 +18,8 @@ if (container.hasChildNodes()) {
   createRoot(container).render(app);
 }
 
-// Defer monitoring SDKs off the critical path — loads after first paint
-const initMonitoringAndSW = () => {
-  import('@/shared/lib/sentry').then(m => m.initSentry());
-  import('@/shared/lib/posthog').then(m => m.initPostHog());
-
-  // Register PWA service worker
+// Register the PWA service worker after first paint
+const registerServiceWorker = () => {
   if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('/sw.js').catch((err) => {
       if (import.meta.env.DEV) {
@@ -34,7 +30,7 @@ const initMonitoringAndSW = () => {
 };
 
 if ('requestIdleCallback' in window) {
-  (window as any).requestIdleCallback(initMonitoringAndSW, { timeout: 3000 });
+  (window as any).requestIdleCallback(registerServiceWorker, { timeout: 3000 });
 } else {
-  setTimeout(initMonitoringAndSW, 3000);
+  setTimeout(registerServiceWorker, 3000);
 }
