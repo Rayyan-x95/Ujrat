@@ -160,6 +160,47 @@ export class InvoiceRepository {
     } as any;
   }
 
+  // Replace all line items of an invoice (draft edits only). Mirrors the item
+  // mapping in create(); old rows are hard-deleted, new rows inserted.
+  static async replaceItems(workspaceId: string, invoiceId: string, items: InvoiceItemInsert[]): Promise<any[]> {
+    const { error: delErr } = await (supabase.from('invoice_items') as any)
+      .delete()
+      .eq('invoice_id', invoiceId)
+      .eq('workspace_id', workspaceId);
+    if (delErr) throw new Error(delErr.message);
+
+    if (items.length === 0) return [];
+
+    const itemsToInsert = items.map(item => {
+      const discount = (item as any).discount_amount ?? 0;
+      const preTaxTaxable = (item as any).taxable_amount ?? Math.max(0, (item.rate * item.quantity) - discount);
+      return {
+        workspace_id: workspaceId,
+        invoice_id: invoiceId,
+        description: item.description,
+        quantity: item.quantity,
+        rate: item.rate,
+        gst_rate: item.gst_rate,
+        hsn_code: item.hsn_code ?? null,
+        sac_code: (item as any).sac_code ?? item.hsn_code ?? null,
+        unit: (item as any).unit ?? 'NOS',
+        discount_amount: discount,
+        taxable_amount: preTaxTaxable,
+        cess_rate: (item as any).cess_rate ?? 0,
+        cess_amount: (item as any).cess_amount ?? 0,
+        cgst_amount: (item as any).cgst_amount ?? (item as any).cgst ?? 0,
+        sgst_amount: (item as any).sgst_amount ?? (item as any).sgst ?? 0,
+        igst_amount: (item as any).igst_amount ?? (item as any).igst ?? 0,
+        line_total: (item as any).line_total ?? item.amount,
+        amount: item.amount,
+      };
+    });
+
+    const { data, error } = await (supabase.from('invoice_items') as any).insert(itemsToInsert as any[]).select();
+    if (error) throw new Error(error.message);
+    return data || [];
+  }
+
   static async update(workspaceId: string, id: string, invoiceData: InvoiceUpdate, expectedStatus?: InvoiceStatus): Promise<Invoice> {
     let query = (supabase.from('invoices') as any).update(invoiceData).eq('id', id).eq('workspace_id', workspaceId);
 

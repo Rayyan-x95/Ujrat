@@ -10,7 +10,7 @@ import { Input, Textarea } from '@/shared/ui/Input';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { useClients } from '@/features/clients';
 import type { Client } from '@/shared/types';
-import { Plus, Mail, Building, Phone, Archive, Users } from 'lucide-react';
+import { Plus, Mail, Building, Phone, Archive, Users, Pencil } from 'lucide-react';
 
 interface ClientsTemplateProps {
   workspaceId: string;
@@ -23,9 +23,10 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
   profileId,
   addToast,
 }) => {
-  const { clients, isLoading, addClient, removeClient } = useClients(workspaceId, profileId);
+  const { clients, isLoading, addClient, editClient, removeClient } = useClients(workspaceId, profileId);
   const [searchParams, setSearchParams] = useSearchParams();
   const [showAdd, setShowAdd] = useState(false);
+  const [clientToEdit, setClientToEdit] = useState<Client | null>(null);
   const [clientToArchive, setClientToArchive] = useState<Client | null>(null);
   const [archiving, setArchiving] = useState(false);
 
@@ -62,7 +63,7 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
     setEmailError('');
     try {
       setSubmitting(true);
-      await addClient({
+      const payload = {
         name: name.trim(),
         email: email.trim(),
         company: company || null,
@@ -70,11 +71,18 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
         whatsapp: whatsapp || null,
         address: address || null,
         notes: notes || null,
-        status: 'active',
+        status: 'active' as const,
         gstin: null,
         state: null,
-      });
-      addToast('success', 'Client Added Successfully', `${name.trim()} has been added to your contacts.`);
+      };
+      if (clientToEdit) {
+        await editClient({ id: clientToEdit.id, ...payload });
+        addToast('success', 'Client Updated', `${name.trim()} has been updated.`);
+        setClientToEdit(null);
+      } else {
+        await addClient(payload);
+        addToast('success', 'Client Added Successfully', `${name.trim()} has been added to your contacts.`);
+      }
       setShowAdd(false);
       
       // Reset fields
@@ -91,6 +99,18 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const startEditClient = (client: Client) => {
+    setClientToEdit(client);
+    setName(client.name || '');
+    setEmail(client.email || '');
+    setCompany(client.company || '');
+    setPhone(client.phone || '');
+    setWhatsapp(client.whatsapp || '');
+    setAddress(client.address || '');
+    setNotes(client.notes || '');
+    setShowAdd(true);
   };
 
   const confirmArchive = async () => {
@@ -172,15 +192,26 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
       header: 'Actions', 
       align: 'right',
       render: row => (
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={() => setClientToArchive(row)}
-          className="text-muted-foreground hover:text-destructive hover:bg-destructive/5"
-          icon={<Archive className="h-3.5 w-3.5" />}
-        >
-          Archive
-        </Button>
+        <div className="flex gap-1.5 justify-end">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => startEditClient(row)}
+            className="text-muted-foreground hover:text-foreground hover:bg-surface/50"
+            icon={<Pencil className="h-3.5 w-3.5" />}
+          >
+            Edit
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setClientToArchive(row)}
+            className="text-muted-foreground hover:text-destructive hover:bg-destructive/5"
+            icon={<Archive className="h-3.5 w-3.5" />}
+          >
+            Archive
+          </Button>
+        </div>
       ),
     },
   ], []);
@@ -253,8 +284,8 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
         </div>
       </Dialog>
 
-      {/* Add Client Dialog */}
-      <Dialog open={showAdd} onClose={() => setShowAdd(false)} title="Register New Client" size="md">
+      {/* Add / Edit Client Dialog */}
+      <Dialog open={showAdd} onClose={() => { setShowAdd(false); setClientToEdit(null); }} title={clientToEdit ? 'Edit Client' : 'Register New Client'} size="md">
         <form onSubmit={handleAddClient} className="space-y-4 pt-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="Full Name" placeholder="Arjun Mehta" value={name} onChange={e => { setName(e.target.value); setNameError(''); }} error={nameError} required />
@@ -266,8 +297,8 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
           </div>
           <Textarea label="Client Notes (Internal)" placeholder="Preferred payment schedules, GST registration number, brief outline..." value={notes} onChange={e => setNotes(e.target.value)} />
           <div className="flex justify-end gap-2 border-t border-border pt-4 mt-2">
-            <Button variant="ghost" size="sm" onClick={() => setShowAdd(false)} type="button">Cancel</Button>
-            <Button variant="primary" size="sm" type="submit" loading={submitting}>Register Client</Button>
+            <Button variant="ghost" size="sm" onClick={() => { setShowAdd(false); setClientToEdit(null); }} type="button">Cancel</Button>
+            <Button variant="primary" size="sm" type="submit" loading={submitting}>{clientToEdit ? 'Save Changes' : 'Register Client'}</Button>
           </div>
         </form>
       </Dialog>

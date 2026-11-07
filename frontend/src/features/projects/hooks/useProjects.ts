@@ -29,6 +29,29 @@ export function useProjects(workspaceId: string, profileId: string) {
     },
   });
 
+  const editProjectMutation = useMutation({
+    mutationFn: async ({ id, ...projectData }: { id: string } & Partial<Project>) => {
+      const res = await ProjectService.editProject(workspaceId, profileId, id, projectData);
+      if (res.success === false) throw res.error;
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', workspaceId, profileId] });
+    },
+  });
+
+  const removeProjectMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await ProjectService.removeProject(workspaceId, profileId, id);
+      if (res.success === false) throw res.error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', workspaceId, profileId] });
+    },
+  });
+
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: Project['status'] }) => {
       const res = await ProjectService.updateProjectStatus(workspaceId, profileId, id, status);
@@ -53,6 +76,8 @@ export function useProjects(workspaceId: string, profileId: string) {
     isLoading: projectsQuery.isLoading,
     error: projectsQuery.error,
     addProject: addProjectMutation.mutateAsync,
+    editProject: editProjectMutation.mutateAsync,
+    removeProject: removeProjectMutation.mutateAsync,
     updateStatus: updateStatusMutation.mutateAsync,
     getPortalToken,
   };

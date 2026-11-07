@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Card } from '@/shared/ui/Card';
+import { Dialog } from '@/shared/ui/Dialog';
 import { FileUploadZone } from '@/shared/ui/Containers';
 import { Button } from '@/shared/ui/Button';
 import { Badge } from '@/shared/ui/Badge';
 import { Input } from '@/shared/ui/Input';
-import { Lock, FileUp, FolderOpen, Link, ArrowUpRight } from 'lucide-react';
+import { Lock, FileUp, FolderOpen, Link, ArrowUpRight, Trash2 } from 'lucide-react';
 import type { Deliverable } from '@/shared/types';
 
 interface DeliverablesTabProps {
@@ -12,6 +13,7 @@ interface DeliverablesTabProps {
   projectStatus: string;
   onUpload: (file: File) => Promise<void>;
   onAddLink?: (name: string, linkUrl: string) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
   onActivateWork: () => void;
   onNavigateTab?: (tab: 'brief' | 'proposal' | 'contract') => void;
 }
@@ -21,6 +23,7 @@ export const DeliverablesTab: React.FC<DeliverablesTabProps> = ({
   projectStatus,
   onUpload,
   onAddLink,
+  onDelete,
   onActivateWork,
   onNavigateTab,
 }) => {
@@ -29,6 +32,19 @@ export const DeliverablesTab: React.FC<DeliverablesTabProps> = ({
   const [addingLink, setAddingLink] = useState(false);
   const [linkName, setLinkName] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
+  const [toDelete, setToDelete] = useState<Deliverable | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const confirmDelete = async () => {
+    if (!toDelete || !onDelete) return;
+    try {
+      setDeleting(true);
+      await onDelete(toDelete.id);
+      setToDelete(null);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleUpload = async (file: File) => {
     try {
@@ -188,6 +204,17 @@ export const DeliverablesTab: React.FC<DeliverablesTabProps> = ({
                                           Open Link
                                         </Button>
                                       )}
+                                      {onDelete && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 text-[10px] py-1 px-2 border border-border text-muted-foreground hover:text-destructive hover:bg-destructive/5"
+                                          onClick={() => setToDelete(f)}
+                                          icon={<Trash2 className="h-3 w-3" />}
+                                        >
+                                          Remove
+                                        </Button>
+                                      )}
                                       <Badge variant="primary" size="sm">shared</Badge>
                                     </div>
                                   </div>
@@ -195,6 +222,23 @@ export const DeliverablesTab: React.FC<DeliverablesTabProps> = ({
               </div>
             )}
           </div>
+
+          <Dialog
+            open={!!toDelete}
+            onClose={() => setToDelete(null)}
+            title="Remove Deliverable"
+            size="sm"
+          >
+            <div className="space-y-4 pt-1">
+              <p className="text-small text-muted-foreground leading-relaxed">
+                Remove <strong className="text-foreground">{toDelete?.name}</strong> from the client portal? The file remains in storage but the client can no longer download it through the portal.
+              </p>
+              <div className="flex justify-end gap-2 border-t border-border pt-4">
+                <Button variant="ghost" size="sm" onClick={() => setToDelete(null)} type="button">Cancel</Button>
+                <Button variant="danger" size="sm" onClick={confirmDelete} loading={deleting}>Remove</Button>
+              </div>
+            </div>
+          </Dialog>
         </Card>
       )}
     </div>

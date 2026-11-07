@@ -198,6 +198,16 @@ export function useProjectDetails({
     onError: (e: any) => addToast('error', 'Add Failed', e.message),
   });
 
+  const removeDeliverable = useMutation({
+    mutationFn: (id: string) =>
+      DeliverableService.removeDeliverable(workspaceId, profileId, id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deliverables', workspaceId, projectId] });
+      addToast('success', 'Deliverable Removed', 'File removed from the project');
+    },
+    onError: (e: any) => addToast('error', 'Remove Failed', e.message),
+  });
+
   // Invoice mutations - matching template's expected interface
   const generateInvoice = useMutation({
     mutationFn: async (args: [string, number, string]) =>
@@ -289,6 +299,7 @@ export function useProjectDetails({
     signContract: signContract.mutateAsync,
     uploadDeliverable: uploadDeliverable.mutateAsync,
     addDeliverableLink: addDeliverableLink.mutateAsync,
+    removeDeliverable: removeDeliverable.mutateAsync,
     generateInvoice: generateInvoice.mutateAsync,
     regeneratePortalToken: regeneratePortalToken.mutateAsync,
     submitPayment: submitPayment.mutateAsync,

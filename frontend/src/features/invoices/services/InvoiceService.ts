@@ -246,6 +246,168 @@ export class InvoiceService {
     }
   }
 
+  static async editInvoiceDraft(
+    workspaceId: string,
+    profileId: string,
+    id: string,
+    invoiceData: {
+      invoice_date: string;
+      due_date: string;
+      notes?: string | null;
+      items: {
+        description: string;
+        quantity: number;
+        rate: number;
+        gst_rate: number;
+        hsn_code?: string | null;
+      }[];
+    }
+  ): Promise<Result<InvoiceWithItems>> {
+    try {
+      const current = await InvoiceRepository.getById(workspaceId, id);
+      if (!current) {
+        throw new Error('Invoice not found');
+      }
+      if (current.status !== 'draft') {
+        throw new Error('Only draft invoices can be edited. Void or credit-note them instead.');
+      }
+
+      const project = await ProjectRepository.getById(workspaceId, current.project_id);
+      if (!project) throw new Error('Project not found');
+      let client: any = Array.isArray(project.clients) ? project.clients[0] : project.clients;
+      if (!client && project.client_id) {
+        client = await ClientRepository.getById(workspaceId, project.client_id);
+      }
+      if (!client) throw new Error('Client not found');
+
+      const workspaceSettingsResult = await WorkspaceService.getSettings(workspaceId);
+      if (!workspaceSettingsResult.success || !workspaceSettingsResult.data) {
+        throw new Error('Failed to load workspace settings');
+      }
+      const workspaceSettings = workspaceSettingsResult.data;
+
+      const { breakdown, lineItems } = calculateInvoiceTax({
+        freelancer: {
+          is_gst_registered: workspaceSettings.is_gst_registered || false,
+          state: workspaceSettings.state,
+          gstin: workspaceSettings.gstin,
+          tax_scheme: (workspaceSettings.tax_scheme as any) || 'regular',
+          lut_number: workspaceSettings.lut_number,
+        },
+        client: {
+          state: client.state,
+          gstin: client.gstin,
+        },
+        items: invoiceData.items.map(item => ({
+          description: item.description,
+          quantity: item.quantity,
+          rate: item.rate,
+          gst_rate: item.gst_rate,
+          hsn_code: item.hsn_code ?? null,
+          sac_code: null,
+          unit: 'NOS',
+          discount_amount: 0,
+          cess_rate: 0,
+        })),
+        currency: (current.currency as any) || 'INR',
+        exchangeRate: current.exchange_rate || 1,
+      });
+
+      const itemsWithGST = lineItems.map((li, idx) => ({
+        description: invoiceData.items[idx]?.description ?? li.description,
+        quantity: invoiceData.items[idx]?.quantity ?? li.quantity,
+        rate: invoiceData.items[idx]?.rate ?? li.rate,
+        gst_rate: invoiceData.items[idx]?.gst_rate ?? li.gst_rate,
+        hsn_code: li.hsn_code || null,
+        sac_code: li.sac_code || null,
+        unit: li.unit || 'NOS',
+        cess_rate: li.cess_rate,
+        discount_amount: li.discount_amount,
+        taxable_amount: li.taxable_amount,
+        cgst: li.cgst_amount,
+        sgst: li.sgst_amount,
+        igst: li.igst_amount,
+        amount: li.line_total,
+      }));
+
+      const updated = await InvoiceRepository.update(workspaceId, id, {
+        invoice_date: invoiceData.invoice_date,
+        due_date: invoiceData.due_date,
+        notes: invoiceData.notes ?? null,
+        subtotal: breakdown.subtotal,
+        taxable_amount: breakdown.taxable_amount,
+        discount_amount: breakdown.discount_amount,
+        discount_type: breakdown.discount_type,
+        discount_scope: breakdown.discount_scope,
+        cess_amount: breakdown.cess,
+        cgst: breakdown.cgst,
+        sgst: breakdown.sgst,
+        igst: breakdown.igst,
+        tds_section: breakdown.tds_section,
+        tds_rate: breakdown.tds_rate,
+        tds_amount: breakdown.tds_amount,
+        net_receivable: breakdown.net_receivable,
+        round_off: breakdown.round_off,
+        inr_total: breakdown.inr_grand_total,
+        supply_type: breakdown.supply_type,
+        tax_scheme: breakdown.tax_scheme,
+        total: breakdown.grand_total,
+        outstanding_balance: breakdown.grand_total,
+        is_interstate: breakdown.is_interstate,
+        is_zero_rated: breakdown.is_zero_rated,
+        is_reverse_charge: breakdown.is_reverse_charge,
+      } as any);
+
+      const items = await InvoiceRepository.replaceItems(workspaceId, id, itemsWithGST as any);
+
+      await LoggingService.logActivity({
+        workspaceId,
+        profileId,
+        projectId: current.project_id,
+        action: 'Invoice Updated',
+        details: { invoiceId: id, invoiceNumber: current.invoice_number },
+      });
+
+      return { success: true, data: { ...updated, invoice_items: items } as InvoiceWithItems };
+    } catch (e) {
+      return { success: false, error: e as Error };
+    }
+  }
+
+  static async removeInvoice(
+    workspaceId: string,
+    profileId: string,
+    id: string
+  ): Promise<Result<void>> {
+    try {
+      const current = await InvoiceRepository.getById(workspaceId, id);
+      if (!current) {
+        throw new Error('Invoice not found');
+      }
+      if (current.status !== 'draft') {
+        throw new Error('Only draft invoices can be deleted. Void or credit-note them instead.');
+      }
+      const outstanding = (current as any).outstanding_balance ?? current.total ?? 0;
+      if (outstanding < (current.total ?? 0)) {
+        throw new Error('This invoice has recorded payments and cannot be deleted.');
+      }
+
+      await InvoiceRepository.softDelete(workspaceId, id);
+
+      await LoggingService.logActivity({
+        workspaceId,
+        profileId,
+        projectId: current.project_id,
+        action: 'Invoice Deleted',
+        details: { invoiceId: id, invoiceNumber: current.invoice_number },
+      });
+
+      return { success: true, data: undefined };
+    } catch (e) {
+      return { success: false, error: e as Error };
+    }
+  }
+
   static async updateInvoiceStatus(
     workspaceId: string,
     profileId: string,

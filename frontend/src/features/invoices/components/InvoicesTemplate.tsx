@@ -11,7 +11,8 @@ import { useInvoices } from '@/features/invoices';
 import { useWorkspaceSettings } from '@/features/settings';
 import { PaymentService } from '@/features/payments/services/PaymentService';
 import type { Invoice, InvoiceWithItems } from '@/shared/types';
-import { Printer, Check, Link, AlertCircle, Coins, TrendingUp, ShieldCheck, Download, MessageSquareShare, FileSpreadsheet, Briefcase, Copy, Share2, Plus } from 'lucide-react';
+import { Printer, Check, Link, AlertCircle, Coins, TrendingUp, ShieldCheck, Download, MessageSquareShare, FileSpreadsheet, Briefcase, Copy, Share2, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { Input, Textarea, CurrencyInput } from '@/shared/ui/Input';
 import { useProjects } from '@/features/projects';
 import { exportGstr1Csv } from '@/shared/utils/csvExport';
 import { generateInvoiceWhatsAppUrl } from '@/shared/utils/whatsappShare';
@@ -35,13 +36,22 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { projects } = useProjects(workspaceId, profileId);
-  const { invoices, isLoading, payInvoice } = useInvoices(workspaceId, profileId);
+  const { invoices, isLoading, payInvoice, editInvoice, removeInvoice, getInvoiceDetails } = useInvoices(workspaceId, profileId);
   const { settings } = useWorkspaceSettings(workspaceId, profileId);
   const vpa = settings?.upi_id ?? null;
   const [invoiceToVerify, setInvoiceToVerify] = useState<Invoice | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [showTaxReports, setShowTaxReports] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<InvoiceWithItems | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [invoiceToEdit, setInvoiceToEdit] = useState<InvoiceWithItems | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editDate, setEditDate] = useState('');
+  const [editDue, setEditDue] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editItems, setEditItems] = useState<Array<{ description: string; quantity: string; rate: string; gst_rate: string; hsn_code: string }>>([]);
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   useEffect(() => {
     if (searchParams.get('create') === 'true' || searchParams.get('invoice') === 'true') {
@@ -155,6 +165,78 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
     }
   };
 
+  const startEditInvoice = async (row: InvoiceWithItems) => {
+    try {
+      setEditLoading(true);
+      const detail = await getInvoiceDetails(row.id);
+      if (!detail) throw new Error('Invoice not found');
+      setInvoiceToEdit(detail);
+      setEditDate(detail.invoice_date || '');
+      setEditDue(detail.due_date || '');
+      setEditNotes(detail.notes || '');
+      setEditItems(
+        (detail.invoice_items || []).map(item => ({
+          description: item.description || '',
+          quantity: String(item.quantity ?? 1),
+          rate: String(item.rate ?? 0),
+          gst_rate: String(item.gst_rate ?? 18),
+          hsn_code: item.hsn_code || '',
+        }))
+      );
+    } catch (e) {
+      addToast('error', 'Edit Failed', (e as Error).message);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const confirmDeleteInvoice = async () => {
+    if (!invoiceToDelete) return;
+    try {
+      setDeleting(true);
+      await removeInvoice(invoiceToDelete.id);
+      addToast('info', 'Invoice Deleted', `Invoice ${invoiceToDelete.invoice_number} has been deleted.`);
+      setInvoiceToDelete(null);
+    } catch (e) {
+      addToast('error', 'Delete Failed', (e as Error).message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const saveEditedInvoice = async () => {
+    if (!invoiceToEdit || !editDate || !editDue) return;
+    const items = editItems
+      .filter(l => l.description.trim())
+      .map(l => ({
+        description: l.description.trim(),
+        quantity: parseFloat(l.quantity) || 0,
+        rate: parseFloat(l.rate) || 0,
+        gst_rate: parseFloat(l.gst_rate) || 0,
+        hsn_code: l.hsn_code.trim() || null,
+      }));
+    if (items.length === 0) {
+      addToast('warning', 'Validation Warning', 'At least one line item with a description is required.');
+      return;
+    }
+    try {
+      setEditSubmitting(true);
+      await editInvoice({
+        invoiceId: invoiceToEdit.id,
+        invoice_date: editDate,
+        due_date: editDue,
+        notes: editNotes || null,
+        items,
+      });
+      addToast('success', 'Invoice Updated', `Invoice ${invoiceToEdit.invoice_number} has been recalculated.`);
+      setInvoiceToEdit(null);
+    } catch (e) {
+      addToast('error', 'Update Failed', (e as Error).message);
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
   const columns: ColumnDef<InvoiceWithItems>[] = useMemo(() => [
     { 
       key: 'invoice_number', 
@@ -245,6 +327,31 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
           >
             Print
           </Button>
+          {row.status === 'draft' && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="min-h-[44px] min-w-[44px]"
+                onClick={() => void startEditInvoice(row)}
+                loading={editLoading}
+                icon={<Pencil className="h-3 w-3" />}
+                title="Edit draft invoice"
+              >
+                Edit
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="min-h-[44px] min-w-[44px]"
+                onClick={() => setInvoiceToDelete(row)}
+                icon={<Trash2 className="h-3 w-3" />}
+                title="Delete draft invoice"
+              >
+                Delete
+              </Button>
+            </>
+          )}
           {row.status !== 'paid' && (
             <Button 
               variant="primary" 
@@ -390,6 +497,79 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
             </Button>
             <Button variant="primary" size="sm" onClick={confirmVerification} loading={verifying} icon={<ShieldCheck className="h-4 w-4" />}>
               Confirm & Mark Paid
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Confirmation Dialog for Deleting a Draft Invoice */}
+      <Dialog
+        open={!!invoiceToDelete}
+        onClose={() => setInvoiceToDelete(null)}
+        title="Delete Draft Invoice"
+        size="sm"
+      >
+        <div className="space-y-4 pt-1">
+          <p className="text-small text-muted-foreground leading-relaxed">
+            Delete draft invoice <strong className="text-foreground font-mono">{invoiceToDelete?.invoice_number}</strong>? This cannot be undone.
+          </p>
+          <div className="flex justify-end gap-2 border-t border-border pt-4">
+            <Button variant="ghost" size="sm" onClick={() => setInvoiceToDelete(null)} type="button">
+              Cancel
+            </Button>
+            <Button variant="danger" size="sm" onClick={confirmDeleteInvoice} loading={deleting}>
+              Delete Invoice
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Edit Draft Invoice Dialog */}
+      <Dialog
+        open={!!invoiceToEdit}
+        onClose={() => setInvoiceToEdit(null)}
+        title={`Edit Invoice ${invoiceToEdit?.invoice_number ?? ''}`}
+        description="Draft only — totals are recalculated with the GST engine on save."
+        size="lg"
+      >
+        <div className="space-y-4 pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input label="Issue Date" type="date" value={editDate} onChange={e => setEditDate(e.target.value)} required />
+            <Input label="Due Date" type="date" value={editDue} onChange={e => setEditDue(e.target.value)} required />
+          </div>
+
+          <div className="space-y-2">
+            <span className="block text-[11px] font-semibold text-muted-foreground">Line Items</span>
+            {editItems.map((line, idx) => (
+              <div key={idx} className="grid grid-cols-12 gap-2 items-end">
+                <div className="col-span-12 sm:col-span-4">
+                  <Input label={idx === 0 ? 'Description' : ''} placeholder="Service description" value={line.description} onChange={e => setEditItems(editItems.map((l, i) => i === idx ? { ...l, description: e.target.value } : l))} />
+                </div>
+                <div className="col-span-3 sm:col-span-2">
+                  <Input label={idx === 0 ? 'Qty' : ''} type="number" min="0" value={line.quantity} onChange={e => setEditItems(editItems.map((l, i) => i === idx ? { ...l, quantity: e.target.value } : l))} />
+                </div>
+                <div className="col-span-4 sm:col-span-3">
+                  <CurrencyInput label={idx === 0 ? 'Rate (INR)' : ''} value={line.rate} onChange={e => setEditItems(editItems.map((l, i) => i === idx ? { ...l, rate: e.target.value } : l))} />
+                </div>
+                <div className="col-span-3 sm:col-span-2">
+                  <Input label={idx === 0 ? 'GST %' : ''} type="number" min="0" value={line.gst_rate} onChange={e => setEditItems(editItems.map((l, i) => i === idx ? { ...l, gst_rate: e.target.value } : l))} />
+                </div>
+                <div className="col-span-2 sm:col-span-1 flex justify-end">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setEditItems(editItems.filter((_, i) => i !== idx))} icon={<X className="h-3.5 w-3.5" />} title="Remove line" />
+                </div>
+              </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={() => setEditItems([...editItems, { description: '', quantity: '1', rate: '0', gst_rate: '18', hsn_code: '' }])} icon={<Plus className="h-3.5 w-3.5" />}>
+              Add Line
+            </Button>
+          </div>
+
+          <Textarea label="Notes" placeholder="Invoice notes / bank details" value={editNotes} onChange={e => setEditNotes(e.target.value)} />
+
+          <div className="flex justify-end gap-2 border-t border-border pt-4">
+            <Button variant="ghost" size="sm" onClick={() => setInvoiceToEdit(null)} type="button">Cancel</Button>
+            <Button variant="primary" size="sm" onClick={saveEditedInvoice} loading={editSubmitting} disabled={!editDate || !editDue}>
+              Save & Recalculate
             </Button>
           </div>
         </div>

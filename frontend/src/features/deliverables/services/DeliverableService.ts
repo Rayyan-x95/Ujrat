@@ -102,4 +102,25 @@ export class DeliverableService {
       return { success: false, error: e as Error };
     }
   }
+
+  static async removeDeliverable(
+    workspaceId: string,
+    profileId: string,
+    id: string
+  ): Promise<Result<void>> {
+    try {
+      await DeliverableRepository.softDelete(workspaceId, id);
+
+      await LoggingService.logActivity({
+        workspaceId,
+        profileId,
+        action: 'Deliverable Removed',
+        details: { deliverableId: id },
+      });
+
+      return { success: true, data: undefined };
+    } catch (e) {
+      return { success: false, error: e as Error };
+    }
+  }
 }

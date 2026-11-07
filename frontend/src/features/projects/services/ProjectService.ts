@@ -87,6 +87,63 @@ export class ProjectService {
     }
   }
 
+  static async editProject(
+    workspaceId: string,
+    profileId: string,
+    id: string,
+    projectData: Partial<Project>
+  ): Promise<Result<Project>> {
+    try {
+      const current = await ProjectRepository.getById(workspaceId, id);
+      if (!current) {
+        throw new Error('Project not found');
+      }
+      // Changing the linked client requires the same ownership check as create.
+      if (projectData.client_id && projectData.client_id !== current.client_id) {
+        const client = await ClientRepository.getById(workspaceId, projectData.client_id);
+        if (!client) {
+          throw new Error('Unauthorized: Client does not belong to your workspace');
+        }
+      }
+
+      const project = await ProjectRepository.update(workspaceId, id, projectData);
+
+      await LoggingService.logActivity({
+        workspaceId,
+        profileId,
+        projectId: id,
+        action: 'Project Updated',
+        details: { name: project.name },
+      });
+
+      return { success: true, data: project };
+    } catch (e) {
+      return { success: false, error: e as Error };
+    }
+  }
+
+  static async removeProject(
+    workspaceId: string,
+    profileId: string,
+    id: string
+  ): Promise<Result<void>> {
+    try {
+      await ProjectRepository.softDelete(workspaceId, id);
+
+      await LoggingService.logActivity({
+        workspaceId,
+        profileId,
+        projectId: id,
+        action: 'Project Deleted',
+        details: {},
+      });
+
+      return { success: true, data: undefined };
+    } catch (e) {
+      return { success: false, error: e as Error };
+    }
+  }
+
   static async updateProjectStatus(
     workspaceId: string,
     profileId: string,

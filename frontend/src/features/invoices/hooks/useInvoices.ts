@@ -54,6 +54,37 @@ export function useInvoices(workspaceId: string, profileId: string) {
     },
   });
 
+  const editInvoiceMutation = useMutation({
+    mutationFn: async ({ invoiceId, ...invoiceData }: {
+      invoiceId: string;
+      invoice_date: string;
+      due_date: string;
+      notes?: string | null;
+      items: { description: string; quantity: number; rate: number; gst_rate: number; hsn_code?: string | null }[];
+    }) => {
+      const res = await InvoiceService.editInvoiceDraft(workspaceId, profileId, invoiceId, invoiceData);
+      if (res.success === false) throw res.error;
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', workspaceId, profileId] });
+    },
+  });
+
+  const removeInvoiceMutation = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      const res = await InvoiceService.removeInvoice(workspaceId, profileId, invoiceId);
+      if (res.success === false) throw res.error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', workspaceId, profileId] });
+    },
+  });
+
   const getInvoiceDetails = async (invoiceId: string) => {
     const res = await InvoiceService.getInvoiceDetails(workspaceId, invoiceId);
     if (res.success === false) throw res.error;
@@ -65,6 +96,8 @@ export function useInvoices(workspaceId: string, profileId: string) {
     isLoading: invoicesQuery.isLoading,
     error: invoicesQuery.error,
     addInvoice: addInvoiceMutation.mutateAsync,
+    editInvoice: editInvoiceMutation.mutateAsync,
+    removeInvoice: removeInvoiceMutation.mutateAsync,
     payInvoice: payInvoiceMutation.mutateAsync,
     getInvoiceDetails,
   };

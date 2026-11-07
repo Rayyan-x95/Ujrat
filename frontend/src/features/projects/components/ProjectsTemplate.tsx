@@ -13,7 +13,7 @@ import { useProjects } from '@/features/projects';
 import { useClients } from '@/features/clients';
 import { formatCurrency } from '@/shared/utils/currency';
 import type { ProjectWithClient } from '@/shared/types';
-import { Plus, Calendar1 as Calendar, Coins, ArrowRight, FolderClosed, Users, AlertCircle, Briefcase } from 'lucide-react';
+import { Plus, Calendar1 as Calendar, Coins, ArrowRight, FolderClosed, Users, AlertCircle, Briefcase, Pencil, Trash2 } from 'lucide-react';
 
 interface ProjectsTemplateProps {
   workspaceId: string;
@@ -30,10 +30,13 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
 }) => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { projects, isLoading, addProject } = useProjects(workspaceId, profileId);
+  const { projects, isLoading, addProject, editProject, removeProject } = useProjects(workspaceId, profileId);
   const { clients } = useClients(workspaceId, profileId);
   
   const [showAdd, setShowAdd] = useState(false);
+  const [projectToEdit, setProjectToEdit] = useState<ProjectWithClient | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<ProjectWithClient | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (searchParams.get('create') === 'true') {
@@ -65,17 +68,30 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
 
     try {
       setSubmitting(true);
-      await addProject({
-        name,
-        client_id: clientId,
-        budget: parseFloat(budget) || 0,
-        timeline_start: startDate || null,
-        timeline_end: endDate || null,
-        notes: '',
-        status: 'lead',
-        deliverables: [],
-      });
-      addToast('success', 'Project Created', `${name} project added to pipeline.`);
+      if (projectToEdit) {
+        await editProject({
+          id: projectToEdit.id,
+          name,
+          client_id: clientId,
+          budget: parseFloat(budget) || 0,
+          timeline_start: startDate || null,
+          timeline_end: endDate || null,
+        });
+        addToast('success', 'Project Updated', `${name} has been updated.`);
+        setProjectToEdit(null);
+      } else {
+        await addProject({
+          name,
+          client_id: clientId,
+          budget: parseFloat(budget) || 0,
+          timeline_start: startDate || null,
+          timeline_end: endDate || null,
+          notes: '',
+          status: 'lead',
+          deliverables: [],
+        });
+        addToast('success', 'Project Created', `${name} project added to pipeline.`);
+      }
       setShowAdd(false);
       
       // Reset
@@ -89,6 +105,30 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
       addToast('error', 'Creation Failed', err?.message || 'Failed to create project');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const startEditProject = (row: ProjectWithClient) => {
+    setProjectToEdit(row);
+    setName(row.name || '');
+    setClientId(row.client_id || '');
+    setBudget(String(row.budget ?? 0));
+    setStartDate(row.timeline_start || '');
+    setEndDate(row.timeline_end || '');
+    setShowAdd(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!projectToDelete) return;
+    try {
+      setDeleting(true);
+      await removeProject(projectToDelete.id);
+      addToast('info', 'Project Deleted', `${projectToDelete.name} has been deleted.`);
+      setProjectToDelete(null);
+    } catch (e: any) {
+      addToast('error', 'Delete Failed', e?.message || 'Failed to delete project');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -178,14 +218,34 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
       header: '', 
       align: 'right',
       render: row => (
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => onSelectProject(row.id)}
-          icon={<ArrowRight className="h-3.5 w-3.5" />}
-        >
-          Workspace
-        </Button>
+        <div className="flex gap-1.5 justify-end">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => startEditProject(row)}
+            className="text-muted-foreground hover:text-foreground hover:bg-surface/50"
+            icon={<Pencil className="h-3.5 w-3.5" />}
+          >
+            Edit
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => onSelectProject(row.id)}
+            icon={<ArrowRight className="h-3.5 w-3.5" />}
+          >
+            Workspace
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setProjectToDelete(row)}
+            className="text-muted-foreground hover:text-destructive hover:bg-destructive/5"
+            icon={<Trash2 className="h-3.5 w-3.5" />}
+          >
+            Delete
+          </Button>
+        </div>
       ),
     },
   ], [onSelectProject]);
@@ -250,7 +310,7 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
         loading={isLoading}
       />
 
-      <Dialog open={showAdd} onClose={() => setShowAdd(false)} title="Initialize New Project Pipeline" size="md">
+      <Dialog open={showAdd} onClose={() => { setShowAdd(false); setProjectToEdit(null); }} title={projectToEdit ? 'Edit Project' : 'Initialize New Project Pipeline'} size="md">
         <form onSubmit={handleAddProject} className="space-y-4 pt-2">
           {clients.length === 0 && (
             <div className="p-3.5 border border-warning/30 bg-warning/5 rounded-lg flex items-start gap-3 text-small">
@@ -292,10 +352,32 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
           </div>
 
           <div className="flex justify-end gap-2 border-t border-border pt-4 mt-2">
-            <Button variant="ghost" size="sm" onClick={() => setShowAdd(false)} type="button">Cancel</Button>
-            <Button variant="primary" size="sm" type="submit" loading={submitting} disabled={clients.length === 0}>Create Project</Button>
+            <Button variant="ghost" size="sm" onClick={() => { setShowAdd(false); setProjectToEdit(null); }} type="button">Cancel</Button>
+            <Button variant="primary" size="sm" type="submit" loading={submitting} disabled={clients.length === 0}>{projectToEdit ? 'Save Changes' : 'Create Project'}</Button>
           </div>
         </form>
+      </Dialog>
+
+      {/* Confirmation Dialog for Deleting Project */}
+      <Dialog
+        open={!!projectToDelete}
+        onClose={() => setProjectToDelete(null)}
+        title="Delete Project"
+        size="sm"
+      >
+        <div className="space-y-4 pt-1">
+          <p className="text-small text-muted-foreground leading-relaxed">
+            Delete <strong className="text-foreground">{projectToDelete?.name}</strong>? The project (and its brief, proposal, contract, and deliverables) will be removed from your workspace. Issued invoices are kept.
+          </p>
+          <div className="flex justify-end gap-2 border-t border-border pt-4">
+            <Button variant="ghost" size="sm" onClick={() => setProjectToDelete(null)} type="button">
+              Cancel
+            </Button>
+            <Button variant="danger" size="sm" onClick={confirmDelete} loading={deleting}>
+              Delete Project
+            </Button>
+          </div>
+        </div>
       </Dialog>
     </div>
   );

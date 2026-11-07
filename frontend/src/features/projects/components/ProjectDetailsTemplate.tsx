@@ -43,6 +43,7 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
     sendContract,
     uploadDeliverable,
     addDeliverableLink,
+    removeDeliverable,
     generateInvoice,
     regeneratePortalToken,
     changeStatus,
@@ -501,6 +502,7 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
             projectStatus={project.status}
             onUpload={handleUploadDeliverable}
             onAddLink={handleAddDeliverableLink}
+            onDelete={async (id) => { await removeDeliverable(id); }}
             onNavigateTab={(targetTab) => setActiveTab(targetTab as any)}
             onActivateWork={async () => {
               try {

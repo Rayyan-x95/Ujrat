@@ -28,6 +28,17 @@ export function useClients(workspaceId: string, profileId: string) {
     },
   });
 
+  const editClientMutation = useMutation({
+    mutationFn: async ({ id, ...clientData }: { id: string } & Partial<Client>) => {
+      const res = await ClientService.editClient(workspaceId, profileId, id, clientData);
+      if (res.success === false) throw res.error;
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients', workspaceId] });
+    },
+  });
+
   const removeClientMutation = useMutation({
     mutationFn: async (clientId: string) => {
       const res = await ClientService.removeClient(workspaceId, profileId, clientId);
@@ -43,6 +54,7 @@ export function useClients(workspaceId: string, profileId: string) {
     isLoading: clientsQuery.isLoading,
     error: clientsQuery.error,
     addClient: addClientMutation.mutateAsync,
+    editClient: editClientMutation.mutateAsync,
     removeClient: removeClientMutation.mutateAsync,
   };
 }
