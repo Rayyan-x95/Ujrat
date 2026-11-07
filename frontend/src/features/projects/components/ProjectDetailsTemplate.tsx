@@ -141,11 +141,14 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
     }
   };
 
+  // Tokens are hashed at rest — the raw value exists only when generated.
+  // "Share Portal" regenerates a fresh link on every share and copies it
+  // (previous shared links stop working immediately).
   const copyPortalLink = async () => {
     if (!project) return;
-    const link = `${window.location.origin}/portal/${project.portal_token}`;
-    await copyLinkToClipboard(link);
-    addToast('info', 'Client Portal Link Copied', 'Share this secure URL with the client for passwordless access.');
+    const token = await regeneratePortalToken();
+    await copyLinkToClipboard(`${window.location.origin}/portal/${token}`);
+    addToast('success', 'Portal Link Generated & Copied', 'Fresh link issued for the client. Any previously shared link no longer works.');
   };
 
   const copyLinkToClipboard = async (link: string) => {
@@ -357,27 +360,23 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
           </div>
           <div className="flex items-center gap-2 shrink-0 select-none">
             <ProjectStatusBadge status={project.status} />
-            {project.portal_token && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={copyPortalLink}
-                icon={<Share2 className="h-3.5 w-3.5" />}
-              >
-                Share Portal
-              </Button>
-            )}
-            {project.portal_token && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleRegeneratePortalLink}
-                title="Issue a new link; the old one stops working"
-                icon={<RotateCcw className="h-3.5 w-3.5" />}
-              >
-                New Link
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={copyPortalLink}
+              icon={<Share2 className="h-3.5 w-3.5" />}
+            >
+              Share Portal
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRegeneratePortalLink}
+              title="Issue a new link; the old one stops working"
+              icon={<RotateCcw className="h-3.5 w-3.5" />}
+            >
+              New Link
+            </Button>
           </div>
         </div>
 
@@ -525,7 +524,15 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
             onConfirmPayment={async (invoiceId) => {
               await confirmPaymentMutation.mutateAsync(invoiceId);
             }}
-            portalUrl={project.portal_token ? `${window.location.origin}/portal/${project.portal_token}` : undefined}
+            portalUrl={undefined}
+            onGetPortalUrl={async () => {
+              try {
+                const token = await regeneratePortalToken();
+                return `${window.location.origin}/portal/${token}`;
+              } catch {
+                return undefined;
+              }
+            }}
           />
         )}
       </div>

@@ -104,16 +104,20 @@ export class ProjectRepository {
   }
 
   /**
-   * Rotate the passwordless portal credential. The old token stops working
-   * immediately, so this is the recovery path for an expired or leaked link.
+   * Rotate the passwordless portal credential and return the NEW RAW token
+   * (only the sha256 hash is persisted — the trigger nulls the stored copy).
+   * The old token stops working immediately. The raw value is revealed once
+   * here and then unrecoverable; callers must copy/return it right away.
    */
   static async regeneratePortalToken(workspaceId: string, id: string): Promise<Project> {
     for (let attempt = 0; attempt < 2; attempt++) {
+      const raw = crypto.randomUUID().replace(/-/g, '');
       try {
-        return await this.update(workspaceId, id, {
-          portal_token: crypto.randomUUID().replace(/-/g, ''),
+        const row = await this.update(workspaceId, id, {
+          portal_token: raw,
           portal_token_expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
         });
+        return { ...row, portal_token: raw };
       } catch (e: any) {
         // Retry once on the unique index: randomUUID collisions are
         // astronomically unlikely, but on write failure the user’s action

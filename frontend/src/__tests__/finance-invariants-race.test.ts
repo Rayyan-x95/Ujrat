@@ -90,7 +90,9 @@ describe('Financial Invariants, Tax Engine & Payment Race Conditions Suite (F-00
       });
       expect(totals.subtotal).toBeCloseTo(200000.99, 2);
       expect(totals.grand_total_unrounded).toBeCloseTo(totals.subtotal + totals.cgst + totals.sgst, 2);
-      expect(totals.grand_total).toBe(236001);
+      // Paise-exact: totals no longer collapse to whole rupees (₹.17 paise
+      // survive — gateways settle in paise).
+      expect(totals.grand_total).toBe(236001.17);
     });
 
     it('enforces Section 170 CGST Act statutory rounding to nearest whole rupee', () => {

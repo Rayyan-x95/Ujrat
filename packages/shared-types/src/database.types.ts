@@ -68,7 +68,10 @@ export type ProjectsRow = {
   deliverables: unknown;
   notes: string | null;
   status: string;
-  portal_token: string;
+  // Tokens are hashed at rest (20261107170000): the raw value exists only in
+  // the writer's memory at generation time and is revealed once per share.
+  portal_token: string | null;
+  portal_token_hash: string | null;
   portal_token_expires_at?: string | null;
   created_at: string;
   updated_at: string;
@@ -474,7 +477,7 @@ export type Database = {
       };
       projects: {
         Row: ProjectsRow;
-        Insert: Omit<ProjectsRow, 'id' | 'created_at' | 'updated_at' | 'deleted_at' | 'portal_token'>;
+        Insert: Omit<ProjectsRow, 'id' | 'created_at' | 'updated_at' | 'deleted_at' | 'portal_token' | 'portal_token_hash'>;
         Update: Partial<Omit<ProjectsRow, 'id' | 'created_at' | 'updated_at' | 'deleted_at'>>;
         Relationships: [
           {

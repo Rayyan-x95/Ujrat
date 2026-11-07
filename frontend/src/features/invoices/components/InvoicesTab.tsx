@@ -15,8 +15,10 @@ interface InvoicesTabProps {
   onGenerateInvoice: (invoiceNo: string, amount: number, note: string) => Promise<void>;
   onShowInvoice: (invoiceId: string) => void;
   onConfirmPayment?: (invoiceId: string) => Promise<void>;
-  /** Zero-auth client portal URL for this invoice's project (optional). */
+  /** Zero-auth client portal URL for this invoice's project (legacy static prop). */
   portalUrl?: string | undefined;
+  /** Regenerate-to-reveal portal link (raw tokens are never persisted). */
+  onGetPortalUrl?: () => Promise<string | undefined>;
 }
 
 export const InvoicesTab: React.FC<InvoicesTabProps> = ({
@@ -27,6 +29,7 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
   onShowInvoice,
   onConfirmPayment,
   portalUrl,
+  onGetPortalUrl,
 }) => {
   const generateNewInvoiceNo = (existingInvoices: any[] = invoices) => {
     const year = new Date().getFullYear();
@@ -71,12 +74,13 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
     setShowGenInvoice(true);
   };
 
-  const handleWhatsAppShare = (inv: any) => {
+  const handleWhatsAppShare = async (inv: any) => {
+    const link = portalUrl ?? (await onGetPortalUrl?.());
     const url = generateInvoiceWhatsAppUrl({
       invoiceNumber: inv.invoice_number,
       total: inv.total,
       dueDate: inv.due_date,
-      portalUrl,
+      portalUrl: link,
     });
     window.open(url, '_blank', 'noopener,noreferrer');
   };

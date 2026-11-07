@@ -211,9 +211,9 @@
         "sgst": 30,
         "igst": 0,
         "total_gst": 60,
-        "round_off": 0.01,
-        "grand_total": 381,
-        "net_receivable": 381,
+        "round_off": 0,
+        "grand_total": 380.99,
+        "net_receivable": 380.99,
         "place_of_supply": "intra_state",
         "currency": "INR"
       }

@@ -516,8 +516,11 @@ export function calculateInvoiceTax(input: InvoiceTaxCalculationInput): InvoiceT
 
   const rawGrandTotalPaise = taxablePaise + totalGstPaise - postTaxDiscountPaise;
   const grandTotalUnrounded = fromPaise(Math.max(0, rawGrandTotalPaise));
-  const grandTotal = Math.round(grandTotalUnrounded);
-  const roundOff = fromPaise(toPaise(grandTotal) - toPaise(grandTotalUnrounded));
+  // Paise-exact totals: a gateway charge of ₹499.50 must reconcile against a
+  // ₹499.50 invoice — rounding to whole rupees silently diverged the stored
+  // total from what the PSP actually settled.
+  const grandTotal = grandTotalUnrounded;
+  const roundOff = 0;
 
   const tdsRes = calculateTDSBreakdown(gstRes.taxableSubtotal, input.tds);
   const tdsPaise = toPaise(tdsRes.tdsAmount);

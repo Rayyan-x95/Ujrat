@@ -8,6 +8,7 @@ import { Metric } from '@/shared/ui/Card';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { Dialog } from '@/shared/ui/Dialog';
 import { useInvoices } from '@/features/invoices';
+import { ProjectService } from '@/features/projects/services/ProjectService';
 import { useWorkspaceSettings } from '@/features/settings';
 import { PaymentService } from '@/features/payments/services/PaymentService';
 import type { Invoice, InvoiceWithItems } from '@/shared/types';
@@ -111,12 +112,19 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
     }
   };
 
-  const handleWhatsAppShare = (row: InvoiceWithItems) => {
+  const handleWhatsAppShare = async (row: InvoiceWithItems) => {
     // Share the zero-auth client portal, never the freelancer's auth-gated
-    // /invoices route; without a portal token send the message without a link.
-    const portalUrl = row.projects?.portal_token
-      ? `${window.location.origin}/portal/${row.projects.portal_token}`
-      : undefined;
+    // /invoices route. Tokens are hashed at rest, so mint a fresh link for
+    // the share (issue-and-copy — previous links stop working).
+    let portalUrl: string | undefined;
+    try {
+      const tokenRes = await ProjectService.regeneratePortalToken(workspaceId, row.project_id);
+      if (tokenRes.success && tokenRes.data) {
+        portalUrl = `${window.location.origin}/portal/${tokenRes.data}`;
+      }
+    } catch {
+      // Without a link, the message still sends (invoice details only).
+    }
     const url = generateInvoiceWhatsAppUrl({
       invoiceNumber: row.invoice_number,
       total: row.total,

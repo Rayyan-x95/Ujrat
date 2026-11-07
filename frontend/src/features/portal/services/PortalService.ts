@@ -23,55 +23,24 @@ export class PortalService {
     try {
       if (!token) throw new Error('Portal token is required');
 
-      // Single-RPC bundle is the primary path. The legacy 7-RPC fan-out below
-      // remains as a fallback for database instances where the RPC is absent.
-      try {
-        const bundle = await PortalRepository.getBundle(token);
-        if (bundle?.project) {
-          return {
-            success: true,
-            data: {
-              project: bundle.project,
-              client: bundle.client ?? null,
-              settings: bundle.settings ?? null,
-              proposal: bundle.proposal ?? null,
-              contract: bundle.contract ?? null,
-              invoices: bundle.invoices ?? [],
-              deliverables: bundle.deliverables ?? [],
-              lastViewedAt: bundle.lastViewedAt ?? null,
-              viewCount: bundle.viewCount ?? 0,
-            },
-          };
-        }
+      // Single-RPC bundle is canonical (20261108000001). The legacy 7-RPC
+      // fan-out was removed — every deployment carries get_portal_bundle.
+      const bundle = await PortalRepository.getBundle(token);
+      if (!bundle?.project) {
         throw new Error('Invalid security token or project not found');
-      } catch (bundleError: any) {
-        if (bundleError?.message === 'Invalid security token or project not found') throw bundleError;
       }
-
-      const [project, client, settings, proposal, contract, invoices, deliverables] = await Promise.all([
-        PortalRepository.getProject(token),
-        PortalRepository.getClient(token),
-        PortalRepository.getSettings(token),
-        PortalRepository.getProposal(token),
-        PortalRepository.getContract(token),
-        PortalRepository.getInvoices(token),
-        PortalRepository.getDeliverables(token),
-      ]);
-
-      if (!project) throw new Error('Invalid security token or project not found');
-
       return {
         success: true,
         data: {
-          project,
-          client,
-          settings,
-          proposal,
-          contract,
-          invoices,
-          deliverables,
-          lastViewedAt: null,
-          viewCount: 0,
+          project: bundle.project,
+          client: bundle.client ?? null,
+          settings: bundle.settings ?? null,
+          proposal: bundle.proposal ?? null,
+          contract: bundle.contract ?? null,
+          invoices: bundle.invoices ?? [],
+          deliverables: bundle.deliverables ?? [],
+          lastViewedAt: bundle.lastViewedAt ?? null,
+          viewCount: bundle.viewCount ?? 0,
         },
       };
     } catch (e: any) {

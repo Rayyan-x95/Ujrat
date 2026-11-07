@@ -86,8 +86,17 @@ async function createProjectViaAPI(
 }
 
 async function getPortalToken(projectId: string) {
-  const { data } = await supabase.from('projects').select('portal_token').eq('id', projectId).single();
-  return data?.portal_token;
+  // Tokens are hashed at rest (20261107170000): the raw value is mintable but
+  // never readable. The test generates one and stores only its hash.
+  const { randomUUID, createHash } = await import('node:crypto');
+  const raw = randomUUID().replace(/-/g, '');
+  const hash = createHash('sha256').update(raw).digest('hex');
+  const { error } = await supabase
+    .from('projects')
+    .update({ portal_token_hash: hash, portal_token_expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() })
+    .eq('id', projectId);
+  if (error) throw error;
+  return raw;
 }
 
 // Shared fixtures: one workspace/client/project per run, created in

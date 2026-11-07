@@ -37,12 +37,14 @@ export class ProjectService {
     }
   }
 
+  /**
+   * Regenerate-to-reveal: tokens are hashed at rest, so the raw value can
+   * never be read back. Each call issues a fresh link and rotates the old
+   * one out (previous shared links stop working).
+   */
   static async getProjectPortalToken(workspaceId: string, projectId: string): Promise<Result<string | null>> {
     try {
-      const project = await ProjectRepository.getById(workspaceId, projectId);
-      if (!project) {
-        throw new Error('Project not found');
-      }
+      const project = await ProjectRepository.regeneratePortalToken(workspaceId, projectId);
       return { success: true, data: project.portal_token || null };
     } catch (e) {
       return { success: false, error: e as Error };
@@ -52,6 +54,7 @@ export class ProjectService {
   static async regeneratePortalToken(workspaceId: string, projectId: string): Promise<Result<string>> {
     try {
       const project = await ProjectRepository.regeneratePortalToken(workspaceId, projectId);
+      if (!project.portal_token) throw new Error('Could not generate a unique portal token');
       return { success: true, data: project.portal_token };
     } catch (e) {
       return { success: false, error: e as Error };
@@ -61,7 +64,7 @@ export class ProjectService {
   static async addProject(
     workspaceId: string,
     profileId: string,
-    projectData: Omit<Project, 'id' | 'workspace_id' | 'portal_token' | 'created_at' | 'updated_at' | 'deleted_at'>
+    projectData: Omit<Project, 'id' | 'workspace_id' | 'portal_token' | 'portal_token_hash' | 'created_at' | 'updated_at' | 'deleted_at'>
   ): Promise<Result<Project>> {
     try {
       const validated = ProjectSchema.parse(projectData);

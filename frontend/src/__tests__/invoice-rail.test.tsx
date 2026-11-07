@@ -23,6 +23,7 @@ const testInvoices = [
     cgst: 0,
     sgst: 0,
     igst: 0,
+    project_id: 'proj-1',
     projects: null,
   },
   {
@@ -35,6 +36,7 @@ const testInvoices = [
     cgst: 0,
     sgst: 0,
     igst: 0,
+    project_id: 'proj-1',
     projects: null,
   },
   {
@@ -47,6 +49,7 @@ const testInvoices = [
     cgst: 0,
     sgst: 0,
     igst: 0,
+    project_id: 'proj-2',
     projects: null,
   },
 ];
@@ -119,6 +122,15 @@ vi.mock('@/features/settings', () => ({
 
 vi.mock('@/features/payments', () => ({
   useConfirmPayment: () => ({ mutateAsync: vi.fn() }),
+}));
+
+// Tokens are hashed at rest — the WhatsApp share mints a fresh link via the
+// service (regenerate-to-reveal). Mock the service to resolve instantly.
+const { regenerateTokenMock } = vi.hoisted(() => ({ regenerateTokenMock: vi.fn() }));
+vi.mock('@/features/projects/services/ProjectService', () => ({
+  ProjectService: {
+    regeneratePortalToken: (...args: unknown[]) => regenerateTokenMock(...args),
+  },
 }));
 
 // InvoicesTab mock mirrors the real component's gating + form-open state without backend calls.
@@ -208,15 +220,19 @@ describe('InvoicesTemplate money rail', () => {
     expect(writeText).toHaveBeenCalledWith(vpa);
   });
 
-  it('share falls back to window.open wa.me', async () => {
+  it('share mints a fresh portal link and falls back to window.open wa.me', async () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    regenerateTokenMock.mockResolvedValue({ success: true, data: 'tok-fresh' });
     clickButton(container, 'Share');
     await act(async () => {
       await new Promise(r => setTimeout(r, 0));
+      await new Promise(r => setTimeout(r, 0));
     });
+    expect(regenerateTokenMock).toHaveBeenCalledWith('ws-1', 'proj-1');
     expect(openSpy).toHaveBeenCalled();
     const url = String(openSpy.mock.calls[0]?.[0] ?? '');
     expect(url).toContain('wa.me');
+    expect(url).toContain('tok-fresh');
   });
 
   it('mark paid calls payInvoice', async () => {

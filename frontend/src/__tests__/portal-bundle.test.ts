@@ -34,7 +34,7 @@ describe('Portal bundle — single RPC', () => {
     vi.restoreAllMocks();
   });
 
-  it('fetches everything with one getBundle call (7-RPC path untouched)', async () => {
+  it('fetches everything with one getBundle call (no legacy fallbacks)', async () => {
     const bundleSpy = vi.spyOn(PortalRepository, 'getBundle').mockResolvedValue(mockBundle() as any);
     const projectSpy = vi.spyOn(PortalRepository, 'getProject');
     const invoicesSpy = vi.spyOn(PortalRepository, 'getInvoices');
@@ -53,22 +53,13 @@ describe('Portal bundle — single RPC', () => {
     }
   });
 
-  it('falls back to the 7-RPC path when the bundle RPC is missing', async () => {
+  it('fails closed when the bundle RPC is unavailable (no silent fallback)', async () => {
     vi.spyOn(PortalRepository, 'getBundle').mockRejectedValue(new Error('Function not found'));
-    vi.spyOn(PortalRepository, 'getProject').mockResolvedValue({ id: 'proj-1' } as any);
-    vi.spyOn(PortalRepository, 'getClient').mockResolvedValue(null);
-    vi.spyOn(PortalRepository, 'getSettings').mockResolvedValue(null);
-    vi.spyOn(PortalRepository, 'getProposal').mockResolvedValue(null);
-    vi.spyOn(PortalRepository, 'getContract').mockResolvedValue(null);
-    vi.spyOn(PortalRepository, 'getInvoices').mockResolvedValue([]);
-    vi.spyOn(PortalRepository, 'getDeliverables').mockResolvedValue([]);
+    const projectSpy = vi.spyOn(PortalRepository, 'getProject');
 
     const res = await PortalService.getPortalData('tok');
-    expect(res.success).toBe(true);
-    if (res.success) {
-      expect(res.data.viewCount).toBe(0);
-      expect(res.data.lastViewedAt).toBeNull();
-    }
+    expect(res.success).toBe(false);
+    expect(projectSpy).not.toHaveBeenCalled();
   });
 
   it('getInvoices no longer throws when the items RPC degrades', async () => {

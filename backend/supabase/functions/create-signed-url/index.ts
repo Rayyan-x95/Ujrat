@@ -113,10 +113,18 @@ serve(async (req) => {
         isAuthorized = (deliverables as PortalDeliverable[]).some((deliverable) => deliverable.file_url === filePath)
       }
     } else if (bucket === 'invoices') {
-      // Get invoices using the token
+      // Get invoices using the token. The invoice PDF is downloadable only
+      // once the invoice is issued (drafts are already excluded by
+      // get_portal_invoices) and only while it is a live, payable document:
+      // cancelled invoices are not downloadable. Clients need the PDF before
+      // paying (it is the payment demand), so pre-payment access is by design
+      // — but cancelled/draft invoices must not be exposed.
       const { data: invoices, error: invErr } = await supabase.rpc('get_portal_invoices', { token_val: token })
       if (!invErr && invoices) {
-        isAuthorized = (invoices as PortalInvoice[]).some((invoice) => invoice.pdf_url === filePath)
+        const PAYABLE_OR_PAID = new Set(['sent', 'viewed', 'pending_verification', 'partially_paid', 'overdue', 'paid']);
+        isAuthorized = (invoices as PortalInvoice[]).some(
+          (invoice) => invoice.pdf_url === filePath && invoice.status !== undefined && PAYABLE_OR_PAID.has(invoice.status),
+        )
       }
     }
 

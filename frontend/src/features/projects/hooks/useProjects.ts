@@ -18,7 +18,7 @@ export function useProjects(workspaceId: string, profileId: string) {
   });
 
   const addProjectMutation = useMutation({
-    mutationFn: async (projectData: Omit<Project, 'id' | 'workspace_id' | 'portal_token' | 'created_at' | 'updated_at' | 'deleted_at'>) => {
+    mutationFn: async (projectData: Omit<Project, 'id' | 'workspace_id' | 'portal_token' | 'portal_token_hash' | 'created_at' | 'updated_at' | 'deleted_at'>) => {
       const res = await ProjectService.addProject(workspaceId, profileId, projectData);
       if (res.success === false) throw res.error;
       return res.data;
