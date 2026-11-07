@@ -51,8 +51,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
     
     // Password validation for signup & reset
     if (mode === 'signup' || mode === 'reset') {
-      if (authPassword.length < 12) {
-        addToast('warning', 'Weak Password', 'Password must be at least 12 characters.');
+      if (authPassword.length < 8) {
+        addToast('warning', 'Weak Password', 'Password must be at least 8 characters.');
         return;
       }
       if (authPassword !== authConfirmPassword) {
@@ -171,7 +171,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
                 />
                 {mode === 'signup' && (
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Must be 12+ characters with uppercase, lowercase, number, and symbol.
+                    Must be 8+ characters.
                   </p>
                 )}
               </div>

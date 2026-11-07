@@ -327,7 +327,7 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
                 Welcome to Ujrat! Let's get your freelance business set up
               </h2>
               <p className="text-[13px] text-muted-foreground m-0 max-w-2xl">
-                Organize clients, execute IT Act compliant digital agreements, and collect payments with zero gateway fees.
+                Organize clients, send digital agreements with a documented acceptance trail, and collect payments with zero gateway fees.
               </p>
             </div>
             <button

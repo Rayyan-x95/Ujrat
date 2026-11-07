@@ -16,7 +16,7 @@ export const SEOMeta: React.FC<SEOMetaProps> = ({
   description,
   canonicalPath = '',
   ogType = 'website',
-  ogImage = '/og-image.png',
+  ogImage = '/og-image.jpg',
   ogSiteName = 'Ujrat',
   ogLocale = 'en_IN',
   ogImageAlt,

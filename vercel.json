@@ -4,19 +4,25 @@
     {
       "source": "/assets/(.*)",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/fonts/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/(og-image.png|favicon.svg|favicon-transparent.png|site.webmanifest)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=86400" }
       ]
     },
     {
       "source": "/(index\\.html)?",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        }
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]
     },
     {
@@ -24,36 +30,38 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://*.supabase.co; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://*.posthog.com; worker-src 'self' blob:; manifest-src 'self'"
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://*.posthog.com; worker-src 'self' blob:; manifest-src 'self'"
         },
-        {
-          "key": "Strict-Transport-Security",
-          "value": "max-age=63072000; includeSubDomains"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        },
-        {
-          "key": "Permissions-Policy",
-          "value": "camera=(), microphone=(), geolocation=()"
-        }
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+      ]
+    },
+    {
+      "source": "/(404|app)\\.html",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex" }
       ]
     }
   ],
+  "redirects": [
+    { "source": "/waitlist", "destination": "/signup", "permanent": true }
+  ],
   "rewrites": [
-    {
-      "source": "/((?!assets/|.*\\..*).*)",
-      "destination": "/index.html"
-    }
+    { "source": "/login", "destination": "/app.html" },
+    { "source": "/signup", "destination": "/app.html" },
+    { "source": "/forgot", "destination": "/app.html" },
+    { "source": "/reset", "destination": "/app.html" },
+    { "source": "/dashboard", "destination": "/app.html" },
+    { "source": "/clients", "destination": "/app.html" },
+    { "source": "/projects", "destination": "/app.html" },
+    { "source": "/projects/:path*", "destination": "/app.html" },
+    { "source": "/invoices", "destination": "/app.html" },
+    { "source": "/payments", "destination": "/app.html" },
+    { "source": "/settings", "destination": "/app.html" },
+    { "source": "/settings/:path*", "destination": "/app.html" },
+    { "source": "/portal/:path*", "destination": "/app.html" }
   ]
 }
-

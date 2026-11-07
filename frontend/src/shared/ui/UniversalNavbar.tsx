@@ -13,12 +13,11 @@ export const UniversalNavbar: React.FC<UniversalNavbarProps> = ({ activePath = '
   const { user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const navLinks = [
+  const navLinks: Array<{ name: string; href: string; highlight?: boolean }> = [
     { name: 'Features', href: '/features' },
     { name: 'Pricing', href: '/pricing' },
     { name: 'GST Engine', href: '/gst' },
     { name: '0% UPI', href: '/upi' },
-    { name: 'Waitlist', href: '/waitlist', highlight: true },
   ];
 
   return (
@@ -36,7 +35,6 @@ export const UniversalNavbar: React.FC<UniversalNavbarProps> = ({ activePath = '
               className="h-8 w-8 object-contain shrink-0 transition-transform duration-300 group-hover:scale-105"
               draggable={false}
               decoding="async"
-              fetchPriority="high"
             />
             <span className="font-bold text-lg font-display tracking-tight text-foreground">
               Ujrat

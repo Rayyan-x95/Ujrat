@@ -1,13 +1,22 @@
 import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
+import { createRoot, hydrateRoot } from 'react-dom/client'
 import '@/app/styles/index.css'
 import App from '@/app/router/App.tsx'
 
-createRoot(document.getElementById('root')!).render(
+const container = document.getElementById('root')!;
+const app = (
   <StrictMode>
     <App />
-  </StrictMode>,
+  </StrictMode>
 );
+
+// Prerendered routes arrive with real HTML (see scripts/prerender.mjs); hydrate
+// those so the static content is not thrown away on first paint.
+if (container.hasChildNodes()) {
+  hydrateRoot(container, app);
+} else {
+  createRoot(container).render(app);
+}
 
 // Defer monitoring SDKs off the critical path — loads after first paint
 const initMonitoringAndSW = () => {

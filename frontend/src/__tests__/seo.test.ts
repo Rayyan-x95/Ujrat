@@ -17,11 +17,12 @@ describe('index.html SEO', () => {
     const desc = html.match(/name="description" content="(.*?)"/)?.[1] ?? '';
     expect(desc.length).toBeLessThanOrEqual(160);
   });
-  it('og site_name/locale/image:alt + twitter:site', () => {
+  it('og site_name/locale/image:alt (no dead twitter:site handle)', () => {
     expect(html).toContain('og:site_name" content="Ujrat"');
     expect(html).toContain('og:locale" content="en_IN"');
     expect(html).toContain('og:image:alt"');
-    expect(html).toContain('twitter:site" content="@ujrat"');
+    // @ujrat was a dead handle; verify the claim was removed rather than re-added.
+    expect(html).not.toContain('twitter:site');
   });
   it('og:title/description divergence >10 chars warns (not fails)', () => {
     const title = html.match(/<title>(.*?)<\/title>/)?.[1] ?? '';
@@ -41,27 +42,31 @@ describe('index.html SEO', () => {
 });
 
 describe('sitemap/robots/manifest', () => {
-  it('16 public routes, lastmod 2026-11-07, no protected routes', () => {
+  it('13 public routes, no login/signup or protected routes', () => {
     const xml = read('public/sitemap.xml');
     const locs = xml.match(/<loc>(.*?)<\/loc>/g) ?? [];
-    expect(locs).toHaveLength(16);
+    expect(locs).toHaveLength(13);
     expect(xml).not.toContain('2026-08-20');
     for (const p of ['/faq', '/privacy', '/terms', '/security', '/contact', '/status']) {
       expect(xml).toContain(`https://ujrat.ninety5.in${p}</loc>`);
     }
     expect(xml).not.toContain('/dashboard');
     expect(xml).not.toContain('/portal');
+    expect(xml).not.toContain('/login');
+    expect(xml).not.toContain('/signup');
+    expect(xml).not.toContain('changefreq');
+    expect(xml).not.toContain('<priority>');
   });
-  it('AI bots allow privacy/terms/security/contact/status + sitemap line', () => {
+  it('robots allows public routes and blocks private ones', () => {
     const txt = read('public/robots.txt');
     expect(txt).toContain('Sitemap: https://ujrat.ninety5.in/sitemap.xml');
-    const blocks = txt.split(/User-agent:/).slice(2); // skip wildcard + first bot header handling
-    expect(blocks.length).toBeGreaterThanOrEqual(8);
-    for (const b of blocks) {
-      for (const p of ['/privacy', '/terms', '/security', '/contact', '/status']) {
-        expect(b).toContain(`Allow: ${p}`);
-      }
+    expect(txt).toContain('User-agent: *');
+    expect(txt).toContain('Allow: /');
+    for (const p of ['/dashboard', '/clients', '/projects', '/invoices', '/payments', '/settings', '/portal', '/api/']) {
+      expect(txt).toContain(`Disallow: ${p}`);
     }
+    // No bot-specific block, so every crawler (including AI bots) inherits the rules above.
+    expect(txt).not.toContain('User-agent: GPTBot');
   });
   it('manifest name Ujrat, maskable, categories', () => {
     const m = JSON.parse(read('public/site.webmanifest'));

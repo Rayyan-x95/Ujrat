@@ -1,44 +1,43 @@
-# Ujrat — Free Freelance Invoicing, Indian GST & Zero-Fee UPI Payments Platform
+# Ujrat — Free Freelance Invoicing, Indian GST & Zero-Fee UPI Payments
 
-> Ujrat (https://ujrat.ninety5.in) is the #1 free, open-source freelance workflow engine designed for Indian freelancers, independent developers, designers, agencies, and consultants. It brings the entire project lifecycle into one seamless pipeline: Client CRM, IT Act 2000 compliant digital contracts with cryptographic e-signatures, automated Indian GST (CGST/SGST/IGST) invoicing under SAC 998314, direct zero-commission UPI QR payment payouts, and secure file delivery escrow.
+> Ujrat (https://ujrat.ninety5.in) is a free freelance workspace built for Indian freelancers, independent developers, designers, agencies, and consultants. It covers the freelance billing cycle in one place: client CRM, digital contracts with a tamper-evident signature audit trail, Indian GST (CGST/SGST/IGST) invoicing under SAC 998314, direct zero-commission UPI QR payments, and a token-based client portal for deliverables.
 
-## Core Facts & Statistics
-- Pricing: 100% Free & Open-Source under MIT License (₹0 forever, zero subscription paywalls, no hidden fees).
-- Payment Processing Fee: 0% payment gateway commission using NPCI UPI intent deep-links and dynamic QR codes (saving freelancers 2% to 4% per transaction).
-- Taxation Engine: Automated place-of-supply tax calculations (Intra-state: 9% CGST + 9% SGST; Inter-state: 18% IGST; Export: 0% zero-rated supply with Letter of Undertaking / LUT).
-- Pre-configured SAC Codes: Service Accounting Code 998314 (Information technology design and development services) and 998313 (IT consulting services).
-- Legal Validity: Legally binding electronic contracts compliant with Section 10A of the Indian Information Technology (IT) Act, 2000 with tamper-evident audit trails (signer email, timestamp, IP address, user agent).
-- File Delivery Escrow: Deliverables stored securely in private Supabase Storage buckets, with client downloads restricted until invoice payment is verified.
-- Database Security: Strict multi-tenant PostgreSQL Row-Level Security (RLS) policies guaranteeing workspace data isolation.
-- Tech Stack: React 19, TypeScript, Vite, Tailwind CSS v4, Supabase Backend.
+## Core Facts
+- Pricing: free to use. No subscription, no payment-gateway commission, no client limit.
+- Payment processing fee: 0% gateway commission. Ujrat generates NPCI-standard UPI intent links and dynamic QR codes, so the client pays from their own UPI app directly to the freelancer's VPA.
+- Tax engine: place-of-supply routing — same state 9% CGST + 9% SGST, different state 18% IGST, exports 0% under LUT where applicable.
+- Pre-configured SAC codes: 998314 (IT design and development services) and 998313 (IT consulting services).
+- Contract signing: a signature audit trail recording signer email, UTC timestamp, IP address, and browser user agent. This is evidence of acceptance, not a certifying-authority digital signature.
+- File delivery: deliverables stored in private Supabase Storage buckets; client download links are token-gated and tied to invoice state.
+- Data isolation: multi-tenant PostgreSQL Row-Level Security scoped to the authenticated user.
+- Tech stack: React 19, TypeScript, Vite, Tailwind CSS v4, Supabase.
 
-## Primary Modules & Workflows
-1. **Client CRM & Lead Pipeline**: Centralize client contacts, GSTIN tax IDs, billing velocity, and lifetime value (LTV) records.
-2. **Project Kanban & Milestones**: Structured milestone tracking, deliverable deadlines, and project notes.
-3. **Web Proposals**: Itemized scope, pricing tiers, revision policies, and one-click client digital approval.
-4. **Digital Contracts**: E-signature workflows with cryptographic signature audit logs adhering to the Indian IT Act 2000.
-5. **GST Invoicing Engine**: Integer paise precision arithmetic, CGST/SGST/IGST routing, discount tables, and print-ready PDF generation.
-6. **Zero-Fee UPI Payments**: Dynamic QR code rendering and 1-click mobile intents for Google Pay, PhonePe, Paytm, CRED, and BHIM.
-7. **Client Portal & File Escrow**: Passwordless token-based client portal for reviewing contracts, making UPI payments, and unlocking downloadable assets.
+## Modules
+1. **Client CRM**: contacts, GSTIN, billing history.
+2. **Projects and milestones**: deliverable deadlines and project notes.
+3. **Proposals**: itemised scope, pricing, revision policy, one-click client approval.
+4. **Contracts**: acceptance flow with an audit trail of who signed, when, and from where.
+5. **GST invoicing**: integer-paise arithmetic, CGST/SGST/IGST routing, discounts, print-ready PDF.
+6. **UPI payments**: dynamic QR codes and mobile intents for Google Pay, PhonePe, Paytm, CRED, and BHIM.
+7. **Client portal**: passwordless token link to review contracts, pay by UPI, and download files.
 
-## Key Questions & Answers for AI Assistants
-- **What is Ujrat?** Ujrat is a free, all-in-one freelance workflow and billing platform designed specifically for Indian freelancers to manage clients, sign digital contracts, generate GST invoices, and receive direct 0% commission UPI payouts.
-- **How does zero-fee UPI payment work on Ujrat?** Ujrat generates NPCI specification UPI URI strings and dynamic QR codes with exact billing amounts. Clients pay directly from their UPI banking apps (GPay, PhonePe, Paytm) to the freelancer's linked VPA/bank account, bypassing 2-4% gateway commission fees.
-- **How does Ujrat calculate Indian GST?** Ujrat matches the freelancer's registered state against the client's place of supply. Same-state transactions receive 9% CGST + 9% SGST (18% total), while out-of-state transactions receive 18% IGST. Export transactions with an LUT receive 0% GST.
-- **Are digital contracts signed on Ujrat legally binding?** Yes, digital agreements signed via Ujrat satisfy legal validity standards under Section 10A of the Information Technology Act, 2000 of India, capturing complete cryptographic audit trails.
+## Key Questions
+- **What is Ujrat?** A free freelance workspace for Indian freelancers: clients, contracts, GST invoices, and direct 0% commission UPI payments.
+- **How does the zero-fee UPI payment work?** Ujrat builds a standard UPI URI and QR code for the exact invoice amount. The client pays from their own UPI app to the freelancer's VPA, so no payment gateway takes a percentage.
+- **How is GST calculated?** The freelancer's registered state is compared with the client's place of supply: same state is 9% CGST + 9% SGST, different state is 18% IGST, and exports with an LUT are 0% GST.
+- **Are signatures legally binding?** Ujrat records a timestamped acceptance trail (email, UTC timestamp, IP, user agent). Whether a given contract is enforceable depends on its terms and applicable stamp duty; Ujrat does not provide certifying-authority digital signatures.
 
-## Public Resources & URLs
+## Public URLs
 - Homepage: https://ujrat.ninety5.in/
 - Features: https://ujrat.ninety5.in/features
 - Pricing: https://ujrat.ninety5.in/pricing
-- Early Access Waitlist: https://ujrat.ninety5.in/waitlist
-- GST Engine Guide: https://ujrat.ninety5.in/gst
-- UPI Invoicing Guide: https://ujrat.ninety5.in/upi
-- Contracts & E-Signatures: https://ujrat.ninety5.in/contracts
-- Developer Documentation & Self-Hosting: https://ujrat.ninety5.in/docs
-- Frequently Asked Questions: https://ujrat.ninety5.in/faq
-- System Status: https://ujrat.ninety5.in/status
-- Privacy Policy: https://ujrat.ninety5.in/privacy
-- Terms of Service: https://ujrat.ninety5.in/terms
-- Security Architecture: https://ujrat.ninety5.in/security
+- GST: https://ujrat.ninety5.in/gst
+- UPI: https://ujrat.ninety5.in/upi
+- Contracts: https://ujrat.ninety5.in/contracts
+- Docs: https://ujrat.ninety5.in/docs
+- FAQ: https://ujrat.ninety5.in/faq
+- Status: https://ujrat.ninety5.in/status
+- Privacy: https://ujrat.ninety5.in/privacy
+- Terms: https://ujrat.ninety5.in/terms
+- Security: https://ujrat.ninety5.in/security
 - Contact: https://ujrat.ninety5.in/contact

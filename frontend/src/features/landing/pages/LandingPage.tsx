@@ -55,7 +55,7 @@ const FAQS = [
   },
   {
     q: 'Is the digital contract e-signature legally binding?',
-    a: "Yes. Ujrat generates a legally compliant, cryptographically secure digital signature log for every contract. It records the signer's email, timestamp, IP address, and browser agent metadata. These logs are stored in a read-only PostgreSQL database table, establishing a clear audit trail compliant with the Indian Information Technology (IT) Act, 2000."
+    a: "Ujrat records a tamper-evident acceptance trail for every contract: the signer's email, UTC timestamp, IP address, and browser user agent, written to an append-only table. That is evidence of who accepted what, and when. Whether a given agreement is enforceable depends on its terms and applicable stamp duty — Ujrat does not provide certifying-authority (Aadhaar eSign / DSC) signatures."
   },
   {
     q: 'How does the secure file delivery escrow work?',
@@ -117,8 +117,8 @@ export const LandingPage: React.FC = () => {
     {
       title: 'Digital Contract',
       icon: <FileSignature className="h-4 w-4" />,
-      description: 'Bind scopes to legal clauses. Secure cryptographic signatures before starting work.',
-      detail: 'Comes with default contract templates customized for freelance engagements, IP protection, and payment timelines. Cryptographically logged signatures verify agreement terms and protect against scope creep.'
+      description: 'Bind scopes to legal clauses. Collect a timestamped acceptance before starting work.',
+      detail: 'Comes with default contract templates customized for freelance engagements, IP protection, and payment timelines. Each acceptance records the signer, UTC timestamp, IP, and browser metadata so the agreement terms and who agreed to them are documented.'
     },
     {
       title: 'GST Invoicing',
@@ -224,13 +224,15 @@ export const LandingPage: React.FC = () => {
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/10 selection:text-primary">
       <SEOMeta 
         title="Ujrat — Free Freelance Invoicing, GST & Zero-Fee UPI Payments Platform" 
-        description="The #1 free workspace for Indian freelancers. Manage clients, execute IT Act compliant digital contracts, generate GST invoices, and get paid instantly via zero-fee UPI QR codes."
+        description="The free workspace for Indian freelancers. Manage clients, create digital contracts, generate GST invoices, and get paid directly via zero-fee UPI QR codes."
         canonicalPath="/"
       />
       <JSONLD schema={schemaList} />
 
       {/* ─── Universal Navigation Header ────────────────────────────────────────── */}
       <UniversalNavbar activePath="/" />
+
+      <main>
 
       {/* ─── Hero Section ────────────────────────────────────────────── */}
       <section className="relative overflow-hidden pt-16 pb-24 md:pt-24 md:pb-32">
@@ -243,7 +245,7 @@ export const LandingPage: React.FC = () => {
 
           {/* Value Prop */}
           <p className="mt-6 text-body sm:text-title text-muted-foreground max-w-xl leading-relaxed animate-slide-up">
-            The all-in-one freelance operating system built for India. Manage clients, execute IT Act compliant digital contracts, automate GST invoicing, and keep 100% of your earnings with direct UPI payouts.
+            The all-in-one freelance operating system built for India. Manage clients, send digital contracts with a documented acceptance trail, automate GST invoicing, and keep 100% of your earnings with direct UPI payouts.
           </p>
 
           {/* CTAs */}
@@ -746,7 +748,7 @@ export const LandingPage: React.FC = () => {
               Architected for complete data privacy
             </p>
             <p className="mt-4 text-body text-muted-foreground">
-              Ujrat is designed as a secure workspace. Your clients, invoices, and payments are guarded by enterprise-grade cryptographic controls.
+              Ujrat is designed as a secure workspace. Your clients, invoices, and payments are protected by database-level access control and private file storage.
             </p>
           </div>
 
@@ -780,9 +782,9 @@ export const LandingPage: React.FC = () => {
                 <div className="p-2 bg-primary/5 border border-primary/10 rounded-md w-max text-primary">
                   <FileSignature className="h-5 w-5" />
                 </div>
-                <h3 className="text-title font-semibold text-foreground mt-4">Cryptographic Audit Trails</h3>
+                <h3 className="text-title font-semibold text-foreground mt-4">Tamper-Evident Audit Trails</h3>
                 <p className="text-small text-muted-foreground mt-2 leading-relaxed">
-                  Contract e-signatures generate a tamper-evident audit trail log containing signed email hashes, UTC timestamps, IP routing paths, and browser agent hashes recorded directly into read-only ledger tables.
+                  Contract acceptances record the signer's email hash, UTC timestamp, IP address, and browser user agent into an append-only table, so there is a durable record of who agreed and when.
                 </p>
               </div>
             </div>
@@ -905,7 +907,7 @@ export const LandingPage: React.FC = () => {
               <Button 
                 variant="outline" 
                 size="lg" 
-                onClick={() => window.open('https://github.com/ujrat', '_blank')}
+                onClick={() => window.open('https://github.com/Rayyan-x95/Ujrat', '_blank')}
                 className="w-full sm:w-auto"
                 icon={<GithubIcon className="h-4 w-4" />}
               >
@@ -915,6 +917,8 @@ export const LandingPage: React.FC = () => {
           </div>
         </div>
       </section>
+
+      </main>
 
       {/* ─── Footer Section ──────────────────────────────────────────── */}
       <footer className="border-t border-border-subtle bg-card py-12 text-small text-muted-foreground">
@@ -933,7 +937,7 @@ export const LandingPage: React.FC = () => {
 
           {/* Links cols */}
           <div>
-            <h4 className="font-semibold text-foreground text-small uppercase tracking-wider mb-4">Product</h4>
+            <h3 className="font-semibold text-foreground text-small uppercase tracking-wider mb-4">Product</h3>
             <ul className="space-y-2.5">
               <li><Link to="/features" className="hover:text-foreground transition-colors">Features</Link></li>
               <li><Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link></li>
@@ -943,9 +947,9 @@ export const LandingPage: React.FC = () => {
           </div>
 
           <div>
-            <h4 className="font-semibold text-foreground text-small uppercase tracking-wider mb-4">Resources</h4>
+            <h3 className="font-semibold text-foreground text-small uppercase tracking-wider mb-4">Resources</h3>
             <ul className="space-y-2.5">
-              <li><a href="https://github.com/ujrat" className="hover:text-foreground transition-colors inline-flex items-center gap-1">GitHub <ExternalLink className="h-3 w-3" /></a></li>
+              <li><a href="https://github.com/Rayyan-x95/Ujrat" className="hover:text-foreground transition-colors inline-flex items-center gap-1">GitHub <ExternalLink className="h-3 w-3" /></a></li>
               <li><Link to="/docs" className="hover:text-foreground transition-colors">Documentation</Link></li>
               <li><Link to="/faq" className="hover:text-foreground transition-colors">FAQs</Link></li>
               <li><Link to="/status" className="hover:text-foreground transition-colors">Status</Link></li>
@@ -953,7 +957,7 @@ export const LandingPage: React.FC = () => {
           </div>
 
           <div>
-            <h4 className="font-semibold text-foreground text-small uppercase tracking-wider mb-4">Legal</h4>
+            <h3 className="font-semibold text-foreground text-small uppercase tracking-wider mb-4">Legal</h3>
             <ul className="space-y-2.5">
               <li><Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link></li>
               <li><Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link></li>

@@ -10,6 +10,7 @@ import { existsSync } from 'node:fs'
 const prerenderPlugin = () => ({
   name: 'ujrat-prerender',
   closeBundle() {
+    if (process.env.UJRAT_SKIP_PRERENDER) return
     const script = path.resolve(import.meta.dirname, '../scripts/prerender.mjs')
     if (existsSync(script)) execFileSync(process.execPath, [script], { stdio: 'inherit' })
   },

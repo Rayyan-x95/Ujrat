@@ -323,7 +323,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
             className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer shrink-0"
           />
           <span>
-            I acknowledge and agree that this electronic signature represents my legally binding assent and execution of this agreement under <strong>Section 10A of the Information Technology Act, 2000</strong>.
+            I agree that typing my name and submitting this form constitutes my acceptance of this agreement, and that the timestamp, IP address, and browser details recorded with it form part of the record.
           </span>
         </label>
       </div>

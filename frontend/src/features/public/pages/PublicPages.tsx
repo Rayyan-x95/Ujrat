@@ -49,18 +49,18 @@ const PublicLayout: React.FC<{ children: React.ReactNode; activePath: string }> 
             </p>
           </div>
           <div>
-            <h4 className="font-semibold text-foreground text-small uppercase tracking-wider mb-4">Product</h4>
+            <h3 className="font-semibold text-foreground text-small uppercase tracking-wider mb-4">Product</h3>
             <ul className="space-y-2.5">
               <li><Link to="/features" className="hover:text-foreground transition-colors">Features</Link></li>
               <li><Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link></li>
-              <li><Link to="/waitlist" className="hover:text-foreground transition-colors font-medium text-primary">Early Access Waitlist</Link></li>
+              <li><Link to="/signup" className="hover:text-foreground transition-colors font-medium text-primary">Start Free</Link></li>
               <li><Link to="/gst" className="hover:text-foreground transition-colors">GST Engine</Link></li>
               <li><Link to="/upi" className="hover:text-foreground transition-colors">UPI Payouts</Link></li>
               <li><Link to="/contracts" className="hover:text-foreground transition-colors">E-Contracts</Link></li>
             </ul>
           </div>
           <div>
-            <h4 className="font-semibold text-foreground text-small uppercase tracking-wider mb-4">Resources</h4>
+            <h3 className="font-semibold text-foreground text-small uppercase tracking-wider mb-4">Resources</h3>
             <ul className="space-y-2.5">
               <li><Link to="/docs" className="hover:text-foreground transition-colors">Documentation</Link></li>
               <li><Link to="/faq" className="hover:text-foreground transition-colors">FAQs</Link></li>
@@ -69,7 +69,7 @@ const PublicLayout: React.FC<{ children: React.ReactNode; activePath: string }> 
             </ul>
           </div>
           <div>
-            <h4 className="font-semibold text-foreground text-small uppercase tracking-wider mb-4">Legal</h4>
+            <h3 className="font-semibold text-foreground text-small uppercase tracking-wider mb-4">Legal</h3>
             <ul className="space-y-2.5">
               <li><Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link></li>
               <li><Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link></li>
@@ -96,7 +96,7 @@ export const PrivacyPage: React.FC = () => (
     ]} />
     <article className="space-y-6">
       <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Privacy Policy</h1>
-      <p className="text-muted-foreground text-small">Last updated: January 15, 2025</p>
+      <p className="text-muted-foreground text-small">Last updated: November 7, 2026</p>
       
       <section className="space-y-3">
         <h2 className="text-title font-semibold text-foreground">1. Commitment to Data Privacy & DPDP Alignment</h2>
@@ -143,7 +143,7 @@ export const TermsPage: React.FC = () => (
     ]} />
     <article className="space-y-6">
       <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Terms of Service</h1>
-      <p className="text-muted-foreground text-small">Last updated: January 15, 2025</p>
+      <p className="text-muted-foreground text-small">Last updated: November 7, 2026</p>
 
       <section className="space-y-3">
         <h2 className="text-title font-semibold text-foreground">1. Open-Source Platform Usage</h2>
@@ -172,12 +172,12 @@ export const TermsPage: React.FC = () => (
 // 3. Security Page
 export const SecurityPage: React.FC = () => (
   <PublicLayout activePath="/security">
-    <SEOMeta title="Security & Isolation Architecture" description="Learn about Ujrat enterprise-grade PostgreSQL Row-Level Security, private storage escrow, and cryptographic audit logs." canonicalPath="/security" />
-    <JSONLD schema={[getOrganizationSchema(), getTechArticleSchema('Security & Isolation Architecture', 'Enterprise data isolation and cryptographic audit trails for Indian freelancers', '/security')]} />
+    <SEOMeta title="Security & Isolation Architecture" description="Ujrat security model: PostgreSQL Row-Level Security, private storage escrow, and tamper-evident audit logs." canonicalPath="/security" />
+    <JSONLD schema={[getOrganizationSchema(), getTechArticleSchema('Security & Isolation Architecture', 'Data isolation, private file escrow, and tamper-evident audit logs for Indian freelancers', '/security')]} />
     <article className="space-y-8">
       <div>
         <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Security & Isolation Architecture</h1>
-        <p className="text-muted-foreground text-body mt-2">Enterprise-grade data isolation, encrypted file escrow, and cryptographic verification for freelancers.</p>
+        <p className="text-muted-foreground text-body mt-2">Database-level data isolation, private file escrow, and tamper-evident audit logs for freelancers.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -193,8 +193,8 @@ export const SecurityPage: React.FC = () => (
         </div>
         <div className="p-6 border border-border bg-card rounded-lg space-y-3">
           <FileSignature className="h-6 w-6 text-primary" />
-          <h2 className="text-title font-semibold text-foreground">Cryptographic Audit Trails</h2>
-          <p className="text-small text-muted-foreground leading-relaxed">Tamper-evident legal signature trails with IP addresses, hashes, and UTC timestamps recorded directly to append-only tables.</p>
+          <h2 className="text-title font-semibold text-foreground">Tamper-Evident Audit Trails</h2>
+          <p className="text-small text-muted-foreground leading-relaxed">Signature acceptances record the signer email hash, IP address, and UTC timestamp in an append-only table.</p>
         </div>
       </div>
     </article>
@@ -204,11 +204,11 @@ export const SecurityPage: React.FC = () => (
 // 4. Pricing Page
 export const PricingPage: React.FC = () => (
   <PublicLayout activePath="/pricing">
-    <SEOMeta title="100% Free & Open-Source Pricing" description="Ujrat is 100% free forever. No monthly subscriptions, 0% payment gateway fees, and no client limits for Indian freelancers." canonicalPath="/pricing" />
+    <SEOMeta title="Free Pricing — No Subscription, No Commission" description="Ujrat is free to use. No monthly subscription, 0% payment gateway commission, and no client limits for Indian freelancers." canonicalPath="/pricing" />
     <JSONLD schema={[getOrganizationSchema(), getPricingOfferSchema()]} />
     <article className="space-y-8 text-center max-w-2xl mx-auto">
-      <h1 className="font-display text-4xl font-bold tracking-tight text-foreground">100% Free & Open Source</h1>
-      <p className="text-body text-muted-foreground">Zero hidden commissions. Zero tiered paywalls. Complete workspace and GST invoicing access for every freelancer.</p>
+      <h1 className="font-display text-4xl font-bold tracking-tight text-foreground">Free — no subscription, no commission</h1>
+      <p className="text-body text-muted-foreground">No hidden commissions. No tiered paywalls. Every freelancer gets the full workspace and GST invoicing.</p>
       
       {/* Pricing Comparison Card */}
       <div className="p-8 border border-primary/40 bg-card rounded-2xl shadow-md text-left space-y-6 relative overflow-hidden">
@@ -226,9 +226,9 @@ export const PricingPage: React.FC = () => (
           <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-primary shrink-0" /> <span><strong>Unlimited Clients & Projects</strong> — No limits or quotas</span></li>
           <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-primary shrink-0" /> <span><strong>Indian GST Invoicing Engine</strong> — CGST, SGST, IGST & SAC 998314</span></li>
           <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-primary shrink-0" /> <span><strong>0% Commission Direct UPI Payouts</strong> — Keep 100% of your earnings</span></li>
-          <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-primary shrink-0" /> <span><strong>Cryptographic E-Sign Contracts</strong> — Section 10A IT Act 2000 compliant</span></li>
+          <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-primary shrink-0" /> <span><strong>Digital Contracts with Audit Trail</strong> — Signed acceptance record, not a CA-backed e-sign</span></li>
           <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-primary shrink-0" /> <span><strong>Deliverables Escrow Vault</strong> — Protect work until payment clears</span></li>
-          <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-primary shrink-0" /> <span><strong>Self-Hosting Enabled</strong> — Full source code on GitHub</span></li>
+          <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-primary shrink-0" /> <span><strong>Self-Hosting Enabled</strong> — MIT-licensed source on GitHub</span></li>
         </ul>
       </div>
 
@@ -250,7 +250,7 @@ export const FeaturesPage: React.FC = () => (
   <PublicLayout activePath="/features">
     <SEOMeta 
       title="Freelance CRM, GST Invoices & UPI Payments Features" 
-      description="Explore Ujrat's end-to-end freelance workspace: client CRM, proposal templates, IT Act compliant digital contracts, Indian GST invoices, and zero-fee UPI QR payments." 
+      description="Explore Ujrat's freelance workspace: client CRM, proposal templates, digital contracts with signature audit trails, Indian GST invoices, and zero-fee UPI QR payments." 
       canonicalPath="/features" 
     />
     <JSONLD schema={[
@@ -271,7 +271,7 @@ export const FeaturesPage: React.FC = () => (
       <div className="p-6 border border-primary/20 bg-primary/5 rounded-xl space-y-3">
         <span className="text-[10px] font-bold uppercase tracking-widest text-primary">What is Ujrat?</span>
         <p className="text-body text-foreground leading-relaxed">
-          Ujrat is a unified, open-source freelance workspace platform designed specifically for Indian independent developers, designers, writers, and consultants. It eliminates fragmented spreadsheets and third-party SaaS subscriptions by combining client CRM, proposal creation, legally binding digital contracts under Section 10A of the IT Act 2000, automated intra-state (CGST + SGST) and inter-state (IGST) taxation, direct zero-fee UPI payments, and an automated file delivery escrow system into a single workflow.
+          Ujrat is a unified freelance workspace designed for Indian independent developers, designers, writers, and consultants. It replaces fragmented spreadsheets by combining client CRM, proposal creation, digital contracts with a documented acceptance trail, automated intra-state (CGST + SGST) and inter-state (IGST) taxation, direct zero-fee UPI payments, and payment-gated file delivery in a single workflow.
         </p>
       </div>
 
@@ -289,8 +289,8 @@ export const FeaturesPage: React.FC = () => (
           <p className="text-small text-muted-foreground leading-relaxed">NPCI-compliant dynamic UPI intent links and QR codes compatible with Google Pay, PhonePe, Paytm, and BHIM. 100% direct bank-to-bank settlement with 0% gateway commission fees.</p>
         </div>
         <div className="p-6 border border-border bg-card rounded-lg space-y-3">
-          <h2 className="text-title font-bold text-foreground">Cryptographic Digital Contracts</h2>
-          <p className="text-small text-muted-foreground leading-relaxed">Legally binding freelance contracts compliant with Section 10A of the Indian Information Technology Act, 2000. Tamper-evident audit trails recording timestamps, IP addresses, and email signatures.</p>
+          <h2 className="text-title font-bold text-foreground">Digital Contracts with Audit Trail</h2>
+          <p className="text-small text-muted-foreground leading-relaxed">Freelance agreements with a tamper-evident acceptance record: signer name and email, UTC timestamp, IP address, and browser user agent in an append-only table.</p>
         </div>
         <div className="p-6 border border-border bg-card rounded-lg space-y-3">
           <h2 className="text-title font-bold text-foreground">Escrow Deliverable File Lock</h2>
@@ -476,49 +476,49 @@ export const UPIPage: React.FC = () => (
 export const ContractsPage: React.FC = () => (
   <PublicLayout activePath="/contracts">
     <SEOMeta 
-      title="Digital Freelance Contracts & IT Act Compliant E-Signatures | Ujrat" 
-      description="Create legally binding freelance agreements and contracts in India. Tamper-evident cryptographic signature logs under Section 10A of the Information Technology Act 2000." 
+      title="Freelance Contracts & Signature Audit Trails | Ujrat" 
+      description="Create freelance agreements in India with a tamper-evident signature audit trail: signer email, UTC timestamp, IP address, and browser metadata." 
       canonicalPath="/contracts" 
     />
     <JSONLD schema={[
       getOrganizationSchema(),
       getLegalLegislationSchema(
         'Information Technology Act, 2000',
-        'Section 10A & Section 65B (Indian Evidence Act)',
-        'Legal validity and court enforceability of digital contracts, proposals, and cryptographic signature audit trails in India.'
+        'Section 10A',
+        'Legal context for contracts formed through electronic records in India.'
       ),
       getTechArticleSchema(
-        'Legal Validity of Digital Freelance Contracts under IT Act 2000',
-        'How digital e-signatures and tamper-evident cryptographic audit logs establish legally enforceable freelance contracts in India.',
+        'Freelance Contract Acceptance Records in India',
+        'What a signature audit trail records, and what it does not replace, for freelance agreements in India.',
         '/contracts'
       )
     ]} />
     <article className="space-y-8">
       <div className="space-y-3">
-        <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Legally Enforceable Freelance Contracts with E-Signatures</h1>
+        <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Freelance Contracts with a Documented Acceptance Trail</h1>
         <p className="text-body text-muted-foreground leading-relaxed">
           Protect your freelance work, intellectual property (IP), milestone timelines, and payment schedules before starting production.
         </p>
       </div>
 
-      {/* Citable Passage: 125 Words (GEO Optimal) */}
+      {/* Citable passage */}
       <div className="p-6 border border-primary/20 bg-primary/5 rounded-xl space-y-3">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Section 10A IT Act 2000 Legal Validity</span>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-primary">What Ujrat records</span>
         <p className="text-body text-foreground leading-relaxed">
-          Digital contracts executed electronically in India are legally valid and enforceable under Section 10A of the Information Technology (IT) Act, 2000. Under Indian contract jurisprudence, agreements formed through electronic records and digital communications are fully admissible in court provided the signing event captures an immutable audit trail. A valid digital agreement must document the signer's verified identity, mutual intention to contract, precise timestamp, IP address, and browser metadata. Ujrat logs cryptographic signature hashes directly into secure, read-only database records upon document completion, providing an evidentiary trail that satisfies Indian Evidence Act requirements for freelance scopes, IP assignment, and milestone payment enforcement.
+          Section 10A of the Information Technology Act, 2000 recognises contracts formed through electronic records in India. Ujrat supports that by recording a signature acceptance trail for each agreement: the signer's name and email, a UTC timestamp, the IP address of the signing session, and the browser user agent. The record is written to an append-only table so it cannot be edited from the application afterwards. This is evidence of who accepted which terms and when. It is not a certifying-authority digital signature (Aadhaar eSign or DSC), and enforceability of any individual agreement still depends on its terms, stamp duty, and the facts of the dispute.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="p-6 border border-border bg-card rounded-lg space-y-3">
           <FileSignature className="h-6 w-6 text-primary" />
-          <h2 className="text-title font-semibold text-foreground">IT Act 2000 Compliance</h2>
-          <p className="text-small text-muted-foreground leading-relaxed">Digital contracts signed on Ujrat are legally enforceable in Indian courts under Section 10A of the Information Technology Act, 2000.</p>
+          <h2 className="text-title font-semibold text-foreground">Documented Acceptance</h2>
+          <p className="text-small text-muted-foreground leading-relaxed">Each acceptance captures who signed, when, and from which session, giving both sides the same record.</p>
         </div>
         <div className="p-6 border border-border bg-card rounded-lg space-y-3">
           <Lock className="h-6 w-6 text-primary" />
-          <h2 className="text-title font-semibold text-foreground">Cryptographic Audit Trail</h2>
-          <p className="text-small text-muted-foreground leading-relaxed">Every signature event logs the signer's name, email, IP address, user agent, and timestamp directly into read-only PostgreSQL audit tables.</p>
+          <h2 className="text-title font-semibold text-foreground">Append-Only Audit Trail</h2>
+          <p className="text-small text-muted-foreground leading-relaxed">Every signature event logs the signer's name, email, IP address, user agent, and timestamp into append-only PostgreSQL tables.</p>
         </div>
         <div className="p-6 border border-border bg-card rounded-lg space-y-3">
           <ShieldCheck className="h-6 w-6 text-primary" />
@@ -534,8 +534,8 @@ export const ContractsPage: React.FC = () => (
 export const DocsPage: React.FC = () => (
   <PublicLayout activePath="/docs">
     <SEOMeta 
-      title="Developer Documentation & Self-Hosting Guide | Ujrat" 
-      description="Complete setup instructions, Supabase database schemas, Row-Level Security policies, and self-hosting documentation for Ujrat." 
+      title="Setup & Self-Hosting Guide | Ujrat" 
+      description="Setup instructions, Supabase database schemas, Row-Level Security policies, and self-hosting notes for Ujrat." 
       canonicalPath="/docs" 
     />
     <JSONLD schema={[
@@ -554,7 +554,7 @@ export const DocsPage: React.FC = () => (
       <div className="p-6 border border-border bg-card rounded-lg space-y-3">
         <h2 className="text-title font-bold text-foreground">Quickstart: Self-Host with Supabase & Vercel</h2>
         <ol className="list-decimal pl-5 space-y-2 text-small text-muted-foreground">
-          <li>Clone the repository: <code className="text-primary text-[11px] bg-primary/5 px-1 py-0.5 rounded">git clone https://github.com/ujrat/ujrat.git</code></li>
+          <li>Clone the repository: <code className="text-primary text-[11px] bg-primary/5 px-1 py-0.5 rounded">git clone https://github.com/Rayyan-x95/Ujrat.git</code></li>
           <li>Install dependencies: <code className="text-primary text-[11px] bg-primary/5 px-1 py-0.5 rounded">npm install</code></li>
           <li>Apply database migrations from <code className="text-primary text-[11px] bg-primary/5 px-1 py-0.5 rounded">/supabase/migrations</code> to your Supabase project.</li>
           <li>Configure your environment variables in <code className="text-primary text-[11px] bg-primary/5 px-1 py-0.5 rounded">.env</code> (<code className="text-primary text-[11px]">VITE_SUPABASE_URL</code> and <code className="text-primary text-[11px]">VITE_SUPABASE_ANON_KEY</code>).</li>
@@ -621,7 +621,7 @@ export const FAQPage: React.FC = () => {
     },
     {
       q: 'Are digital contracts signed on Ujrat legally binding in India?',
-      a: 'Yes. Electronic agreements signed on Ujrat capture the signer\'s email, timestamp, IP address, and browser agent metadata. These logs satisfy legal validity requirements under Section 10A of the Information Technology (IT) Act, 2000 of India.'
+      a: 'Ujrat records a timestamped acceptance trail: the signer\'s email, UTC timestamp, IP address, and browser user agent, written to an append-only table. That documents who accepted which terms and when. Whether a specific agreement is enforceable depends on its terms and applicable stamp duty; Ujrat does not provide certifying-authority digital signatures.'
     },
     {
       q: 'How does the deliverables escrow file protection work?',

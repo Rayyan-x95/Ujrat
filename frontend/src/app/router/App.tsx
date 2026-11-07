@@ -9,28 +9,30 @@ import { ErrorBoundary } from '@/shared/ui/ErrorBoundary';
 import { useAuth, AuthProvider } from '@/features/auth';
 import { RoutingRedirects } from './RoutingRedirects';
 
+// Public marketing pages are eager: their route HTML is prerendered, so the
+// client tree must match on the first hydration render (lazy() suspends).
+import { LandingPage } from '@/features/landing/pages/LandingPage';
+import {
+  PrivacyPage,
+  TermsPage,
+  SecurityPage,
+  PricingPage,
+  FeaturesPage,
+  GSTPage,
+  UPIPage,
+  ContractsPage,
+  DocsPage,
+  ContactPage,
+  StatusPage,
+  FAQPage,
+  NotFoundPage,
+} from '@/features/public/pages/PublicPages';
+
 // Lazy-loaded route components — each route only downloads its chunk on first visit
-const LandingPage = lazy(() => import('@/features/landing/pages/LandingPage').then(m => ({ default: m.LandingPage })));
 const AuthPage = lazy(() => import('@/features/auth/pages/AuthPage').then(m => ({ default: m.AuthPage })));
 const WorkspaceView = lazy(() => import('@/features/workspace/pages/WorkspaceView').then(m => ({ default: m.WorkspaceView })));
 const PortalView = lazy(() => import('@/features/portal/pages/PortalView').then(m => ({ default: m.PortalView })));
 const InvoicePrintView = lazy(() => import('@/features/invoices/components/InvoicePrintView').then(m => ({ default: m.InvoicePrintView })));
-
-// Lazy-loaded Public Pages
-const PrivacyPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.PrivacyPage })));
-const TermsPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.TermsPage })));
-const SecurityPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.SecurityPage })));
-const PricingPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.PricingPage })));
-const FeaturesPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.FeaturesPage })));
-const GSTPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.GSTPage })));
-const UPIPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.UPIPage })));
-const ContractsPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.ContractsPage })));
-const DocsPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.DocsPage })));
-const ContactPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.ContactPage })));
-const StatusPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.StatusPage })));
-const FAQPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.FAQPage })));
-const WaitlistPage = lazy(() => import('@/features/waitlist/pages/WaitlistPage').then(m => ({ default: m.WaitlistPage })));
-const NotFoundPage = lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m.NotFoundPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -113,7 +115,8 @@ function UjratApp() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/status" element={<StatusPage />} />
         <Route path="/faq" element={<FAQPage />} />
-        <Route path="/waitlist" element={<WaitlistPage />} />
+        {/* Old pre-launch funnel — the product is live, so send it to signup. */}
+        <Route path="/waitlist" element={<Navigate to="/signup" replace />} />
 
         {/* Public Client Portal */}
         <Route path="/portal/:portalToken" element={<PortalView />} />
@@ -143,17 +146,25 @@ function UjratApp() {
   );
 }
 
-export default function App() {
+// Everything above the router. The prerenderer renders this same tree inside a
+// MemoryRouter so the server markup matches what the client hydrates.
+export function AppShell() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <ErrorBoundary>
-          <PageTracker />
-          <AuthProvider>
-            <UjratApp />
-          </AuthProvider>
-        </ErrorBoundary>
-      </BrowserRouter>
+      <ErrorBoundary>
+        <PageTracker />
+        <AuthProvider>
+          <UjratApp />
+        </AuthProvider>
+      </ErrorBoundary>
     </QueryClientProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppShell />
+    </BrowserRouter>
   );
 }

@@ -42,7 +42,7 @@ function subscribe(listener: () => void) {
 }
 
 export function useToastStore<T = ToastStore>(selector?: (state: ToastStore) => T): T {
-  useSyncExternalStore(subscribe, () => toasts);
+  useSyncExternalStore(subscribe, () => toasts, () => toasts);
   return selector ? selector(store) : (store as unknown as T);
 }
 

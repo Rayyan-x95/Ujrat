@@ -36,8 +36,7 @@ export const getOrganizationSchema = () => ({
   'url': 'https://ujrat.ninety5.in',
   'logo': 'https://ujrat.ninety5.in/favicon-transparent.png',
   'sameAs': [
-    'https://github.com/ujrat',
-    'https://twitter.com/ujrat_in'
+    'https://github.com/Rayyan-x95/Ujrat'
   ],
   'description': 'Ujrat is the free freelance workflow and GST invoicing portal for Indian freelancers, offering dynamic UPI payouts and secure digital contracts.',
   'address': {
@@ -79,7 +78,7 @@ export const getSoftwareApplicationSchema = () => ({
   'featureList': [
     'Client CRM & Relationship Management',
     'Project Kanban Workflow & Milestone Tracking',
-    'Digital Contract Templates & Signatures (IT Act 2000)',
+    'Digital Contract Templates with Signature Audit Trails',
     'Client Brief Gathering Portal',
     'GST-Compliant Invoice Generator (CGST, SGST, IGST, SAC 998314)',
     'Zero-Fee Dynamic UPI Intent & QR Code Payments',

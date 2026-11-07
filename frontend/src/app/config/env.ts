@@ -28,6 +28,16 @@ const getEnvVars = () => {
       `If deploying on Vercel: go to Project Settings -> Environment Variables and ensure both VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set for Production and Preview environments.`;
     console.error(msg);
 
+    // Build-time prerender has no browser to show an overlay in. Placeholders keep
+    // server rendering alive; the browser bundle still throws below.
+    if (typeof window === 'undefined') {
+      return {
+        VITE_SUPABASE_URL: 'https://placeholder.supabase.co',
+        VITE_SUPABASE_ANON_KEY: 'placeholder-anon-key',
+        VITE_APP_URL: appUrl,
+      };
+    }
+
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       const showOverlay = () => {
         const root = document.getElementById('root');
