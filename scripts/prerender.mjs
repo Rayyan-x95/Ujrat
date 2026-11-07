@@ -95,7 +95,9 @@ try {
 const baseHtml = readFileSync(source, 'utf8');
 // SPA shell for app routes (/login, /dashboard, /portal…): same head, empty root.
 // Those paths rewrite here, so they never hydrate against marketing markup.
-writeFileSync(join(distDir, 'app.html'), baseHtml);
+// Header rules match the request path, not the rewrite target, so noindex has to
+// live in the document.
+writeFileSync(join(distDir, 'app.html'), setMeta(baseHtml, 'name', 'robots', 'noindex, follow'));
 let withContent = 0;
 for (const route of ROUTES) {
   let html = renderRoute(baseHtml, route);

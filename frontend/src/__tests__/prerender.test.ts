@@ -74,5 +74,9 @@ describe('prerender output (post-build)', () => {
       expect(html).toContain(`<title>${esc(title)}</title>`);
       expect(html).toContain(`rel="canonical" href="https://ujrat.ninety5.in${p}"`);
     }
+    // App routes rewrite to the empty-root shell; it must not be indexable.
+    const app = read(join(distDir, 'app.html'));
+    expect(app).toContain('name="robots" content="noindex, follow"');
+    expect(app).toContain('<div id="root"></div>');
   });
 });
