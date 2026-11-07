@@ -378,7 +378,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
         </div>
       )
     }
-  ], [onShowInvoiceDetail, vpa]);
+  ], [onShowInvoiceDetail, vpa, editLoading, startEditInvoice]);
 
   return (
     <div className="space-y-6.5 animate-slide-up">

@@ -41,7 +41,7 @@ Ujrat follows a **Feature-Driven Modular Architecture** combined with **Clean Do
 
 ```text
 ujrat/ (repo root)
-├── package.json                   # Root orchestrator (npm workspaces: ["frontend", "backend", "packages/*"])
+├── package.json                   # Root orchestrator (npm workspaces: ["frontend", "packages/*"])
 ├── vercel.json                    # Vercel deployment & security headers (outputDirectory: frontend/dist)
 ├── .github/workflows/ci.yml       # Workspace-aware CI verification pipeline
 │
@@ -58,20 +58,11 @@ ujrat/ (repo root)
 │       ├── __tests__/             # 227 unit & integration tests
 │       └── main.tsx               # Entry bootstrap
 │
-├── backend/                       # @ujrat/backend (Python FastAPI + Supabase backend)
-│   ├── app/                       # FastAPI operations service (not wired to the SPA)
-│   │   ├── api/v1/                # REST endpoints (/tax, /payments, /clients, /invoices, /portal)
-│   │   ├── core/                  # Settings (config.py), JWT auth (security.py), Supabase (database.py)
-│   │   ├── services/              # Indian GST Tax Engine 2.0, UPI links/UTR, state machines
-│   │   └── main.py                # FastAPI ASGI application entry point
-│   ├── tests/                     # Backend Python unit & integration tests (unittest)
+├── backend/                       # Supabase infrastructure (migrations, edge functions, validators, k6)
 │   ├── supabase/                  # Authoritative Supabase directory
 │   │   ├── migrations/            # 000_baseline.sql and timestamped migrations
 │   │   └── functions/             # Deno Edge Functions (payment-webhook, create-signed-url)
 │   ├── scripts/                   # Validation scripts (validate-migrations.mjs, validate-security.mjs)
-│   ├── pyproject.toml             # Python packaging, ruff, pytest settings
-│   ├── requirements.txt           # Python backend dependencies
-│   ├── package.json               # Backend npm workspace configuration
 │   └── k6/                        # Performance and load testing suite
 │
 └── packages/

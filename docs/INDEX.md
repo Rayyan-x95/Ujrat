@@ -31,9 +31,8 @@ Welcome to the comprehensive documentation portal for **Ujrat** — India's zero
 ## ⚡ Quick Commands Cheatsheet
 
 ```bash
-# Start Development Servers
+# Start Development Server(s)
 npm run dev          # Frontend SPA (http://localhost:5173)
-npm run dev:backend  # Python FastAPI Backend (http://localhost:8000)
 
 # Run Vitest Suite (22 test files, 160 tests)
 npm test             # Vitest test suite (25 test files, 234 tests)

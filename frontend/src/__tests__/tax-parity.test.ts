@@ -2,9 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { calculateInvoiceTax } from '../features/invoices/tax/InvoiceCalculator';
 import golden from './tax-parity.json';
 
-// Shared golden fixture with backend/tests/test_parity.py - Python engine and
-// TypeScript engine must reproduce the same numbers on the same statutory
-// cases, or a money-vs-statutory-output drift exists somewhere in the app.
+// Golden parity fixture: the TypeScript engine must reproduce these numbers
+// exactly - identical integer-paise arithmetic on the statutory cases.
 const cases = golden.cases as Array<{
   name: string;
   input: Record<string, unknown>;

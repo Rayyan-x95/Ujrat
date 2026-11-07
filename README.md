@@ -236,16 +236,9 @@ Automatic emails for
 
 ---
 
-## Backend (`backend/`)
+## Backend (`backend/supabase/`)
 
-* **Python Operations Backend** (`backend/app/`):
-  * Python 3.12+ with FastAPI & Uvicorn
-  * Pydantic v2 & Pydantic Settings
-  * PyJWT Bearer authentication & workspace scoping
-  * Indian GST Tax Engine 2.0 with integer paise math
-  * NPCI UPI deep links & UTR validation
-  * Authoritative state machines (`state_machines.py`)
-* **Supabase Infrastructure** (`backend/supabase/`):
+* **Supabase Infrastructure**:
   * PostgreSQL & Row-Level Security (RLS)
   * Timestamped database migrations & baseline
   * Deno Edge Functions (email dispatch, payment webhooks)
@@ -278,16 +271,10 @@ ujrat/
 │   ├── vite.config.ts
 │   └── package.json
 │
-├── backend/                      # Python backend & Supabase (@ujrat/backend)
-│   ├── app/                       # FastAPI operations service (not wired to the SPA)
-│   │   ├── api/v1/               # Endpoints (tax, payments, clients, projects, etc.)
-│   │   ├── core/                 # Config, security, database client
-│   │   └── services/             # Tax engine, UPI service, state machines
-│   ├── tests/                    # Python unit & API tests (unittest)
+├── backend/                      # Supabase infra (migrations, edge functions, validators, k6)
 │   ├── supabase/                 # Migrations & Deno Edge Functions
 │   ├── scripts/                  # Migration & security validators
-│   ├── pyproject.toml            # Python packaging & tool configs
-│   └── requirements.txt          # Python dependencies
+│   └── k6/                       # Load tests
 │
 ├── packages/
 │   └── shared-types/             # Shared database types (@ujrat/shared-types)
@@ -484,9 +471,6 @@ SMTP_FROM="Ujrat <noreply@ujrat.ninety5.in>"
 ```bash
 # Start Vite frontend dev server (http://localhost:5173)
 npm run dev
-
-# Start FastAPI backend server (http://localhost:8000)
-npm run dev:backend
 ```
 
 ---
@@ -494,14 +478,8 @@ npm run dev:backend
 ## Testing & Verification
 
 ```bash
-# Run full test suite (frontend Vitest + backend Python unittest)
-npm run test:all
-
 # Run frontend Vitest suite (24 suites, 227 tests)
 npm test
-
-# Run backend Python test suite
-npm run test:backend
 
 # TypeScript typecheck across monorepo project references
 npm run typecheck

@@ -23,18 +23,14 @@ cd Ujrat
 # 2. Install Node monorepo dependencies
 npm install
 
-# 3. Install Python backend dependencies
-pip install -r backend/requirements.txt
-
-# 4. Configure environment variables
+# 3. Configure environment variables
 cp .env.example .env
 
-# 5. Start local development servers
+# 4. Start local development server
 npm run dev          # Frontend Vite SPA at http://localhost:5173
-npm run dev:backend  # Backend FastAPI at http://localhost:8000
 ```
 
-The web application will be available at `http://localhost:5173` and the backend API documentation at `http://localhost:8000/docs`.
+The web application will be available at `http://localhost:5173`.
 
 ---
 
@@ -61,12 +57,10 @@ The web application will be available at `http://localhost:5173` and the backend
 ## 4. Common Scripts
 
 * **`npm run dev`**: Starts Vite development server for the frontend (`@ujrat/frontend`).
-* **`npm run dev:backend`**: Starts FastAPI backend with auto-reload at `http://localhost:8000`.
 * **`npm run build`**: Builds production bundle into `dist/` folder via `tsc -b && vite build`.
 * **`npm run typecheck`**: Compiles TypeScript project references across all workspaces (`tsc -b --noEmit`).
 * **`npm run lint`**: Lints the codebase with oxlint.
 * **`npm test`**: Executes the 25 Vitest frontend test suites (234 tests) once.
-* **`npm run test:backend`**: Runs Python unit & API tests with `unittest`.
 * **`npm run test:all`**: Runs the complete test suite (frontend Vitest + backend Python).
 * **`npm run validate:migrations`**: Validates SQL migration sequence, table naming, and RPC contracts.
 * **`npm run validate:security`**: Verifies RLS invariants, HMAC payment webhook guards, and storage policies.

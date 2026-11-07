@@ -1,38 +1,28 @@
 # AGENTS.md
 
-Ujrat: React 19 + TypeScript + Vite SPA (Visuals & Presentation) decoupled from Python FastAPI + Pydantic v2 + Supabase (Authoritative Operations, Tax Engine, UPI, State Machines, Database Mutations).
+Ujrat: React 19 + TypeScript + Vite SPA talking to Supabase directly (RLS + SECURITY DEFINER RPCs + Deno edge functions). The Python FastAPI backend was removed — it was never wired to the frontend.
 
 ## Commands
 
 ```bash
 npm run dev          # Vite dev server at http://localhost:5173
-npm run dev:backend  # Python FastAPI server at http://localhost:8000
 npm run typecheck    # tsc -b --noEmit (project references)
 npm test             # Vitest frontend tests (single run)
-npm run test:backend # Python domain & API tests (unittest)
-npm run test:all     # Full test suite (frontend Vitest + backend Python)
 npm run lint         # oxlint
 npm run build        # tsc -b && vite build
 ```
 
 - Single unit test (frontend): `npx vitest run src/__tests__/finance-tax-engine.test.ts` (add `-t "name"` to filter).
-- Single unit test (backend): `python -m unittest backend.tests.test_services` or `python -m unittest backend.tests.test_api`.
 - E2E: `npm run test:e2e`. Playwright auto-starts the dev server, runs **serially** (`workers: 1`, `fullyParallel: false`) because lifecycle specs share external backend state, and executes every spec against 5 projects (chromium, firefox, webkit, Mobile Chrome, Mobile Safari). Load tests (`test:load*`) need k6 installed separately.
-- CI (`.github/workflows/ci.yml`, single `verify` job): migration + security validators, secret scan, typecheck, lint, frontend (Vitest) & backend (Python unittest) test suites, `npm audit --omit=dev --audit-level=high`, production build. E2E is intentionally NOT in CI (needs seeded external backend) — run `npm run test:e2e` against staging before release.
+- CI (`.github/workflows/ci.yml`, single `verify` job): migration + security validators, secret scan, typecheck, lint, frontend (Vitest) test suite, `npm audit --omit=dev --audit-level=high`, production build. E2E is intentionally NOT in CI (needs seeded external backend) — run `npm run test:e2e` against staging before release.
 - Lint baseline is dirty: oxlint reports 0 errors and ~270 warnings (mostly `no-explicit-any`). Don't mass-fix; just don't add new violations.
 
-## Architecture (Monorepo Workspaces & Python Backend)
+## Architecture (Monorepo Workspaces)
 
 Ujrat is organized as an npm-workspaces monorepo:
 
-- `frontend/`: React 19 + TypeScript + Vite SPA, UI features, presentation components, Vitest tests, Tailwind CSS 4. Talks to Supabase directly (RLS + `SECURITY DEFINER` RPCs); it does not call the Python backend.
-- `backend/`:
-  - `backend/app/`: Python operations backend (FastAPI, Pydantic v2, PyJWT). Not currently wired to the frontend — no SPA code imports it.
-    - `app/core/`: Settings (`config.py`), JWT authentication & workspace scoping (`security.py`), Supabase client (`database.py`).
-    - `app/services/`: Indian GST Tax Engine 2.0 with integer paise math (`tax_engine.py`), NPCI UPI deep links & UTR validation (`upi_service.py`), and authoritative state machines (`state_machines.py`).
-    - `app/api/v1/`: Endpoints for `/tax`, `/payments`, `/clients`, `/projects`, `/invoices`, `/portal`.
-    - `backend/tests/`: Python unit & integration tests (`test_services.py`, `test_api.py`).
-  - `backend/supabase/`: Supabase migrations, Deno Edge Functions, migration and security validation scripts, k6 tests.
+- `frontend/`: React 19 + TypeScript + Vite SPA, UI features (including the Indian GST tax engine in `features/invoices/tax/`), presentation components, Vitest tests, Tailwind CSS 4. Talks to Supabase directly (RLS + `SECURITY DEFINER` RPCs); there is no Python server.
+- `backend/supabase/`: Supabase migrations, Deno Edge Functions, migration and security validation scripts, k6 tests.
 - `packages/shared-types/`: Common database types and shared contracts.
 
 - Feature-driven DDD in `frontend/src/features/<domain>/` holds `components/`, `hooks/`, `repositories/`, `services/`, and a barrel `index.ts`.
