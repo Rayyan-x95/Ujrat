@@ -110,50 +110,58 @@ let portalUrl = '';
 test.describe.configure({ retries: 1 });
 
 test.describe('Complete Freelancer Business Lifecycle', () => {
-  test.beforeAll(async ({ page }) => {
-    await signUpTestUser(page);
+  test.beforeAll(async ({ browser }) => {
+    // Fixtures for the whole run are built in their own context (per-test
+    // `page` fixtures are not allowed in beforeAll).
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    try {
+      await signUpTestUser(page);
 
-    await supabase.auth.signInWithPassword({
-      email: testUserEmail,
-      password: testUserPassword,
-    });
+      await supabase.auth.signInWithPassword({
+        email: testUserEmail,
+        password: testUserPassword,
+      });
 
-    const { data: { user } } = await supabase.auth.getUser();
-    expect(user?.id).toBeTruthy();
+      const { data: { user } } = await supabase.auth.getUser();
+      expect(user?.id).toBeTruthy();
 
-    const { data: workspaces } = await supabase.from('workspaces').select('id').eq('profile_id', user!.id).is('deleted_at', null);
-    workspaceId = workspaces?.[0]?.id;
-    expect(workspaceId).toBeTruthy();
+      const { data: workspaces } = await supabase.from('workspaces').select('id').eq('profile_id', user!.id).is('deleted_at', null);
+      workspaceId = workspaces?.[0]?.id;
+      expect(workspaceId).toBeTruthy();
 
-    await supabase
-      .from('workspace_settings')
-      .update({ upi_id: 'test-payout@upi' })
-      .eq('workspace_id', workspaceId);
+      await supabase
+        .from('workspace_settings')
+        .update({ upi_id: 'test-payout@upi' })
+        .eq('workspace_id', workspaceId);
 
-    const clientResult = await createClientViaAPI(workspaceId, {
-      name: 'E2E Client Corp',
-      email: `client-e2e-${timestamp}@example.com`,
-      company: 'E2E Client Corp',
-      phone: '+1234567890',
-    });
-    if (clientResult.error || !clientResult.data) throw clientResult.error || new Error('Client was not created.');
-    clientId = clientResult.data.id;
-    expect(clientId).toBeTruthy();
+      const clientResult = await createClientViaAPI(workspaceId, {
+        name: 'E2E Client Corp',
+        email: `client-e2e-${timestamp}@example.com`,
+        company: 'E2E Client Corp',
+        phone: '+1234567890',
+      });
+      if (clientResult.error || !clientResult.data) throw clientResult.error || new Error('Client was not created.');
+      clientId = clientResult.data.id;
+      expect(clientId).toBeTruthy();
 
-    const projectResult = await createProjectViaAPI(workspaceId, clientId, {
-      name: 'E2E Test Project',
-      budget: 50000,
-      timeline_start: '2025-01-15',
-      timeline_end: '2025-03-15',
-      notes: 'E2E test project for full lifecycle',
-    });
-    if (projectResult.error || !projectResult.data) throw projectResult.error || new Error('Project was not created.');
-    projectId = projectResult.data.id;
-    expect(projectId).toBeTruthy();
+      const projectResult = await createProjectViaAPI(workspaceId, clientId, {
+        name: 'E2E Test Project',
+        budget: 50000,
+        timeline_start: '2025-01-15',
+        timeline_end: '2025-03-15',
+        notes: 'E2E test project for full lifecycle',
+      });
+      if (projectResult.error || !projectResult.data) throw projectResult.error || new Error('Project was not created.');
+      projectId = projectResult.data.id;
+      expect(projectId).toBeTruthy();
 
-    portalToken = await getPortalToken(projectId);
-    expect(portalToken).toBeTruthy();
-    portalUrl = `/portal/${portalToken}`;
+      portalToken = await getPortalToken(projectId);
+      expect(portalToken).toBeTruthy();
+      portalUrl = `/portal/${portalToken}`;
+    } finally {
+      await context.close();
+    }
   });
 
   test('proposal: freelancer shares, client approves', async ({ page }) => {

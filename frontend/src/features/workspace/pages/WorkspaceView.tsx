@@ -119,7 +119,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ view }) => {
         profileId={profileId}
         onQuickAction={handleQuickAction}
       >
-        <ErrorBoundary key={`${view}-${projectId || ''}`}>
+        <ErrorBoundary key={`${view}-${projectId || ''}`} workspaceId={workspaceId}>
           <React.Suspense fallback={<div className="flex items-center justify-center p-24"><Spinner size="lg" /></div>}>
             {view === 'project-details' && projectId ? (
               <ProjectDetailsTemplate

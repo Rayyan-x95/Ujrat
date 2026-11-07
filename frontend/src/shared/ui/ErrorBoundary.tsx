@@ -1,9 +1,12 @@
 import React from 'react';
 import { Button } from './Button';
+import { LoggingService } from '@/features/auth/services/LoggingService';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
+  /** Tag the report with the workspace so it lands in that workspace's logs. */
+  workspaceId?: string;
 }
 
 interface ErrorBoundaryState {
@@ -25,6 +28,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('[Ujrat ErrorBoundary]', error, errorInfo);
+    void LoggingService.reportClientError(this.props.workspaceId ?? null, error, {
+      componentStack: (errorInfo.componentStack ?? '').slice(0, 800),
+    });
   }
 
   handleCopyDetails = () => {
