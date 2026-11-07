@@ -4,6 +4,7 @@ dist/
 dist-ssr/
 .rollup.cache/
 .vite/
+.vitest/
 .vercel/
 
 # ─── Environment & Secrets ────────────────────────────────────────────────

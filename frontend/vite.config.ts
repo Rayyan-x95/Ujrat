@@ -10,7 +10,7 @@ import { existsSync } from 'node:fs'
 const prerenderPlugin = () => ({
   name: 'ujrat-prerender',
   closeBundle() {
-    const script = path.resolve(__dirname, '../scripts/prerender.mjs')
+    const script = path.resolve(import.meta.dirname, '../scripts/prerender.mjs')
     if (existsSync(script)) execFileSync(process.execPath, [script], { stdio: 'inherit' })
   },
 })
@@ -19,11 +19,11 @@ const prerenderPlugin = () => ({
 export default defineConfig({
   resolve: {
     alias: {
-      '@/app': path.resolve(__dirname, './src/app'),
-      '@/shared': path.resolve(__dirname, './src/shared'),
-      '@/features': path.resolve(__dirname, './src/features'),
-      '@/supabase': path.resolve(__dirname, '../backend/supabase'),
-      '@ujrat/shared-types': path.resolve(__dirname, '../packages/shared-types/src'),
+      '@/app': path.resolve(import.meta.dirname, './src/app'),
+      '@/shared': path.resolve(import.meta.dirname, './src/shared'),
+      '@/features': path.resolve(import.meta.dirname, './src/features'),
+      '@/supabase': path.resolve(import.meta.dirname, '../backend/supabase'),
+      '@ujrat/shared-types': path.resolve(import.meta.dirname, '../packages/shared-types/src'),
     },
   },
   plugins: [
