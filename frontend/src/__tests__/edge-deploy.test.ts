@@ -17,10 +17,15 @@ describe('edge deploy config', () => {
     expect(entries).not.toContain('health');
   });
 
-  it('payment-webhook verifies x-webhook-signature, not Razorpay/HMAC', () => {
+  it('payment-webhook verifies HMAC x-webhook-signature, not Razorpay', () => {
     expect(PAYMENT_WEBHOOK_SRC).toContain('x-webhook-signature');
     expect(PAYMENT_WEBHOOK_SRC).not.toContain('Razorpay');
-    expect(PAYMENT_WEBHOOK_SRC).not.toContain('HMAC');
+    // HMAC-SHA256 of the raw body compared in constant time — the secret
+    // itself must never be the signature (static compare leaked the secret).
+    expect(PAYMENT_WEBHOOK_SRC).toContain('HMAC');
+    expect(PAYMENT_WEBHOOK_SRC).toContain('verifyHmacSignature');
+    // reconcile_gateway_payment() stores rupees — paise must be converted.
+    expect(PAYMENT_WEBHOOK_SRC).toContain('amountPaise / 100');
   });
 
   it('create-signed-url sets Cache-Control on its response', () => {

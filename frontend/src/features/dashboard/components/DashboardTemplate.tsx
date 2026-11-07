@@ -125,7 +125,7 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, sub, icon: Icon, icon
 
 export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceId, profileId }) => {
   const { metrics, isLoading, isPending, isError, error, refetch } = useDashboard(workspaceId, profileId);
-  const { settings } = useWorkspaceSettings(workspaceId, profileId);
+  const { settings, isLoading: settingsLoading } = useWorkspaceSettings(workspaceId, profileId);
   const navigate = useNavigate();
   const [chartRange, setChartRange] = useState<'month' | 'week'>('month');
   const [hoveredChartIdx, setHoveredChartIdx] = useState<number | null>(null);
@@ -169,8 +169,9 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
 
     const isDataPresent = chartValuesList.some(v => v > 0);
     const rawMax = Math.max(...chartValuesList);
-    // When no data, use benchmark scale ceiling (50,000) so axis labels show ₹50k, ₹25k, ₹0
-    const maxVal = isDataPresent && rawMax > 0 ? Math.max(Math.ceil(rawMax * 1.15), 1000) : 50000;
+    // No data → ceiling 1,000 so the axis stays honest (a fake ₹50k benchmark
+    // axis implied revenue that doesn't exist).
+    const maxVal = isDataPresent && rawMax > 0 ? Math.max(Math.ceil(rawMax * 1.15), 1000) : 1000;
     const W = 500;
     const H = 130;
     const padLeft = 52;
@@ -280,7 +281,9 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
   const unpaidInvoicesCount = metrics.pipeline.find(p => p.label === 'Invoice Shared')?.count || 0;
   const totalPipelineItems = actionItems.reduce((s, i) => s + i.count, 0);
 
-  const showOnboarding = !dismissOnboarding && !(metrics.totalClients > 0 && metrics.activeProjects > 0 && metrics.outstanding > 0);
+  // Onboarding hides once the user has clients + projects — outstanding
+  // being > 0 never happens for a fully-paid freelancer.
+  const showOnboarding = !dismissOnboarding && !(metrics.totalClients > 0 && metrics.activeProjects > 0);
 
   return (
     <div className="space-y-7 animate-slide-up">
@@ -302,8 +305,8 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
         </div>
       </header>
 
-      {/* ── UPI Readiness Banner ─────────────────────────────────────────────── */}
-      {!settings?.upi_id && (
+      {/* ── UPI Readiness Banner (only once settings have loaded — no flash) ── */}
+      {!settingsLoading && !settings?.upi_id && (
         <button
           onClick={() => navigate('/settings')}
           className="w-full flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left cursor-pointer transition-colors hover:bg-amber-500/15"
@@ -511,6 +514,9 @@ export const DashboardTemplate: React.FC<DashboardTemplateProps> = ({ workspaceI
                   )}
                 </div>
                 <p className="text-[11px] text-muted-foreground m-0">{revenueComparison.diffLabel}</p>
+                {chartRange === 'week' && (
+                  <p className="text-[10px] text-muted-foreground/70 m-0">Estimated daily average — monthly revenue ÷ 30 (daily revenue isn't tracked yet)</p>
+                )}
               </div>
 
               {/* Range Toggle */}

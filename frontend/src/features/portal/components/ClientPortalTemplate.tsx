@@ -31,6 +31,10 @@ interface ClientPortalProps {
   portalToken: string;
 }
 
+// Only these statuses can actually settle — cancelled/draft invoices must
+// not render a payable UPI card (clients could pay dead invoices).
+const PAYABLE_STATUSES = ['sent', 'viewed', 'pending_verification', 'partially_paid', 'overdue'];
+
 export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken }) => {
   const addToast = useToastStore((state) => state.addToast);
   const {
@@ -381,7 +385,7 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
                     <span>Settle Payout ({selectedInvoice.invoice_number})</span>
                   </h3>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => window.open(`/portal/${portalToken}/invoice/${selectedInvoice.id}/print`, '_blank')} icon={<Download className="h-3.5 w-3.5" />}>
+                    <Button variant="outline" size="sm" onClick={() => window.open(`/portal/${portalToken}/invoice/${selectedInvoice.id}/print`, '_blank', 'noopener,noreferrer')} icon={<Download className="h-3.5 w-3.5" />}>
                       Print PDF
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => setSelectedInvoice(null)}>Close</Button>
@@ -391,22 +395,22 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between text-muted-foreground">
                     <span>Subtotal Base Value</span>
-                    <span className="font-mono">₹{selectedInvoice.subtotal.toFixed(2)}</span>
+                    <span className="font-mono">₹{(selectedInvoice.subtotal ?? 0).toFixed(2)}</span>
                   </div>
                   {selectedInvoice.is_interstate ? (
                     <div className="flex justify-between text-muted-foreground">
                       <span>IGST Tax Value</span>
-                      <span className="font-mono">₹{selectedInvoice.igst.toFixed(2)}</span>
+                      <span className="font-mono">₹{(selectedInvoice.igst ?? 0).toFixed(2)}</span>
                     </div>
                   ) : (
                     <>
                       <div className="flex justify-between text-muted-foreground">
                         <span>CGST Tax Value</span>
-                        <span className="font-mono">₹{selectedInvoice.cgst.toFixed(2)}</span>
+                        <span className="font-mono">₹{(selectedInvoice.cgst ?? 0).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-muted-foreground">
                         <span>SGST Tax Value</span>
-                        <span className="font-mono">₹{selectedInvoice.sgst.toFixed(2)}</span>
+                        <span className="font-mono">₹{(selectedInvoice.sgst ?? 0).toFixed(2)}</span>
                       </div>
                     </>
                   )}
@@ -416,7 +420,7 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
                   </div>
                 </div>
 
-                {selectedInvoice.status !== 'paid' && settings?.upi_id ? (
+                {PAYABLE_STATUSES.includes(selectedInvoice.status) && settings?.upi_id ? (
                   <UPIPaymentCard
                     workspaceId={project?.workspace_id || ''}
                     invoiceId={selectedInvoice.id}

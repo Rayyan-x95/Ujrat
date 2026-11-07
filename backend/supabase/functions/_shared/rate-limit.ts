@@ -44,6 +44,8 @@ function isRateLimitRow(value: unknown): value is RateLimitRow {
 
 // The RPC returns window_reset_at (end of the current window); retry_after_seconds
 // is only present on newer deployments. Accept both so the helper works either way.
+// Malformed responses default to a sane 60s backoff — returning 0 would make
+// clients retry instantly and defeat the limiter.
 function computeRetryAfterSeconds(row: RateLimitRow): number {
   if (typeof row.retry_after_seconds === 'number') {
     return row.retry_after_seconds
@@ -51,10 +53,10 @@ function computeRetryAfterSeconds(row: RateLimitRow): number {
 
   const resetAt = Date.parse(row.window_reset_at ?? '')
   if (Number.isNaN(resetAt)) {
-    return 0
+    return 60
   }
 
-  return Math.max(0, Math.ceil((resetAt - Date.now()) / 1000))
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000))
 }
 
 async function hashPrincipal(principal: string): Promise<string> {
@@ -79,11 +81,11 @@ export async function consumeRateLimit(
   })
 
   if (error) {
-    return { allowed: false, error: error.message, retryAfterSeconds: 0 }
+    return { allowed: false, error: error.message, retryAfterSeconds: 60 }
   }
 
   if (!Array.isArray(data) || data.length !== 1 || !isRateLimitRow(data[0])) {
-    return { allowed: false, error: 'Invalid rate limit response', retryAfterSeconds: 0 }
+    return { allowed: false, error: 'Invalid rate limit response', retryAfterSeconds: 60 }
   }
 
   const row = data[0]

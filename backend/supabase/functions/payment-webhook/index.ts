@@ -6,6 +6,26 @@ import { getCorsHeaders } from '../_shared/cors.ts'
 const ALLOWED_METHODS = 'POST, OPTIONS';
 const EXTRA_HEADERS = 'x-webhook-signature';
 
+async function hmacHex(message: string, secret: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const digest = await crypto.subtle.sign('HMAC', key, encoder.encode(message));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function verifyHmacSignature(rawBody: string, secret: string, signature: string): Promise<boolean> {
+  const expected = await hmacHex(rawBody, secret);
+  // Constant-time compare (crypto.subtle has no timingSafeEqual in Deno).
+  if (expected.length !== signature.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) {
+    diff |= expected.charCodeAt(i) ^ signature.toLowerCase().charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 serve(async (req: Request) => {
   const corsHeaders = {
     ...getCorsHeaders(req, EXTRA_HEADERS),
@@ -67,7 +87,9 @@ serve(async (req: Request) => {
 
     const rawBody = await req.text()
     const signature = req.headers.get('x-webhook-signature')
-    if (!signature || signature !== webhookSecret) {
+    // Verify HMAC-SHA256 hex of the raw body against the shared secret with a
+    // constant-time compare — the secret itself must never be the signature.
+    if (!signature || !(await verifyHmacSignature(rawBody, webhookSecret, signature))) {
       return new Response(JSON.stringify({ error: 'Invalid webhook signature' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -101,7 +123,7 @@ serve(async (req: Request) => {
       gateway = payload.gateway || 'upi'
     }
 
-    if (!invoiceId || !amountPaise || !transactionId) {
+    if (!invoiceId || !amountPaise || amountPaise <= 0 || !transactionId) {
       return new Response(JSON.stringify({ 
         received: true, 
         message: 'Event ignored: Missing required invoice or transaction mapping',
@@ -112,10 +134,11 @@ serve(async (req: Request) => {
       })
     }
 
-    // 4. Atomic database reconciliation via SECURITY DEFINER RPC
+    // 4. Atomic database reconciliation via SECURITY DEFINER RPC.
+    // reconcile_gateway_payment() stores RUPEES — convert paise → rupees here.
     const { data: reconcileResult, error: rpcError } = await adminClient.rpc('reconcile_gateway_payment', {
       p_invoice_id: invoiceId,
-      p_amount: amountPaise,
+      p_amount: amountPaise / 100,
       p_transaction_id: transactionId,
       p_gateway: gateway,
       p_metadata: payload

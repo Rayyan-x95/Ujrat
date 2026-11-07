@@ -73,12 +73,13 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
     let gst = 0;
     let out = 0;
     for (const inv of invoices) {
+      if (inv.status === 'draft' || inv.status === 'cancelled') continue;
       const tot = inv.total || 0;
       invoiced += tot;
-      gst += (inv.cgst || 0) + (inv.sgst || 0) + (inv.igst || 0);
-      if (inv.status !== 'paid') {
-        out += tot;
+      if (inv.status === 'paid') {
+        gst += (inv.cgst || 0) + (inv.sgst || 0) + (inv.igst || 0);
       }
+      out += inv.outstanding_balance ?? tot;
     }
     return { totalInvoiced: invoiced, totalGst: gst, outstanding: out };
   }, [invoices]);

@@ -4,6 +4,8 @@ import { getPaginationBounds, toPaginatedResult, softDeleteRecord } from '@/shar
 import type { Payment, PaymentInsert, PaymentUpdate, QueryOptions, PaginatedResult } from '@/shared/types';
 
 export class PaymentRepository {
+  private static readonly sortableColumns = new Set(['created_at', 'payment_date', 'amount', 'status']);
+
   static async getAll(
     workspaceId: string,
     options: QueryOptions = {}
@@ -27,7 +29,9 @@ export class PaymentRepository {
       query = query.eq('status', options.filter.status as Payment['status']);
     }
 
-    const sortBy = options.sortBy || 'created_at';
+    const sortBy = options.sortBy && this.sortableColumns.has(options.sortBy)
+      ? options.sortBy
+      : 'created_at';
     const sortOrder = options.sortOrder || 'desc';
     query = query.order(sortBy, { ascending: sortOrder === 'asc' });
 
@@ -63,13 +67,23 @@ export class PaymentRepository {
   }
 
   static async create(workspaceId: string, paymentData: PaymentInsert): Promise<Payment> {
+    // Whitelist mutable fields — callers must not smuggle privileged columns
+    // (e.g. status: 'completed') through the insert payload.
+    const insertPayload = {
+      workspace_id: workspaceId,
+      invoice_id: paymentData.invoice_id,
+      amount: paymentData.amount,
+      payment_method: paymentData.payment_method || 'UPI',
+      transaction_reference: paymentData.transaction_reference,
+      payment_date: paymentData.payment_date,
+      status: 'pending' as const,
+      notes: paymentData.notes || null,
+      verifier_id: null,
+      verified_at: null,
+    };
     const { data, error } = await supabase
       .from('payments')
-      .insert({
-        ...paymentData,
-        workspace_id: workspaceId,
-        status: paymentData.status || 'pending',
-      })
+      .insert(insertPayload)
       .select()
       .single();
 

@@ -119,6 +119,22 @@ export class ContractRepository {
   }
 
   static async addSignature(workspaceId: string, signatureData: ContractSignatureInsert): Promise<ContractSignature> {
+    // The insert carries the caller's workspace_id but references a contract —
+
+    // verify the contract belongs to this workspace first, or signatures can
+    // be attached to another tenant's contract (RLS won't catch it: the
+    // insert row itself carries the caller's workspace).
+    const { data: contract, error: contractError } = await supabase
+      .from('contracts')
+      .select('id')
+      .eq('id', signatureData.contract_id)
+      .eq('workspace_id', workspaceId)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (contractError || !contract) {
+      throw new Error('Contract not found in workspace');
+    }
+
     const { data, error } = await supabase
       .from('contract_signatures')
       .insert({

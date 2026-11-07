@@ -6,9 +6,7 @@ import { getCorsHeaders } from "../_shared/cors.ts"
 const SIGNED_URL_TTL_SECONDS = 60 * 60
 const SIGNED_URL_RATE_LIMIT_MAX_REQUESTS = 30
 const SIGNED_URL_RATE_LIMIT_WINDOW_SECONDS = 15 * 60
-const PAID_CHECK_CACHE_TTL_MS = 60_000
 const SUPPORTED_BUCKETS = new Set(['deliverables', 'invoices'])
-const paidCheckCache = new Map<string, { expires: number; paid: boolean }>()
 
 type CreateSignedUrlRequest = {
   bucket: string
@@ -151,22 +149,16 @@ serve(async (req) => {
 
     // Escrow: deliverables stay locked until every issued invoice is settled.
     // Draft invoices are excluded by get_portal_invoices, so an unpublished
-    // draft cannot lock a delivered project.
+    // draft cannot lock a delivered project. Checked live on every request
+    // (a cached "paid" verdict let URLs outlive a revocation).
     if (bucket === 'deliverables') {
-      const cached = paidCheckCache.get(token)
-      let hasUnpaidInvoice: boolean
-      if (cached && cached.expires > Date.now()) {
-        hasUnpaidInvoice = !cached.paid
-      } else {
-        const { data: invoices, error: invoiceErr } = await supabase.rpc('get_portal_invoices', { token_val: token })
-        if (invoiceErr) {
-          return json({ error: 'Unable to verify payment status' }, 503)
-        }
-        hasUnpaidInvoice = ((invoices as PortalInvoice[]) || []).some(
-          (invoice) => invoice.status !== 'paid' && invoice.status !== 'cancelled',
-        )
-        paidCheckCache.set(token, { expires: Date.now() + PAID_CHECK_CACHE_TTL_MS, paid: !hasUnpaidInvoice })
+      const { data: invoices, error: invoiceErr } = await supabase.rpc('get_portal_invoices', { token_val: token })
+      if (invoiceErr) {
+        return json({ error: 'Unable to verify payment status' }, 503)
       }
+      const hasUnpaidInvoice = ((invoices as PortalInvoice[]) || []).some(
+        (invoice) => invoice.status !== 'paid' && invoice.status !== 'cancelled',
+      )
       if (hasUnpaidInvoice) {
         return json({ error: 'Downloads unlock once all invoices are paid' }, 403)
       }
@@ -182,7 +174,7 @@ serve(async (req) => {
       return json({ error: 'Failed to create signed URL' }, 500)
     }
 
-    return json({ signedUrl: signedData.signedUrl }, 200, { 'Cache-Control': 'public, max-age=3600, immutable' })
+    return json({ signedUrl: signedData.signedUrl }, 200, { 'Cache-Control': 'private, max-age=0' })
   } catch (error: unknown) {
     console.error('Unexpected signed URL failure:', error)
     return json({ error: 'Internal server error' }, 500)

@@ -123,6 +123,28 @@ export class PaymentService {
         throw new Error(utrValidation.error);
       }
 
+      // A receipt is proof of payment — never issue one against an invoice
+      // that isn't settled, or without a completed payment matching the UTR.
+      const invoice = await InvoiceRepository.getById(workspaceId, params.invoiceId);
+      if (!invoice) {
+        throw new Error('Invoice not found');
+      }
+      if (invoice.status !== 'paid') {
+        throw new Error(`Cannot issue a receipt: invoice ${invoice.invoice_number} is not marked paid`);
+      }
+      const completed = await PaymentRepository.getByInvoiceId(workspaceId, params.invoiceId);
+      const match = (completed || []).find(
+        (p) => p.status === 'completed' && (p.transaction_reference || '') === params.utrNumber.trim()
+      );
+      if (!match) {
+        throw new Error(`Cannot issue a receipt: no completed payment found for UTR ${params.utrNumber.trim()}`);
+      }
+      if (Number(params.amount) !== Number(match.amount)) {
+        throw new Error(
+          `Receipt amount ${params.amount} does not match completed payment amount ${match.amount}`
+        );
+      }
+
       const id = crypto.randomUUID();
       const now = new Date();
       const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
@@ -145,7 +167,7 @@ export class PaymentService {
         issuedAt: now.toISOString(),
       };
 
-      const isTestEnv = typeof process !== 'undefined' && (process.env?.NODE_ENV === 'test' || Boolean(process.env?.VITEST));
+      const isTestEnv = import.meta.env?.MODE === 'test';
       if (isTestEnv) {
         return { success: true, data: receipt };
       }
@@ -165,7 +187,7 @@ export class PaymentService {
           issued_at: receipt.issuedAt,
         });
 
-        const isTest = typeof process !== 'undefined' && (process.env?.NODE_ENV === 'test' || Boolean(process.env?.VITEST));
+        const isTest = import.meta.env?.MODE === 'test';
         if (error) {
           const isMissingSchema = error.code === '42P01';
 
@@ -177,7 +199,7 @@ export class PaymentService {
           }
         }
       } catch (err: any) {
-        const isTest = typeof process !== 'undefined' && (process.env?.NODE_ENV === 'test' || Boolean(process.env?.VITEST));
+        const isTest = import.meta.env?.MODE === 'test';
         const isMissingSchema = err?.code === '42P01';
 
         if (!isMissingSchema && !isTest) {
@@ -221,6 +243,21 @@ export class PaymentService {
       const invoice = await InvoiceRepository.getById(workspaceId, validated.invoice_id);
       if (!invoice) {
         throw new Error('Invoice not found');
+      }
+
+      if (invoice.status === 'paid') {
+        throw new Error('This invoice has already been fully paid');
+      }
+
+      // Payments can't exceed what the invoice still needs (parity with
+      // submitClientPaymentAttempt) — a ₹1 stub payment must not open a
+      // pending row and flip invoice state.
+      if (validated.amount <= 0) {
+        throw new Error('Payment amount must be a positive number.');
+      }
+      const outstandingBalance = invoice.outstanding_balance ?? invoice.total ?? 0;
+      if (validated.amount > outstandingBalance) {
+        throw new Error(`Submitted payment amount (${validated.amount}) exceeds outstanding invoice balance (${outstandingBalance}).`);
       }
 
       // Validate the state transition BEFORE inserting the payment row so a
@@ -515,29 +552,18 @@ export class PaymentService {
       });
 
       // When this approval fully settles the invoice, delegate to the atomic
-      // RPC instead of the JS read-compute-write below: it locks the invoice
-      // row, promotes matching pending payments (latest-UTR scope), inserts any
-      // top-up and flips the invoice to paid in a single transaction. Two
-      // concurrent approvals would otherwise both pass the preflight and
-      // double-write the outstanding balance.
+      // RPC: it locks the invoice row, promotes matching pending payments
+      // (re-deriving the latest UTR under the lock, not from a JS pre-read)
+      // and flips the invoice to paid — but only if completed payments
+      // already cover the total (no fabricated top-up). Two concurrent
+      // approvals would otherwise both pass the preflight and double-write
+      // the outstanding balance.
       let usesTransactionalRpc = false;
       // Tests exercise the repository-mocked JS path; the placeholder Supabase
       // in the test environment has no RPC server to delegate to.
       const isTestEnv = Boolean(import.meta.env?.VITEST);
       if (!isTestEnv && nextInvoiceStatus === 'paid' && invoice) {
-        try {
-          const { data: attempts } = await (supabase as any)
-            .from('payment_attempts')
-            .select('utr_number')
-            .eq('workspace_id', workspaceId)
-            .eq('invoice_id', invoice.id)
-            .order('attempted_at', { ascending: false })
-            .limit(1);
-          const latestUtr = attempts?.[0]?.utr_number || '';
-          usesTransactionalRpc = !latestUtr || latestUtr === payment.transaction_reference;
-        } catch {
-          // Attempt lookup unavailable: settle with the legacy JS path.
-        }
+        usesTransactionalRpc = true;
       }
 
       if (usesTransactionalRpc && invoice) {

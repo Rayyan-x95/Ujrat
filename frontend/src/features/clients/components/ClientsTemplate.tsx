@@ -51,6 +51,16 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
   const [nameError, setNameError] = useState('');
   const [emailError, setEmailError] = useState('');
 
+  const resetForm = () => {
+    setName('');
+    setEmail('');
+    setCompany('');
+    setPhone('');
+    setWhatsapp('');
+    setAddress('');
+    setNotes('');
+  };
+
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim()) {
@@ -72,8 +82,11 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
         address: address || null,
         notes: notes || null,
         status: 'active' as const,
-        gstin: null,
-        state: null,
+        // The dialog has no GSTIN/state inputs — preserve whatever the client
+        // already has when editing (hardcoding null wiped tax fields on
+        // every save and broke GST invoice tax math), null when adding.
+        gstin: clientToEdit?.gstin ?? null,
+        state: clientToEdit?.state ?? null,
       };
       if (clientToEdit) {
         await editClient({ id: clientToEdit.id, ...payload });
@@ -84,15 +97,7 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
         addToast('success', 'Client Added Successfully', `${name.trim()} has been added to your contacts.`);
       }
       setShowAdd(false);
-      
-      // Reset fields
-      setName('');
-      setEmail('');
-      setCompany('');
-      setPhone('');
-      setWhatsapp('');
-      setAddress('');
-      setNotes('');
+      resetForm();
     } catch (e: any) {
       console.error('[ClientsTemplate] Add client failed:', e?.message || e);
       addToast('error', 'Add Client Failed', e?.message || 'Failed to add client');
@@ -110,6 +115,16 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
     setWhatsapp(client.whatsapp || '');
     setAddress(client.address || '');
     setNotes(client.notes || '');
+    setNameError('');
+    setEmailError('');
+    setShowAdd(true);
+  };
+
+  const openAddClient = () => {
+    setClientToEdit(null);
+    resetForm();
+    setNameError('');
+    setEmailError('');
     setShowAdd(true);
   };
 
@@ -225,7 +240,7 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
           <Button 
             variant="primary" 
             size="sm" 
-            onClick={() => setShowAdd(true)}
+            onClick={openAddClient}
             icon={<Plus className="h-4 w-4" />}
           >
             Add Client
@@ -247,7 +262,7 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
             <Button 
               variant="primary" 
               size="sm" 
-              onClick={() => setShowAdd(true)} 
+              onClick={openAddClient} 
               icon={<Plus className="h-4 w-4" />}
             >
               Add First Client

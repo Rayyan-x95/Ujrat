@@ -1,10 +1,41 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { UPIPaymentProvider } from '@/features/payments/providers/UPIPaymentProvider';
 import { PaymentService } from '@/features/payments/services/PaymentService';
 import { UTR_REGEX } from '@/features/payments/constants/PaymentConstants';
+import { InvoiceRepository } from '@/features/invoices/repositories/InvoiceRepository';
+import { PaymentRepository } from '@/features/payments/repositories/PaymentRepository';
+
+// Receipts require a settled invoice + matching completed payment now
+// (generateReceipt validates before issuing). Mock the repositories.
+vi.mock('@/features/invoices/repositories/InvoiceRepository', () => ({
+  InvoiceRepository: { getById: vi.fn(), update: vi.fn() },
+}));
+
+vi.mock('@/features/payments/repositories/PaymentRepository', () => ({
+  PaymentRepository: {
+    getAll: vi.fn(),
+    getByInvoiceId: vi.fn(),
+    getById: vi.fn(),
+    create: vi.fn(),
+    verifyPayment: vi.fn(),
+  },
+}));
 
 describe('UPI Deep Link Payment System Test Suite', () => {
   const provider = new UPIPaymentProvider();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(InvoiceRepository.getById).mockResolvedValue({
+      id: 'inv-456',
+      status: 'paid',
+      total: 25000,
+      invoice_number: 'INV-2026-001',
+    } as any);
+    vi.mocked(PaymentRepository.getByInvoiceId).mockResolvedValue([
+      { id: 'pay-1', status: 'completed', transaction_reference: '423156789012', amount: 25000 },
+    ] as any);
+  });
 
   it('1. Generates compliant NPCI UPI Deep Link URI', () => {
     const link = provider.generateDeepLink({

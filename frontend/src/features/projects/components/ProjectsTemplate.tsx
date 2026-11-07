@@ -189,12 +189,14 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
       key: 'progress', 
       header: 'Progress Timeline',
       render: row => {
+        // Matches ProjectDetailsTemplate.getWorkflowProgress exactly —
+        // the two pages must agree on what "60% there" means.
         const progressMap: Record<string, number> = {
           lead: 10,
-          proposal: 25,
+          proposal: 20,
           approved: 40,
-          contract_signed: 50,
-          advance_paid: 60,
+          contract_signed: 60,
+          advance_paid: 70,
           in_progress: 75,
           delivered: 90,
           invoice_sent: 95,

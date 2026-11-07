@@ -150,6 +150,14 @@ export class PortalService {
         transaction_reference: paymentData.transactionReference,
       });
 
+      if (validated.amount <= 0) {
+        throw new Error('Payment amount must be a positive number.');
+      }
+      const outstandingBalance = invoice.outstanding_balance ?? invoice.total ?? 0;
+      if (validated.amount > outstandingBalance) {
+        throw new Error(`Submitted payment amount (${validated.amount}) exceeds outstanding invoice balance (${outstandingBalance}).`);
+      }
+
       try {
         await PortalRepository.submitPayment(
           token,

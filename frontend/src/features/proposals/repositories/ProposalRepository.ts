@@ -119,6 +119,20 @@ export class ProposalRepository {
   }
 
   static async addSection(workspaceId: string, sectionData: ProposalSectionInsert): Promise<ProposalSection> {
+    // Verify the parent proposal belongs to this workspace first (same class
+    // of hole as contract signatures — RLS can't see the mismatch because
+    // the insert row carries the caller's own workspace_id).
+    const { data: proposal, error: proposalError } = await supabase
+      .from('proposals')
+      .select('id')
+      .eq('id', sectionData.proposal_id)
+      .eq('workspace_id', workspaceId)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (proposalError || !proposal) {
+      throw new Error('Proposal not found in workspace');
+    }
+
     const { data, error } = await supabase
       .from('proposal_sections')
       .insert({

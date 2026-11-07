@@ -11,7 +11,13 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-async function signInAsTestUser(page: Page, email = 'e2e-test@example.com', password = 'password12345') {
+// One unique user per run — reusing a fixed email made reruns collide.
+const timestamp = Date.now();
+const testUserEmail = `e2e-${timestamp}@example.com`;
+const testUserPassword = 'password12345';
+const testUserName = 'E2E Test User';
+
+async function signInAsTestUser(page: Page, email: string = testUserEmail, password: string = testUserPassword) {
   await page.context().clearCookies();
   try {
     await page.evaluate(() => {
@@ -34,7 +40,7 @@ async function clickTab(page: any, tabName: string, isPortal = false) {
     : `nav[aria-label="Project workflow"] button:has-text("${tabName}")`;
   const tabButton = page.locator(selector);
   await expect(tabButton).toBeVisible();
-  
+
   let isActive = false;
   for (let i = 0; i < 5; i++) {
     await tabButton.click();
@@ -48,16 +54,16 @@ async function clickTab(page: any, tabName: string, isPortal = false) {
   expect(isActive).toBe(true);
 }
 
-async function signUpTestUser(page: Page, email = 'e2e-test@example.com', password = 'password12345', name = 'E2E Test User') {
+async function signUpTestUser(page: Page) {
   await page.goto('/signup');
-  await page.locator('input[placeholder="e.g. Acme Designs"]').fill(name);
-  await page.fill('input[type="email"]', email);
-  await page.locator('input[type="password"]').first().fill(password);
-  await page.locator('input[type="password"]').last().fill(password);
+  await page.locator('input[placeholder="e.g. Acme Designs"]').fill(testUserName);
+  await page.fill('input[type="email"]', testUserEmail);
+  await page.locator('input[type="password"]').first().fill(testUserPassword);
+  await page.locator('input[type="password"]').last().fill(testUserPassword);
   await page.click('button[type="submit"]');
   // Signup routes to /login ("check your email" UX), not auto-dashboard.
   await page.waitForURL('**/login', { timeout: 35000 });
-  await signInAsTestUser(page, email, password);
+  await signInAsTestUser(page);
 }
 
 async function createClientViaAPI(workspaceId: string, clientData: any) {
@@ -84,35 +90,29 @@ async function getPortalToken(projectId: string) {
   return data?.portal_token;
 }
 
+// Shared fixtures: one workspace/client/project per run, created in
+// beforeAll; each test below is independently named and bisectable.
+let workspaceId = '';
+let clientId = '';
+let projectId = '';
+let portalToken = '';
+let portalUrl = '';
+
 test.describe.configure({ retries: 1 });
 
 test.describe('Complete Freelancer Business Lifecycle', () => {
-  test('should complete the entire business lifecycle sequentially', async ({ page }) => {
-    test.setTimeout(240000);
-    const timestamp = Date.now();
-    const testUserEmail = `e2e-${timestamp}@example.com`;
-    const testUserPassword = 'password12345';
-    let workspaceId = '';
-    let profileId = '';
-    let clientId = '';
-    let projectId = '';
-    let portalToken = '';
-    let invoiceId = '';
+  test.beforeAll(async ({ page }) => {
+    await signUpTestUser(page);
 
-    // 1. Signup → Workspace → Client → Project
-    await signUpTestUser(page, testUserEmail, testUserPassword, 'E2E Test User');
-
-    // Authenticate Supabase JS client to allow DB calls
     await supabase.auth.signInWithPassword({
       email: testUserEmail,
       password: testUserPassword,
     });
 
     const { data: { user } } = await supabase.auth.getUser();
-    profileId = user!.id;
-    expect(profileId).toBeTruthy();
+    expect(user?.id).toBeTruthy();
 
-    const { data: workspaces } = await supabase.from('workspaces').select('id').eq('profile_id', profileId).is('deleted_at', null);
+    const { data: workspaces } = await supabase.from('workspaces').select('id').eq('profile_id', user!.id).is('deleted_at', null);
     workspaceId = workspaces?.[0]?.id;
     expect(workspaceId).toBeTruthy();
 
@@ -121,10 +121,9 @@ test.describe('Complete Freelancer Business Lifecycle', () => {
       .update({ upi_id: 'test-payout@upi' })
       .eq('workspace_id', workspaceId);
 
-    const testClientEmail = `client-e2e-${timestamp}@example.com`;
     const clientResult = await createClientViaAPI(workspaceId, {
       name: 'E2E Client Corp',
-      email: testClientEmail,
+      email: `client-e2e-${timestamp}@example.com`,
       company: 'E2E Client Corp',
       phone: '+1234567890',
     });
@@ -145,11 +144,15 @@ test.describe('Complete Freelancer Business Lifecycle', () => {
 
     portalToken = await getPortalToken(projectId);
     expect(portalToken).toBeTruthy();
+    portalUrl = `/portal/${portalToken}`;
+  });
 
-    // 2. Create & Send Proposal (Freelancer) → Approve (Client Portal)
+  test('proposal: freelancer shares, client approves', async ({ page }) => {
+    test.setTimeout(120000);
+    await signInAsTestUser(page);
     await page.goto(`/projects/${projectId}`);
     await clickTab(page, 'proposal');
-    
+
     await page.getByLabel('Project Scope & Deliverables Outline').fill('E2E test scope: Build a dashboard with charts and exports');
     await page.getByLabel('Proposal Base Pricing (INR)').fill('50000');
     await page.getByLabel('Proposed Execution Timeline').fill('4 weeks');
@@ -159,17 +162,17 @@ test.describe('Complete Freelancer Business Lifecycle', () => {
     await page.click('button:has-text("Share with Client")');
     await expect(page.locator('text="Proposal Sent to Client"')).toBeVisible({ timeout: 35000 });
 
-    const portalUrl = `/portal/${portalToken}`;
     await page.goto(portalUrl);
     await expect(page.locator('text=E2E Test Project')).toBeVisible({ timeout: 35000 });
     await clickTab(page, 'Proposal', true);
     await expect(page.locator('text=Approve Proposal')).toBeVisible();
     await page.click('button:has-text("Approve Proposal")');
     await expect(page.locator('text=Proposal Approved')).toBeVisible({ timeout: 35000 });
+  });
 
-    // 3. Create & Send Contract (Freelancer) → OTP Verify → Sign (Client Portal)
-    await signInAsTestUser(page, testUserEmail, testUserPassword);
-
+  test('contract: freelancer publishes, client signs', async ({ page }) => {
+    test.setTimeout(120000);
+    await signInAsTestUser(page);
     await page.goto(`/projects/${projectId}`);
     await clickTab(page, 'contract');
     await page.click('button:has-text("Publish & Send Link")');
@@ -184,10 +187,11 @@ test.describe('Complete Freelancer Business Lifecycle', () => {
 
     const { data: contract } = await supabase.from('contracts').select('id').eq('project_id', projectId).is('deleted_at', null).single();
     expect(contract?.id).toBeTruthy();
+  });
 
-    // 4. Generate Invoice (Freelancer) → Submit Payment (Client Portal) → Verify (Freelancer)
-    await signInAsTestUser(page, testUserEmail, testUserPassword);
-
+  test('invoice → payment submission → freelancer verification → paid', async ({ page }) => {
+    test.setTimeout(120000);
+    await signInAsTestUser(page);
     await page.goto(`/projects/${projectId}`);
     await clickTab(page, 'invoices');
     await page.click('button:has-text("Generate Invoice")');
@@ -202,8 +206,7 @@ test.describe('Complete Freelancer Business Lifecycle', () => {
       .limit(1)
       .single();
     if (!invoice) throw new Error('Invoice was not created.');
-    invoiceId = invoice.id;
-    expect(invoiceId).toBeTruthy();
+    expect(invoice.id).toBeTruthy();
 
     await page.goto(portalUrl);
     await clickTab(page, 'Invoices', true);
@@ -213,29 +216,32 @@ test.describe('Complete Freelancer Business Lifecycle', () => {
     await page.click('button:has-text("Verify Receipt")');
     await expect(page.locator('text=Receipt Submitted')).toBeVisible({ timeout: 35000 });
 
-    await signInAsTestUser(page, testUserEmail, testUserPassword);
+    await signInAsTestUser(page);
     await page.goto(`/projects/${projectId}`);
     await clickTab(page, 'invoices');
     await page.click('button:has-text("View Invoice")');
     await page.click('button:has-text("Confirm Payment")');
     await expect(page.locator('text=The invoice has been transitioned to paid')).toBeVisible({ timeout: 35000 });
 
-    const { data: paidInvoice } = await supabase.from('invoices').select('status').eq('id', invoiceId).single();
+    const { data: paidInvoice } = await supabase.from('invoices').select('status').eq('id', invoice.id).single();
     expect(paidInvoice?.status).toBe('paid');
+  });
 
-    // 5. Upload Deliverables → Client Download
+  test('deliverables: upload while paid, client can download', async ({ page }) => {
+    test.setTimeout(120000);
+    await signInAsTestUser(page);
     await page.goto(`/projects/${projectId}`);
     await clickTab(page, 'deliverables');
-    
+
     // If the deliverables tab is locked, click Activate Project Work first
     const activateBtn = page.locator('button:has-text("Activate Project Work")');
     if (await activateBtn.isVisible()) {
       await activateBtn.click();
       await expect(page.locator('text=Project Active')).toBeVisible({ timeout: 35000 });
     }
-    
+
     await page.click('button:has-text("Cloud Link")');
-    
+
     await page.getByLabel('Deliverable Name / Title').fill('Final Dashboard Build');
     await page.getByLabel('Cloud URL').fill('https://example.com/deliverable.zip');
     await page.click('button:has-text("Add Link Deliverable")');
@@ -244,5 +250,12 @@ test.describe('Complete Freelancer Business Lifecycle', () => {
     await page.goto(portalUrl);
     await clickTab(page, 'Deliverables', true);
     await expect(page.locator('text=Final Dashboard Build')).toBeVisible();
+  });
+
+  test('negative: invalid portal token shows an error, never project data', async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto('/portal/not-a-real-token');
+    await expect(page.locator('text=E2E Test Project')).not.toBeVisible();
+    await expect(page.locator('body')).toContainText(/invalid|not found|error/i);
   });
 });

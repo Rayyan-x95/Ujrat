@@ -415,6 +415,14 @@ export class InvoiceService {
     status: InvoiceStatus
   ): Promise<Result<Invoice>> {
     try {
+      // 'paid' settles money — it may only be set by the verified-payment
+      // path (markInvoicePaid → mark_invoice_paid_transactional, which
+      // requires completed payments covering the total). A direct UPDATE
+      // here would settle the invoice with zero proof of payment.
+      if (status === 'paid') {
+        throw new Error('Use markInvoicePaid (requires a verified payment) — direct status updates cannot settle invoices');
+      }
+
       const currentInvoice = await InvoiceRepository.getById(workspaceId, id);
       if (!currentInvoice) {
         throw new Error('Invoice not found');

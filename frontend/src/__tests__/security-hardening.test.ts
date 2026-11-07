@@ -51,8 +51,9 @@ const INVOICE_REPO_SRC = readFileSync(
 
 describe('F1/F2 — gateway webhook settlement is authenticated and schema-correct', () => {
   it('payment-webhook fails closed when no webhook secret is configured', () => {
-    // Direct UPI: no Razorpay/HMAC path; secret equality is the only guard.
-    expect(WEBHOOK_SRC).not.toMatch(/Razorpay|razorpay|crypto\.subtle|HMAC/);
+    // Direct UPI: no Razorpay path; HMAC-SHA256 of the raw body is the guard.
+    expect(WEBHOOK_SRC).not.toMatch(/Razorpay|razorpay/);
+    expect(WEBHOOK_SRC).toContain('verifyHmacSignature');
     expect(WEBHOOK_SRC).toMatch(/if \(!webhookSecret\)[\s\S]*?status: 503/);
     expect(WEBHOOK_SRC).toMatch(/x-webhook-signature/);
     expect(WEBHOOK_SRC).toMatch(/Direct UPI/);

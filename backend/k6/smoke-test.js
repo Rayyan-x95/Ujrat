@@ -25,31 +25,32 @@ const SUPABASE_URL = __ENV.SUPABASE_URL || BASE_URL;
 const SUPABASE_ANON_KEY = __ENV.SUPABASE_ANON_KEY || __ENV.VITE_SUPABASE_ANON_KEY || 'anon';
 
 export default function () {
-  // Test login page
+  // SPA: the HTML shell itself carries no "Sign In" text (the app renders
+  // client-side). Assert what actually ships: the app root + a script tag.
   const loginRes = http.get(`${BASE_URL}/login`);
   const loginCheck = check(loginRes, {
     'login page loads': (r) => r.status === 200,
-    'login page has form': (r) => r.body.includes('Sign In'),
+    'spa shell has app root': (r) => r.body.includes('id="root"'),
   });
   if (!loginCheck) errorRate.add(1);
 
   sleep(1);
 
-  // Test invalid portal token
-  const portalRes = http.get(`${BASE_URL}/portal/invalid-token`);
-  const portalCheck = check(portalRes, {
-    'portal shows error': (r) => r.status === 200 && r.body.includes('Security'),
+  // Prerendered marketing page: /pricing must contain its H1 server-side.
+  const pricingRes = http.get(`${BASE_URL}/pricing`);
+  const pricingCheck = check(pricingRes, {
+    'pricing is prerendered': (r) => r.status === 200 && r.body.includes('<h1'),
   });
-  if (!portalCheck) errorRate.add(1);
+  if (!pricingCheck) errorRate.add(1);
 
   sleep(1);
 
-  // Test static assets
-  const cssRes = http.get(`${BASE_URL}/dist/assets/index.css`);
-  const cssCheck = check(cssRes, {
-    'css loads': (r) => r.status === 200,
+  // robots.txt ships (200 + Allow directive) — crawl-critical.
+  const robotsRes = http.get(`${BASE_URL}/robots.txt`);
+  const robotsCheck = check(robotsRes, {
+    'robots.txt served': (r) => r.status === 200 && r.body.includes('User-agent'),
   });
-  if (!cssCheck) errorRate.add(1);
+  if (!robotsCheck) errorRate.add(1);
 
   // Track 6 smoke: read-only dashboard RPC (no money writes).
   const rpcRes = http.post(

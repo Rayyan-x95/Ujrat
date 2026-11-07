@@ -51,6 +51,20 @@ export class BriefRepository {
     projectId: string,
     briefData: Omit<ProjectBriefInsert, 'workspace_id' | 'project_id'>
   ): Promise<ProjectBrief> {
+    // The upsert conflicts on project_id alone — verify the project really
+    // belongs to this workspace first, or a known project UUID could
+    // overwrite another tenant's brief.
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', projectId)
+      .eq('workspace_id', workspaceId)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (projectError || !project) {
+      throw new Error('Project not found in workspace');
+    }
+
     const { data, error } = await supabase
       .from('project_briefs')
       .upsert({

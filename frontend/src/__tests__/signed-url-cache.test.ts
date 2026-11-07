@@ -14,25 +14,14 @@ const STORAGE_FILE = existsSync(path.join(ROOT, 'frontend/src/features/settings/
   : path.join(ROOT, 'src/features/settings/services/StorageService.ts');
 const STORAGE_SRC = readFileSync(STORAGE_FILE, 'utf8');
 
-describe('create-signed-url paid-check cache', () => {
-  it('caches get_portal_invoices paid-check per token for 60s', () => {
-    expect(EDGE_SRC).toMatch(/new Map<string,\s*\{\s*expires:[^}]+\}/);
-    expect(EDGE_SRC).toContain('PAID_CHECK_CACHE_TTL_MS');
-    expect(EDGE_SRC).toContain('60_000');
-    expect(EDGE_SRC).toContain('paidCheckCache');
-    expect(EDGE_SRC).toContain('paidCheckCache.get(token)');
-    expect(EDGE_SRC).toContain('paidCheckCache.set(token');
-  });
-
-  it('skips the paid-check RPC on cache hit (2nd download = 0 extra get_portal_invoices)', () => {
-    // Cache lookup must guard the rpc call inside the deliverables block.
-    const deliverablesBlock = EDGE_SRC.slice(EDGE_SRC.indexOf("if (bucket === 'deliverables') {", EDGE_SRC.indexOf('Escrow')));
-    const cacheIdx = deliverablesBlock.indexOf('paidCheckCache.get(token)');
-    const rpcIdx = deliverablesBlock.indexOf("rpc('get_portal_invoices'");
-    expect(cacheIdx).toBeGreaterThanOrEqual(0);
-    expect(rpcIdx).toBeGreaterThanOrEqual(0);
-    expect(cacheIdx).toBeLessThan(rpcIdx);
-    expect(deliverablesBlock).toContain('cached.expires > Date.now()');
+describe('create-signed-url paid-check (no cache)', () => {
+  it('checks get_portal_invoices live on every deliverables request (no 60s cache)', () => {
+    // A cached "paid" verdict outlived revocations — the escrow gate must
+    // re-ask the RPC on every request now.
+    expect(EDGE_SRC).not.toContain('paidCheckCache');
+    expect(EDGE_SRC).not.toContain('PAID_CHECK_CACHE_TTL_MS');
+    const escrowBlock = EDGE_SRC.slice(EDGE_SRC.indexOf('Escrow'));
+    expect(escrowBlock).toContain("rpc('get_portal_invoices'");
   });
 
   it('keeps 30 / 15min rate limit and 1h signed-URL TTL', () => {
@@ -41,34 +30,9 @@ describe('create-signed-url paid-check cache', () => {
     expect(EDGE_SRC).toContain('SIGNED_URL_TTL_SECONDS = 60 * 60');
   });
 
-  it('sends immutable Cache-Control on the signed URL response', () => {
-    expect(EDGE_SRC).toContain("'Cache-Control': 'public, max-age=3600, immutable'");
-  });
-
-  it('second download within 60s does not re-fetch (simulated cache semantics)', async () => {
-    const cache = new Map<string, { expires: number; paid: boolean }>();
-    let rpcCalls = 0;
-    async function fetchPaid(token: string, now: number): Promise<boolean> {
-      const hit = cache.get(token);
-      if (hit && hit.expires > now) return hit.paid;
-      rpcCalls += 1;
-      const paid = true;
-      cache.set(token, { expires: now + 60_000, paid });
-      return paid;
-    }
-    expect(await fetchPaid('tok', 1_000_000)).toBe(true);
-    expect(await fetchPaid('tok', 1_030_000)).toBe(true);
-    expect(rpcCalls).toBe(1); // 2nd call within 60s skipped the RPC
-    expect(await fetchPaid('tok', 1_061_000)).toBe(true);
-    expect(rpcCalls).toBe(2); // expired entry refetched
-  });
-
-  it('cached unpaid result still blocks downloads', () => {
-    const cache = new Map<string, { expires: number; paid: boolean }>();
-    cache.set('tok', { expires: Date.now() + 60_000, paid: false });
-    const hit = cache.get('tok');
-    expect(hit?.paid).toBe(false);
-    expect(!hit!.paid).toBe(true); // hasUnpaidInvoice = !paid
+  it('sends private Cache-Control on the signed URL response (no public caching of per-token URLs)', () => {
+    expect(EDGE_SRC).toContain("'Cache-Control': 'private, max-age=0'");
+    expect(EDGE_SRC).not.toContain('public, max-age=3600, immutable');
   });
 });
 
