@@ -12,7 +12,6 @@ interface UseProjectDetailsOptions {
   workspaceId: string;
   profileId: string;
   projectId: string;
-  onShowInvoice: (invoiceId: string) => void;
   addToast: (type: 'success' | 'info' | 'warning' | 'error', message: string, desc?: string) => void;
 }
 
@@ -25,7 +24,6 @@ export function useProjectDetails({
   workspaceId,
   profileId,
   projectId,
-  onShowInvoice,
   addToast,
 }: UseProjectDetailsOptions) {
   const queryClient = useQueryClient();
@@ -224,14 +222,27 @@ export function useProjectDetails({
           hsn_code: '998314',
         }],
       })),
-    onSuccess: (invoice) => {
+    // No auto-open here: opening the invoice in the portal mints a fresh
+    // portal token (tokens are hashed at rest), which would silently kill the
+    // client's live link every time an invoice is generated.
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['project', workspaceId, projectId] });
       queryClient.invalidateQueries({ queryKey: ['dashboard', workspaceId, profileId] });
-      if (invoice.id) onShowInvoice(invoice.id);
       addToast('success', 'Invoice Generated', 'Invoice created successfully');
     },
     onError: (e: any) => addToast('error', 'Generation Failed', e.message),
+  });
+
+  const issueInvoice = useMutation({
+    mutationFn: async (invoiceId: string) =>
+      unwrapResult(await InvoiceService.updateInvoiceStatus(workspaceId, profileId, invoiceId, 'sent')),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['project', workspaceId, projectId] });
+      addToast('success', 'Invoice Issued', 'The client can now see and pay this invoice in the portal.');
+    },
+    onError: (e: any) => addToast('error', 'Issue Failed', e.message),
   });
 
   // Payment mutations
@@ -301,6 +312,7 @@ export function useProjectDetails({
     addDeliverableLink: addDeliverableLink.mutateAsync,
     removeDeliverable: removeDeliverable.mutateAsync,
     generateInvoice: generateInvoice.mutateAsync,
+    issueInvoice: issueInvoice.mutateAsync,
     regeneratePortalToken: regeneratePortalToken.mutateAsync,
     submitPayment: submitPayment.mutateAsync,
     verifyPayment: verifyPayment.mutateAsync,

@@ -45,13 +45,13 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
     addDeliverableLink,
     removeDeliverable,
     generateInvoice,
+    issueInvoice,
     regeneratePortalToken,
     changeStatus,
   } = useProjectDetails({
     workspaceId,
     projectId,
     profileId,
-    onShowInvoice,
     addToast,
   });
 
@@ -520,6 +520,7 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
             projectStatus={project.status}
             projectBudget={project.budget}
             onGenerateInvoice={handleGenerateInvoice}
+            onIssueInvoice={async (invoiceId) => { await issueInvoice(invoiceId); }}
             onShowInvoice={onShowInvoice}
             onConfirmPayment={async (invoiceId) => {
               await confirmPaymentMutation.mutateAsync(invoiceId);

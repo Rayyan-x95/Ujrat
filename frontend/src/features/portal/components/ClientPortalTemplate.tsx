@@ -430,7 +430,6 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
                     payeeName={settings?.company_name || 'Freelancer'}
                     portalToken={portalToken}
                     onPaymentSubmitted={() => {
-                      addToast('success', 'Payment Submitted', 'Transaction UTR submitted for verification.');
                       setSelectedInvoice(null);
                     }}
                     addToast={addToast}

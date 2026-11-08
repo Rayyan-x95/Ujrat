@@ -10,7 +10,7 @@ export default defineConfig({
   workers: 1,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://localhost:4173',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -37,11 +37,13 @@ export default defineConfig({
       use: { ...devices['iPhone 12'] },
     },
   ],
+  // Serve the production build (dist) so e2e exercises the same bundles as
+  // production instead of the flaky dev server.
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
+    command: 'npm run build && node scripts/e2e-server.mjs',
+    url: 'http://localhost:4173',
     reuseExistingServer: !process.env.CI,
-    timeout: 120000,
+    timeout: 240000,
   },
 
 });

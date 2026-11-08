@@ -37,7 +37,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { projects } = useProjects(workspaceId, profileId);
-  const { invoices, isLoading, payInvoice, editInvoice, removeInvoice, getInvoiceDetails } = useInvoices(workspaceId, profileId);
+  const { invoices, isLoading, payInvoice, issueInvoice, editInvoice, removeInvoice, getInvoiceDetails } = useInvoices(workspaceId, profileId);
   const { settings } = useWorkspaceSettings(workspaceId, profileId);
   const vpa = settings?.upi_id ?? null;
   const [invoiceToVerify, setInvoiceToVerify] = useState<Invoice | null>(null);
@@ -47,6 +47,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
   const [invoiceToDelete, setInvoiceToDelete] = useState<InvoiceWithItems | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [invoiceToEdit, setInvoiceToEdit] = useState<InvoiceWithItems | null>(null);
+  const [issuingId, setIssuingId] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState(false);
   const [editDate, setEditDate] = useState('');
   const [editDue, setEditDue] = useState('');
@@ -96,6 +97,18 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
       addToast('error', 'Verification Failed', (e as Error).message);
     } finally {
       setVerifying(false);
+    }
+  };
+
+  const handleIssueInvoice = async (row: InvoiceWithItems) => {
+    try {
+      setIssuingId(row.id);
+      await issueInvoice(row.id);
+      addToast('success', 'Invoice Issued', `${row.invoice_number} is now visible in the client portal.`);
+    } catch (e) {
+      addToast('error', 'Issue Failed', (e as Error).message);
+    } finally {
+      setIssuingId(null);
     }
   };
 
@@ -338,6 +351,17 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
           </Button>
           {row.status === 'draft' && (
             <>
+              <Button
+                variant="primary"
+                size="sm"
+                className="min-h-[44px] min-w-[44px]"
+                onClick={() => void handleIssueInvoice(row)}
+                loading={issuingId === row.id}
+                icon={<Check className="h-3 w-3" />}
+                title="Issue to client (makes it visible and payable in the portal)"
+              >
+                Issue
+              </Button>
               <Button
                 variant="outline"
                 size="sm"

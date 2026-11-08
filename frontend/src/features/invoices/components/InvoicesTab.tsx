@@ -3,7 +3,7 @@ import { Card } from '@/shared/ui/Card';
 import { Button } from '@/shared/ui/Button';
 import { Input, CurrencyInput, Textarea } from '@/shared/ui/Input';
 import { Badge } from '@/shared/ui/Badge';
-import { Receipt, PlusCircle, Printer, Copy, MessageSquareShare } from 'lucide-react';
+import { Receipt, PlusCircle, Printer, Copy, MessageSquareShare, Send } from 'lucide-react';
 import { COMMON_FREELANCE_SAC_CODES } from '../constants/sacCodes';
 import { generateInvoiceWhatsAppUrl } from '@/shared/utils/whatsappShare';
 import { formatCurrency } from '@/shared/utils/currency';
@@ -15,6 +15,7 @@ interface InvoicesTabProps {
   onGenerateInvoice: (invoiceNo: string, amount: number, note: string) => Promise<void>;
   onShowInvoice: (invoiceId: string) => void;
   onConfirmPayment?: (invoiceId: string) => Promise<void>;
+  onIssueInvoice?: (invoiceId: string) => Promise<void>;
   /** Zero-auth client portal URL for this invoice's project (legacy static prop). */
   portalUrl?: string | undefined;
   /** Regenerate-to-reveal portal link (raw tokens are never persisted). */
@@ -28,6 +29,7 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
   onGenerateInvoice,
   onShowInvoice,
   onConfirmPayment,
+  onIssueInvoice,
   portalUrl,
   onGetPortalUrl,
 }) => {
@@ -47,6 +49,7 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
   const [invoiceAmount, setInvoiceAmount] = useState('0');
   const [submitting, setSubmitting] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [issuingId, setIssuingId] = useState<string | null>(null);
 
   useEffect(() => {
     setInvoiceAmount(String(projectBudget || '0'));
@@ -83,6 +86,16 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
       portalUrl: link,
     });
     window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleIssue = async (invoiceId: string) => {
+    if (!onIssueInvoice) return;
+    try {
+      setIssuingId(invoiceId);
+      await onIssueInvoice(invoiceId);
+    } finally {
+      setIssuingId(null);
+    }
   };
 
   const handleConfirmPayment = async (invoiceId: string) => {
@@ -205,10 +218,24 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
                   size="sm" 
                   onClick={() => onShowInvoice(inv.id)} 
                   className="grow text-xs font-semibold"
+                  title="Opens the client portal invoice (issues a fresh portal link; previously shared links stop working)"
                   icon={<Printer className="h-3.5 w-3.5" />}
                 >
                   View
                 </Button>
+                {inv.status === 'draft' && onIssueInvoice && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => void handleIssue(inv.id)}
+                    loading={issuingId === inv.id}
+                    className="grow text-xs font-semibold"
+                    title="Issue to client (makes it visible and payable in the portal)"
+                    icon={<Send className="h-3.5 w-3.5" />}
+                  >
+                    Issue to Client
+                  </Button>
+                )}
                 {inv.status === 'pending_verification' && onConfirmPayment && (
                   <Button 
                     variant="primary" 

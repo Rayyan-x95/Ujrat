@@ -99,6 +99,14 @@ async function getPortalToken(projectId: string) {
   return raw;
 }
 
+// Portal tokens are hashed at rest and the UI rotates them whenever the
+// freelancer opens a portal link (reveal-once). Refresh before each portal
+// visit so the test does not depend on a link an earlier UI action retired.
+async function freshPortalUrl() {
+  portalUrl = `/portal/${await getPortalToken(projectId)}`;
+  return portalUrl;
+}
+
 // Shared fixtures: one workspace/client/project per run, created in
 // beforeAll; each test below is independently named and bisectable.
 let workspaceId = '';
@@ -107,7 +115,11 @@ let projectId = '';
 let portalToken = '';
 let portalUrl = '';
 
-test.describe.configure({ retries: 1 });
+// No retries for lifecycle tests: a failed stage followed by a retry would
+// re-run beforeAll and swap in a fresh project, invalidating every prior
+// stage. The app has real response times; fail single-attempt and fix the app.
+// (The shared fixture also soft-closes prior attempts' projects on setup.)
+test.describe.configure({ retries: 0 });
 
 test.describe('Complete Freelancer Business Lifecycle', () => {
   test.beforeAll(async ({ browser }) => {
@@ -134,6 +146,16 @@ test.describe('Complete Freelancer Business Lifecycle', () => {
         .from('workspace_settings')
         .update({ upi_id: 'test-payout@upi' })
         .eq('workspace_id', workspaceId);
+
+      // Retries re-run beforeAll; without cleanup each attempt mints a fresh
+      // project and strands stale stages. Soft-delete prior attempts first so
+      // every run starts from a clean lifecycle (portal RPCs + list queries
+      // all filter out soft-deleted parents).
+      await supabase
+        .from('projects')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('workspace_id', workspaceId)
+        .is('deleted_at', null);
 
       const clientResult = await createClientViaAPI(workspaceId, {
         name: 'E2E Client Corp',
@@ -179,7 +201,7 @@ test.describe('Complete Freelancer Business Lifecycle', () => {
     await page.click('button:has-text("Share with Client")');
     await expect(page.locator('text="Proposal Sent to Client"')).toBeVisible({ timeout: 35000 });
 
-    await page.goto(portalUrl);
+    await page.goto(await freshPortalUrl());
     await expect(page.locator('text=E2E Test Project')).toBeVisible({ timeout: 35000 });
     await clickTab(page, 'Proposal', true);
     await expect(page.locator('text=Approve Proposal')).toBeVisible();
@@ -192,13 +214,18 @@ test.describe('Complete Freelancer Business Lifecycle', () => {
     await signInAsTestUser(page);
     await page.goto(`/projects/${projectId}`);
     await clickTab(page, 'contract');
-    await page.click('button:has-text("Publish & Send Link")');
+    await page.click('button:has-text("Send Contract to Client")');
     await expect(page.locator('text=Contract Shared with Client')).toBeVisible({ timeout: 35000 });
 
-    await page.goto(portalUrl);
+    await page.goto(await freshPortalUrl());
     await clickTab(page, 'Contract', true);
 
+    // SignaturePad gates on: typed name (>=2 chars) + legal-acknowledgement
+    // checkbox + drawn-or-typed mode. Use typed mode so no canvas drawing
+    // is required.
+    await page.click('button:has-text("Type")');
     await page.fill('input[placeholder="Type your full legal name"], input[placeholder="e.g. Rahul Sharma"]', 'E2E Test Client');
+    await page.check('input[type="checkbox"]');
     await page.click('button:has-text("Sign & Authorize Contract")');
     await expect(page.locator('text=Agreement Signed')).toBeVisible({ timeout: 35000 });
 
@@ -215,6 +242,10 @@ test.describe('Complete Freelancer Business Lifecycle', () => {
     await page.click('button:has-text("Compute & Create splits")');
     await expect(page.locator('p:has-text("INV-")')).toBeVisible({ timeout: 35000 });
 
+    // New invoices are drafts; issue it so the client portal can see and pay.
+    await page.click('button:has-text("Issue to Client")');
+    await expect(page.locator('text=Invoice Issued')).toBeVisible({ timeout: 35000 });
+
     const { data: invoice } = await supabase.from('invoices')
       .select('id, invoice_number, total')
       .eq('project_id', projectId)
@@ -225,18 +256,19 @@ test.describe('Complete Freelancer Business Lifecycle', () => {
     if (!invoice) throw new Error('Invoice was not created.');
     expect(invoice.id).toBeTruthy();
 
-    await page.goto(portalUrl);
+    await page.goto(await freshPortalUrl());
     await clickTab(page, 'Invoices', true);
     await page.click(`p:has-text("${invoice.invoice_number}")`);
     const lifecycleUtr = String(Math.floor(100000000000 + Math.random() * 900000000000));
-    await page.fill('input[placeholder="12-digit UPI reference number"]', lifecycleUtr);
-    await page.click('button:has-text("Verify Receipt")');
-    await expect(page.locator('text=Receipt Submitted')).toBeVisible({ timeout: 35000 });
+    await page.fill('input[placeholder="e.g. 423156789012"]', lifecycleUtr);
+    await page.click('button:has-text("Submit UTR for Verification")');
+    // The portal fires the toast from two layers; only the visible one matters.
+    await expect(page.locator('text=Payment Submitted').first()).toBeVisible({ timeout: 35000 });
 
     await signInAsTestUser(page);
     await page.goto(`/projects/${projectId}`);
     await clickTab(page, 'invoices');
-    await page.click('button:has-text("View Invoice")');
+    await page.click('button:has-text("View")');
     await page.click('button:has-text("Confirm Payment")');
     await expect(page.locator('text=The invoice has been transitioned to paid')).toBeVisible({ timeout: 35000 });
 
@@ -250,21 +282,25 @@ test.describe('Complete Freelancer Business Lifecycle', () => {
     await page.goto(`/projects/${projectId}`);
     await clickTab(page, 'deliverables');
 
-    // If the deliverables tab is locked, click Activate Project Work first
+    // The tab data loads async: wait until either the lock screen or the
+    // upload panel is actually on screen before deciding (isVisible() right
+    // after navigating races the fetch).
     const activateBtn = page.locator('button:has-text("Activate Project Work")');
+    const cloudBtn = page.locator('button:has-text("Cloud Link")');
+    await expect(activateBtn.or(cloudBtn)).toBeVisible({ timeout: 35000 });
     if (await activateBtn.isVisible()) {
       await activateBtn.click();
       await expect(page.locator('text=Project Active')).toBeVisible({ timeout: 35000 });
     }
 
-    await page.click('button:has-text("Cloud Link")');
+    await cloudBtn.click();
 
     await page.getByLabel('Deliverable Name / Title').fill('Final Dashboard Build');
     await page.getByLabel('Cloud URL').fill('https://example.com/deliverable.zip');
     await page.click('button:has-text("Add Link Deliverable")');
     await expect(page.locator('text="External link saved as deliverable"').or(page.locator('text="Deliverable link \\"Final Dashboard Build\\" added successfully"'))).toBeVisible({ timeout: 35000 });
 
-    await page.goto(portalUrl);
+    await page.goto(await freshPortalUrl());
     await clickTab(page, 'Deliverables', true);
     await expect(page.locator('text=Final Dashboard Build')).toBeVisible();
   });
@@ -273,6 +309,7 @@ test.describe('Complete Freelancer Business Lifecycle', () => {
     test.setTimeout(60000);
     await page.goto('/portal/not-a-real-token');
     await expect(page.locator('text=E2E Test Project')).not.toBeVisible();
-    await expect(page.locator('body')).toContainText(/invalid|not found|error/i);
+    // Hydration + the portal RPC round-trip both take a moment.
+    await expect(page.locator('body')).toContainText(/invalid|not found|error/i, { timeout: 35000 });
   });
 });

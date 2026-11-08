@@ -40,6 +40,19 @@ export function useInvoices(workspaceId: string, profileId: string) {
     },
   });
 
+  const issueInvoiceMutation = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      const res = await InvoiceService.updateInvoiceStatus(workspaceId, profileId, invoiceId, 'sent');
+      if (res.success === false) throw res.error;
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', workspaceId, profileId] });
+    },
+  });
+
   const payInvoiceMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
       const res = await InvoiceService.markInvoicePaid(workspaceId, profileId, invoiceId);
@@ -96,6 +109,7 @@ export function useInvoices(workspaceId: string, profileId: string) {
     isLoading: invoicesQuery.isLoading,
     error: invoicesQuery.error,
     addInvoice: addInvoiceMutation.mutateAsync,
+    issueInvoice: issueInvoiceMutation.mutateAsync,
     editInvoice: editInvoiceMutation.mutateAsync,
     removeInvoice: removeInvoiceMutation.mutateAsync,
     payInvoice: payInvoiceMutation.mutateAsync,
