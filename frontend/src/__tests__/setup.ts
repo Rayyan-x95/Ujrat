@@ -1,3 +1,8 @@
+// Unit tests must never reach the network: CI has no Supabase env, so a live
+// call fails as "fetch failed" instead of the assertion. Stub the repo/RPC.
+globalThis.fetch = (() =>
+  Promise.reject(new Error('Network access is disabled in unit tests'))) as typeof fetch;
+
 // Test setup and environment mocks
 if (typeof window !== 'undefined') {
   let store: Record<string, string> = Object.create(null);

@@ -22,16 +22,9 @@ describe('SECURITY DEFINER Portal RPC Authorization Suite (F-001 / F-002 / F-007
     });
 
     it('rejects access when portal token returns no project (invalid or expired)', async () => {
-      // getPortalData fans out to 7 RPCs via Promise.all — every sibling must
-      // be stubbed or the test hits live Supabase and fails with a PostgREST
-      // error instead of the expected auth error.
-      vi.spyOn(PortalRepository, 'getProject').mockResolvedValue(null);
-      vi.spyOn(PortalRepository, 'getClient').mockResolvedValue(null);
-      vi.spyOn(PortalRepository, 'getSettings').mockResolvedValue(null);
-      vi.spyOn(PortalRepository, 'getProposal').mockResolvedValue(null);
-      vi.spyOn(PortalRepository, 'getContract').mockResolvedValue(null);
-      vi.spyOn(PortalRepository, 'getInvoices').mockResolvedValue([]);
-      vi.spyOn(PortalRepository, 'getDeliverables').mockResolvedValue([]);
+      // getPortalData reads the single bundle RPC; stub it so the test never
+      // reaches Supabase (CI has no env and would fail with "fetch failed").
+      vi.spyOn(PortalRepository, 'getBundle').mockResolvedValue(null);
 
       const result = await PortalService.getPortalData(invalidToken);
       expect(result.success).toBe(false);
