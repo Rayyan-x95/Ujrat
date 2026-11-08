@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@/shared/ui/Table';
 import Table from '@/shared/ui/Table';
@@ -52,7 +52,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
   const [editDate, setEditDate] = useState('');
   const [editDue, setEditDue] = useState('');
   const [editNotes, setEditNotes] = useState('');
-  const [editItems, setEditItems] = useState<Array<{ description: string; quantity: string; rate: string; gst_rate: string; hsn_code: string }>>([]);
+  const [editItems, setEditItems] = useState<Array<{ id: string; description: string; quantity: string; rate: string; gst_rate: string; hsn_code: string }>>([]);
   const [editSubmitting, setEditSubmitting] = useState(false);
 
   useEffect(() => {
@@ -100,7 +100,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
     }
   };
 
-  const handleIssueInvoice = async (row: InvoiceWithItems) => {
+  const handleIssueInvoice = useCallback(async (row: InvoiceWithItems) => {
     try {
       setIssuingId(row.id);
       await issueInvoice(row.id);
@@ -110,7 +110,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
     } finally {
       setIssuingId(null);
     }
-  };
+  }, [issueInvoice, addToast]);
 
   const handleExportCsv = () => {
     if (invoices.length === 0) {
@@ -178,16 +178,16 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
     handleWhatsAppShare(row);
   };
 
-  const handleMarkPaid = async (row: InvoiceWithItems) => {
+  const handleMarkPaid = useCallback(async (row: InvoiceWithItems) => {
     try {
       await payInvoice(row.id);
       addToast('success', 'Marked as Paid', `Invoice ${row.invoice_number} is now marked as Paid.`);
     } catch (e) {
       addToast('error', 'Mark Paid Failed', (e as Error).message);
     }
-  };
+  }, [payInvoice, addToast]);
 
-  const startEditInvoice = async (row: InvoiceWithItems) => {
+  const startEditInvoice = useCallback(async (row: InvoiceWithItems) => {
     try {
       setEditLoading(true);
       const detail = await getInvoiceDetails(row.id);
@@ -198,6 +198,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
       setEditNotes(detail.notes || '');
       setEditItems(
         (detail.invoice_items || []).map(item => ({
+          id: item.id || crypto.randomUUID(),
           description: item.description || '',
           quantity: String(item.quantity ?? 1),
           rate: String(item.rate ?? 0),
@@ -210,7 +211,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
     } finally {
       setEditLoading(false);
     }
-  };
+  }, [getInvoiceDetails, addToast]);
 
   const confirmDeleteInvoice = async () => {
     if (!invoiceToDelete) return;
@@ -411,7 +412,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
         </div>
       )
     }
-  ], [onShowInvoiceDetail, vpa, editLoading, startEditInvoice]);
+  ], [onShowInvoiceDetail, vpa, editLoading, issuingId, startEditInvoice, handleIssueInvoice, handleMarkPaid]);
 
   return (
     <div className="space-y-6.5 animate-slide-up">
@@ -574,7 +575,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
           <div className="space-y-2">
             <span className="block text-[11px] font-semibold text-muted-foreground">Line Items</span>
             {editItems.map((line, idx) => (
-              <div key={idx} className="grid grid-cols-12 gap-2 items-end">
+              <div key={line.id} className="grid grid-cols-12 gap-2 items-end">
                 <div className="col-span-12 sm:col-span-4">
                   <Input label={idx === 0 ? 'Description' : ''} placeholder="Service description" value={line.description} onChange={e => setEditItems(editItems.map((l, i) => i === idx ? { ...l, description: e.target.value } : l))} />
                 </div>
@@ -592,7 +593,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
                 </div>
               </div>
             ))}
-            <Button type="button" variant="outline" size="sm" onClick={() => setEditItems([...editItems, { description: '', quantity: '1', rate: '0', gst_rate: '18', hsn_code: '' }])} icon={<Plus className="h-3.5 w-3.5" />}>
+            <Button type="button" variant="outline" size="sm" onClick={() => setEditItems([...editItems, { id: crypto.randomUUID(), description: '', quantity: '1', rate: '0', gst_rate: '18', hsn_code: '' }])} icon={<Plus className="h-3.5 w-3.5" />}>
               Add Line
             </Button>
           </div>

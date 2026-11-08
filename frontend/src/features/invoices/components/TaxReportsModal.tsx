@@ -244,38 +244,38 @@ export const TaxReportsModal: React.FC<TaxReportsModalProps> = ({
                 <div className="grid grid-cols-3 gap-4">
                   <div className="p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl border border-neutral-200 dark:border-neutral-800">
                     <span className="text-[10px] font-bold text-neutral-400 uppercase">B2B INVOICES</span>
-                    <div className="text-xl font-extrabold text-neutral-900 dark:text-white mt-1">{summary?.total_b2b_invoices || 0}</div>
+                    <div className="text-xl font-extrabold text-neutral-900 dark:text-white mt-1">{summary?.b2bInvoicesCount || 0}</div>
                   </div>
                   <div className="p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl border border-neutral-200 dark:border-neutral-800">
                     <span className="text-[10px] font-bold text-neutral-400 uppercase">B2C INVOICES</span>
-                    <div className="text-xl font-extrabold text-neutral-900 dark:text-white mt-1">{summary?.total_b2c_invoices || 0}</div>
+                    <div className="text-xl font-extrabold text-neutral-900 dark:text-white mt-1">{summary?.b2cInvoicesCount || 0}</div>
                   </div>
                   <div className="p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl border border-neutral-200 dark:border-neutral-800">
                     <span className="text-[10px] font-bold text-neutral-400 uppercase">EXPORT INVOICES</span>
-                    <div className="text-xl font-extrabold text-neutral-900 dark:text-white mt-1">{summary?.total_export_invoices || 0}</div>
+                    <div className="text-xl font-extrabold text-neutral-900 dark:text-white mt-1">{summary?.exportInvoicesCount || 0}</div>
                   </div>
                 </div>
 
                 <div className="border border-neutral-200 dark:border-neutral-800 rounded-xl p-4 space-y-2 text-xs">
                   <div className="flex justify-between py-1 border-b border-neutral-100 dark:border-neutral-800 font-medium">
                     <span>Taxable Value:</span>
-                    <span>{formatINR(summary?.taxable_value || 0)}</span>
+                    <span>{formatINR(summary?.totalTaxableValue || 0)}</span>
                   </div>
                   <div className="flex justify-between py-1 text-neutral-600 dark:text-neutral-400">
                     <span>Central Tax (CGST):</span>
-                    <span>{formatINR(summary?.cgst_amount || 0)}</span>
+                    <span>{formatINR(summary?.totalCGST || 0)}</span>
                   </div>
                   <div className="flex justify-between py-1 text-neutral-600 dark:text-neutral-400">
                     <span>State Tax (SGST):</span>
-                    <span>{formatINR(summary?.sgst_amount || 0)}</span>
+                    <span>{formatINR(summary?.totalSGST || 0)}</span>
                   </div>
                   <div className="flex justify-between py-1 text-neutral-600 dark:text-neutral-400">
                     <span>Integrated Tax (IGST):</span>
-                    <span>{formatINR(summary?.igst_amount || 0)}</span>
+                    <span>{formatINR(summary?.totalIGST || 0)}</span>
                   </div>
                   <div className="flex justify-between py-1.5 border-t border-neutral-200 dark:border-neutral-800 font-bold text-primary text-sm">
                     <span>Total Tax Liability:</span>
-                    <span>{formatINR(summary?.total_tax || 0)}</span>
+                    <span>{formatINR(summary?.totalTax || 0)}</span>
                   </div>
                 </div>
               </div>
@@ -287,11 +287,11 @@ export const TaxReportsModal: React.FC<TaxReportsModalProps> = ({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <span className="text-neutral-400 block text-[10px]">TOTAL OUTWARD TAXABLE</span>
-                    <span className="font-bold text-sm text-neutral-900 dark:text-white">{formatINR(summary?.taxable_value || 0)}</span>
+                    <span className="font-bold text-sm text-neutral-900 dark:text-white">{formatINR(summary?.totalTaxableValue || 0)}</span>
                   </div>
                   <div>
                     <span className="text-neutral-400 block text-[10px]">TOTAL GST PAYABLE</span>
-                    <span className="font-bold text-sm text-primary">{formatINR(summary?.total_tax || 0)}</span>
+                    <span className="font-bold text-sm text-primary">{formatINR(summary?.totalTax || 0)}</span>
                   </div>
                 </div>
               </div>
@@ -306,7 +306,7 @@ export const TaxReportsModal: React.FC<TaxReportsModalProps> = ({
             {activeReport === 'exports' && (
               <div className="p-6 border border-neutral-200 dark:border-neutral-800 rounded-xl space-y-2 text-xs">
                 <span className="font-bold text-neutral-900 dark:text-white block uppercase text-[10px]">EXPORT UNDER LUT SUMMARY</span>
-                <p className="text-neutral-500">Zero-Rated export turnover under Section 16 of IGST Act: <span className="font-bold text-neutral-900 dark:text-white">{summary?.total_export_invoices || 0} Invoices</span></p>
+                <p className="text-neutral-500">Zero-Rated export turnover under Section 16 of IGST Act: <span className="font-bold text-neutral-900 dark:text-white">{summary?.exportInvoicesCount || 0} Invoices</span></p>
               </div>
             )}
           </div>

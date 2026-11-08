@@ -14,14 +14,13 @@ const CURRENCY_LOCALES: Record<string, string> = {
  */
 export function formatCurrency(amount: number, currency: string = 'INR'): string {
   const locale = CURRENCY_LOCALES[currency] || 'en-IN';
-  const minDigits = currency === 'JPY' ? 0 : 2;
-  const maxDigits = currency === 'JPY' ? 0 : 2;
+  const digits = currency === 'JPY' ? 0 : 2;
 
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
-    minimumFractionDigits: minDigits,
-    maximumFractionDigits: maxDigits,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
   }).format(amount);
 }
 

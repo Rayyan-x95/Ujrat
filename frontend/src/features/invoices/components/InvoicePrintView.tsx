@@ -9,7 +9,7 @@ import { calculateInvoiceTax } from '@/features/invoices/tax/InvoiceCalculator';
 import { TDS_SECTIONS } from '@/features/invoices/tax/TaxTypes';
 import { formatCurrency, numberToIndianRupeeWords } from '@/shared/utils/currency';
 import { formatIndianDate } from '@/shared/utils/date';
-import { UPIPaymentProvider } from '@/features/payments/providers/UPIPaymentProvider';
+import { generateUpiDeepLink } from '@/features/payments/providers/UPIPaymentProvider';
 
 export const InvoicePrintView: React.FC = () => {
   const { portalToken, invoiceId } = useParams<{ portalToken: string; invoiceId: string }>();
@@ -133,8 +133,7 @@ export const InvoicePrintView: React.FC = () => {
   // Reuse the validated NPCI builder (VPA/amount checks + real currency).
   const upiUrl = (() => {
     try {
-      const provider = new UPIPaymentProvider();
-      return provider.generateDeepLink({
+      return generateUpiDeepLink({
         workspaceId: '',
         invoiceId: invoice.id,
         payeeVpa: upiId,

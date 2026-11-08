@@ -7,7 +7,7 @@ function escapeCsvCell(val: any): string {
   return `"${str}"`;
 }
 
-export function triggerDownload(blob: Blob, filename: string): void {
+function triggerDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);

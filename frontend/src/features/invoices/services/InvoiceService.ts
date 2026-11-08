@@ -330,35 +330,38 @@ export class InvoiceService {
         amount: li.line_total,
       }));
 
-      const updated = await InvoiceRepository.update(workspaceId, id, {
-        invoice_date: invoiceData.invoice_date,
-        due_date: invoiceData.due_date,
-        notes: invoiceData.notes ?? null,
-        subtotal: breakdown.subtotal,
-        taxable_amount: breakdown.taxable_amount,
-        discount_amount: breakdown.discount_amount,
-        discount_type: breakdown.discount_type,
-        discount_scope: breakdown.discount_scope,
-        cess_amount: breakdown.cess,
-        cgst: breakdown.cgst,
-        sgst: breakdown.sgst,
-        igst: breakdown.igst,
-        tds_section: breakdown.tds_section,
-        tds_rate: breakdown.tds_rate,
-        tds_amount: breakdown.tds_amount,
-        net_receivable: breakdown.net_receivable,
-        round_off: breakdown.round_off,
-        inr_total: breakdown.inr_grand_total,
-        supply_type: breakdown.supply_type,
-        tax_scheme: breakdown.tax_scheme,
-        total: breakdown.grand_total,
-        outstanding_balance: breakdown.grand_total,
-        is_interstate: breakdown.is_interstate,
-        is_zero_rated: breakdown.is_zero_rated,
-        is_reverse_charge: breakdown.is_reverse_charge,
-      } as any);
-
-      const items = await InvoiceRepository.replaceItems(workspaceId, id, itemsWithGST as any);
+      const updated = await InvoiceRepository.updateDraftTransactional(
+        workspaceId,
+        id,
+        {
+          invoice_date: invoiceData.invoice_date,
+          due_date: invoiceData.due_date,
+          notes: invoiceData.notes ?? null,
+          subtotal: breakdown.subtotal,
+          taxable_amount: breakdown.taxable_amount,
+          discount_amount: breakdown.discount_amount,
+          discount_type: breakdown.discount_type,
+          discount_scope: breakdown.discount_scope,
+          cess_amount: breakdown.cess,
+          cgst: breakdown.cgst,
+          sgst: breakdown.sgst,
+          igst: breakdown.igst,
+          tds_section: breakdown.tds_section,
+          tds_rate: breakdown.tds_rate,
+          tds_amount: breakdown.tds_amount,
+          net_receivable: breakdown.net_receivable,
+          round_off: breakdown.round_off,
+          inr_total: breakdown.inr_grand_total,
+          supply_type: breakdown.supply_type,
+          tax_scheme: breakdown.tax_scheme,
+          total: breakdown.grand_total,
+          outstanding_balance: breakdown.grand_total,
+          is_interstate: breakdown.is_interstate,
+          is_zero_rated: breakdown.is_zero_rated,
+          is_reverse_charge: breakdown.is_reverse_charge,
+        },
+        itemsWithGST as any
+      );
 
       await LoggingService.logActivity({
         workspaceId,
@@ -368,7 +371,7 @@ export class InvoiceService {
         details: { invoiceId: id, invoiceNumber: current.invoice_number },
       });
 
-      return { success: true, data: { ...updated, invoice_items: items } as InvoiceWithItems };
+      return { success: true, data: updated };
     } catch (e) {
       return { success: false, error: e as Error };
     }

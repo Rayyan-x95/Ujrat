@@ -53,18 +53,6 @@ export type ProposalStatus = 'draft' | 'sent' | 'approved' | 'rejected' | 'revis
 export type ContractStatus = 'draft' | 'sent' | 'signed' | 'void';
 export type ClientStatus = 'active' | 'archived';
 
-// Financial event types
-export type FinancialEventType =
-  | 'INVOICE_CREATED'
-  | 'INVOICE_ISSUED'
-  | 'INVOICE_CANCELLED'
-  | 'INVOICE_REVISION_CREATED'
-  | 'PAYMENT_SUBMITTED'
-  | 'PAYMENT_VERIFIED'
-  | 'PAYMENT_REJECTED'
-  | 'REFUND_CREATED'
-  | 'REFUND_COMPLETED';
-
 // Composite domain model aggregates with proper joined types
 // Using unknown for relations since Supabase doesn't have FK relationships defined
 export interface ProjectWithClient extends Project {

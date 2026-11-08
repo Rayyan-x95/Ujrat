@@ -762,15 +762,6 @@ export class TaxRepository {
         b2cInvoicesCount: 0,
         exportInvoicesCount: 0,
         nilExemptCount: 0,
-        total_b2b_invoices: 0,
-        total_b2c_invoices: 0,
-        total_export_invoices: 0,
-        taxable_value: 0,
-        cgst_amount: 0,
-        sgst_amount: 0,
-        igst_amount: 0,
-        cess_amount: 0,
-        total_tax: 0,
       };
     }
 
@@ -833,15 +824,6 @@ export class TaxRepository {
       b2cInvoicesCount: b2cCount,
       exportInvoicesCount: exportCount,
       nilExemptCount: nilCount,
-      total_b2b_invoices: b2bCount,
-      total_b2c_invoices: b2cCount,
-      total_export_invoices: exportCount,
-      taxable_value: taxVal,
-      cgst_amount: cgstVal,
-      sgst_amount: sgstVal,
-      igst_amount: igstVal,
-      cess_amount: cessVal,
-      total_tax: totalTaxVal,
     };
   }
 }

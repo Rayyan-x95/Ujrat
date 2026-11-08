@@ -203,17 +203,6 @@ export interface GSTR1Summary {
   b2cInvoicesCount: number;
   exportInvoicesCount: number;
   nilExemptCount: number;
-  
-  // Deprecated backward-compatibility aliases
-  total_b2b_invoices?: number;
-  total_b2c_invoices?: number;
-  total_export_invoices?: number;
-  taxable_value?: number;
-  cgst_amount?: number;
-  sgst_amount?: number;
-  igst_amount?: number;
-  cess_amount?: number;
-  total_tax?: number;
 }
 
 // 40 Official & Legacy Indian State / Union Territory GST Codes

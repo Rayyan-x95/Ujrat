@@ -5,7 +5,34 @@ import type { Invoice, InvoiceStatus, InvoiceWithItems, InvoiceInsert, InvoiceUp
 
 // List columns only — detail rows come from getById.
 export const INVOICE_LIST_COLUMNS =
-  'id,invoice_number,status,invoice_date,due_date,subtotal,cgst,sgst,igst,total,outstanding_balance,currency,project_id,created_at,projects(id,name,portal_token)';
+  'id,invoice_number,status,invoice_date,due_date,subtotal,cgst,sgst,igst,total,outstanding_balance,currency,project_id,created_at,projects(id,name)';
+
+function toItemRows(workspaceId: string, invoiceId: string, items: InvoiceItemInsert[]) {
+  return items.map(item => {
+    const discount = (item as any).discount_amount ?? 0;
+    const preTaxTaxable = (item as any).taxable_amount ?? Math.max(0, (item.rate * item.quantity) - discount);
+    return {
+      workspace_id: workspaceId,
+      invoice_id: invoiceId,
+      description: item.description,
+      quantity: item.quantity,
+      rate: item.rate,
+      gst_rate: item.gst_rate,
+      hsn_code: item.hsn_code ?? null,
+      sac_code: (item as any).sac_code ?? item.hsn_code ?? null,
+      unit: (item as any).unit ?? 'NOS',
+      discount_amount: discount,
+      taxable_amount: preTaxTaxable,
+      cess_rate: (item as any).cess_rate ?? 0,
+      cess_amount: (item as any).cess_amount ?? 0,
+      cgst_amount: (item as any).cgst_amount ?? (item as any).cgst ?? 0,
+      sgst_amount: (item as any).sgst_amount ?? (item as any).sgst ?? 0,
+      igst_amount: (item as any).igst_amount ?? (item as any).igst ?? 0,
+      line_total: (item as any).line_total ?? item.amount,
+      amount: item.amount,
+    };
+  });
+}
 
 export class InvoiceRepository {
   static async getAll(
@@ -65,30 +92,7 @@ export class InvoiceRepository {
   ): Promise<InvoiceWithItems> {
     const invoiceId = (invoiceData as any).id || crypto.randomUUID();
 
-    const itemsToInsert = items.map(item => {
-      const discount = (item as any).discount_amount ?? 0;
-      const preTaxTaxable = (item as any).taxable_amount ?? Math.max(0, (item.rate * item.quantity) - discount);
-      return {
-        workspace_id: workspaceId,
-        invoice_id: invoiceId,
-        description: item.description,
-        quantity: item.quantity,
-        rate: item.rate,
-        gst_rate: item.gst_rate,
-        hsn_code: item.hsn_code ?? null,
-        sac_code: (item as any).sac_code ?? item.hsn_code ?? null,
-        unit: (item as any).unit ?? 'NOS',
-        discount_amount: discount,
-        taxable_amount: preTaxTaxable,
-        cess_rate: (item as any).cess_rate ?? 0,
-        cess_amount: (item as any).cess_amount ?? 0,
-        cgst_amount: (item as any).cgst_amount ?? (item as any).cgst ?? 0,
-        sgst_amount: (item as any).sgst_amount ?? (item as any).sgst ?? 0,
-        igst_amount: (item as any).igst_amount ?? (item as any).igst ?? 0,
-        line_total: (item as any).line_total ?? item.amount,
-        amount: item.amount,
-      };
-    });
+    const itemsToInsert = toItemRows(workspaceId, invoiceId, items);
 
     // Attempt database-level atomic transaction via RPC first
     {
@@ -160,45 +164,27 @@ export class InvoiceRepository {
     } as any;
   }
 
-  // Replace all line items of an invoice (draft edits only). Mirrors the item
-  // mapping in create(); old rows are hard-deleted, new rows inserted.
-  static async replaceItems(workspaceId: string, invoiceId: string, items: InvoiceItemInsert[]): Promise<any[]> {
-    const { error: delErr } = await (supabase.from('invoice_items') as any)
-      .delete()
-      .eq('invoice_id', invoiceId)
-      .eq('workspace_id', workspaceId);
-    if (delErr) throw new Error(delErr.message);
-
-    if (items.length === 0) return [];
-
-    const itemsToInsert = items.map(item => {
-      const discount = (item as any).discount_amount ?? 0;
-      const preTaxTaxable = (item as any).taxable_amount ?? Math.max(0, (item.rate * item.quantity) - discount);
-      return {
-        workspace_id: workspaceId,
-        invoice_id: invoiceId,
-        description: item.description,
-        quantity: item.quantity,
-        rate: item.rate,
-        gst_rate: item.gst_rate,
-        hsn_code: item.hsn_code ?? null,
-        sac_code: (item as any).sac_code ?? item.hsn_code ?? null,
-        unit: (item as any).unit ?? 'NOS',
-        discount_amount: discount,
-        taxable_amount: preTaxTaxable,
-        cess_rate: (item as any).cess_rate ?? 0,
-        cess_amount: (item as any).cess_amount ?? 0,
-        cgst_amount: (item as any).cgst_amount ?? (item as any).cgst ?? 0,
-        sgst_amount: (item as any).sgst_amount ?? (item as any).sgst ?? 0,
-        igst_amount: (item as any).igst_amount ?? (item as any).igst ?? 0,
-        line_total: (item as any).line_total ?? item.amount,
-        amount: item.amount,
-      };
+  // Header + line items in one transaction: a failed item insert can never
+  // leave a draft with new totals and old/missing lines. Draft-only, enforced
+  // again in SQL so a stale tab cannot edit an issued invoice.
+  static async updateDraftTransactional(
+    workspaceId: string,
+    id: string,
+    invoiceData: Record<string, unknown>,
+    items: InvoiceItemInsert[]
+  ): Promise<InvoiceWithItems> {
+    const { data, error } = await (supabase.rpc as any)('update_invoice_draft_transactional', {
+      p_workspace_id: workspaceId,
+      p_invoice_id: id,
+      p_invoice_data: invoiceData,
+      p_invoice_items: toItemRows(workspaceId, id, items),
     });
 
-    const { data, error } = await (supabase.from('invoice_items') as any).insert(itemsToInsert as any[]).select();
-    if (error) throw new Error(error.message);
-    return data || [];
+    if (error) throw new Error(error.message || 'Failed to update draft invoice');
+    return {
+      ...data.invoice,
+      invoice_items: data.invoice_items || [],
+    } as InvoiceWithItems;
   }
 
   static async update(workspaceId: string, id: string, invoiceData: InvoiceUpdate, expectedStatus?: InvoiceStatus): Promise<Invoice> {

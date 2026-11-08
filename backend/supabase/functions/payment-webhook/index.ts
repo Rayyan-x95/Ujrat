@@ -116,9 +116,12 @@ serve(async (req: Request) => {
 
     if (payload.invoice_id && payload.amount && payload.transaction_id) {
       invoiceId = payload.invoice_id
-      // Normalize to paise integer: accept a paise int or an INR float.
-      const rawAmount = Number(payload.amount)
-      amountPaise = Number.isInteger(rawAmount) ? rawAmount : Math.round(rawAmount * 100)
+      // Normalize to paise integer: supports explicit unit flags or paise integers.
+      const isExplicitRupees = payload.amount_unit === 'INR' || payload.amount_unit === 'rupees' || payload.currency_unit === 'INR' || payload.currency_unit === 'rupees' || payload.amount_in_rupees != null;
+      const rawAmount = Number(payload.amount_in_rupees ?? payload.amount);
+      amountPaise = isExplicitRupees || !Number.isInteger(rawAmount)
+        ? Math.round(rawAmount * 100)
+        : Math.round(rawAmount);
       transactionId = payload.transaction_id
       gateway = payload.gateway || 'upi'
     }

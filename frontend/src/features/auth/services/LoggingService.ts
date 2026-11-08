@@ -30,9 +30,7 @@ export class LoggingService {
   }
 
   static logWarning(message: string, context?: Record<string, unknown>): void {
-    if (typeof console !== 'undefined' && console.warn) {
-      console.warn(`[Ujrat Warning] ${message}`, context || {});
-    }
+    console.warn(`[Ujrat Warning] ${message}`, context ?? {});
   }
 
   /**

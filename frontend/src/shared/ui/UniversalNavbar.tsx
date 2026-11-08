@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth';
 import { Button } from './Button';
-import { Menu, X, ArrowRight, Sparkles } from 'lucide-react';
+import { Menu, X, ArrowRight } from 'lucide-react';
 
 interface UniversalNavbarProps {
   activePath?: string;
@@ -13,7 +13,7 @@ export const UniversalNavbar: React.FC<UniversalNavbarProps> = ({ activePath = '
   const { user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const navLinks: Array<{ name: string; href: string; highlight?: boolean }> = [
+  const navLinks = [
     { name: 'Features', href: '/features' },
     { name: 'Pricing', href: '/pricing' },
     { name: 'GST Engine', href: '/gst' },
@@ -45,23 +45,6 @@ export const UniversalNavbar: React.FC<UniversalNavbarProps> = ({ activePath = '
           <nav className="hidden md:flex items-center gap-6 text-xs font-semibold text-muted-foreground">
             {navLinks.map((link) => {
               const isActive = activePath === link.href;
-              if (link.highlight) {
-                return (
-                  <Link
-                    key={link.name}
-                    to={link.href}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all ${
-                      isActive
-                        ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-                        : 'text-primary bg-primary/10 hover:bg-primary/20 border-primary/20'
-                    }`}
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    <span>{link.name}</span>
-                  </Link>
-                );
-              }
-
               return (
                 <Link
                   key={link.name}
@@ -139,11 +122,6 @@ export const UniversalNavbar: React.FC<UniversalNavbarProps> = ({ activePath = '
                 }`}
               >
                 <span>{link.name}</span>
-                {link.highlight && (
-                  <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
-                    VIP Early Access
-                  </span>
-                )}
               </Link>
             ))}
           </nav>

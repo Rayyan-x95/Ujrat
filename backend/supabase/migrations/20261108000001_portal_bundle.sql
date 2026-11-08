@@ -29,7 +29,7 @@ DECLARE
 BEGIN
   SELECT p.id, p.workspace_id INTO v_project_id, v_workspace_id
   FROM public.projects p
-  WHERE p.portal_token = token_val
+  WHERE (p.portal_token_hash = encode(sha256(token_val::bytea), 'hex') OR p.portal_token = token_val)
     AND p.deleted_at IS NULL
     AND public.portal_token_is_live(p.created_at, p.portal_token_expires_at);
 
@@ -49,7 +49,7 @@ BEGIN
     NULL;
   END;
 
-  SELECT to_jsonb(p.*) INTO v_project FROM public.projects p WHERE p.id = v_project_id;
+  SELECT (to_jsonb(p.*) - 'portal_token_hash' - 'portal_token') INTO v_project FROM public.projects p WHERE p.id = v_project_id;
 
   SELECT to_jsonb(c.*) INTO v_client
   FROM public.clients c WHERE c.id = (SELECT client_id FROM public.projects WHERE id = v_project_id)

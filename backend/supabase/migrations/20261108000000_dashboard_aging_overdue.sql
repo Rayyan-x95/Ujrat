@@ -86,8 +86,8 @@ BEGIN
           ON pay.workspace_id = p_workspace_id
          AND pay.deleted_at IS NULL
          AND pay.status = 'completed'
-         AND EXTRACT(YEAR FROM pay.payment_date) = EXTRACT(YEAR FROM now())
-         AND EXTRACT(MONTH FROM pay.payment_date) = g.month_index
+         AND pay.payment_date >= make_date(EXTRACT(YEAR FROM now())::int, g.month_index, 1)
+         AND pay.payment_date < (make_date(EXTRACT(YEAR FROM now())::int, g.month_index, 1) + interval '1 month')
         GROUP BY g.month_index
     ) months;
 
@@ -108,7 +108,7 @@ BEGIN
 
     SELECT COALESCE(jsonb_agg(to_jsonb(p.*)), '[]'::jsonb) INTO v_projects
     FROM (
-        SELECT id, name, client_id, budget, status, timeline_start, timeline_end, portal_token, created_at, updated_at
+        SELECT id, name, client_id, budget, status, timeline_start, timeline_end, created_at, updated_at
         FROM public.projects
         WHERE workspace_id = p_workspace_id AND deleted_at IS NULL
         ORDER BY created_at DESC
