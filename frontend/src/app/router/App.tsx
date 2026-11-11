@@ -7,27 +7,35 @@ import { Spinner, ToastContainer } from '@/shared/ui/Feedback';
 import { ErrorBoundary } from '@/shared/ui/ErrorBoundary';
 import { useAuth, AuthProvider } from '@/features/auth';
 import { RoutingRedirects } from './RoutingRedirects';
+import type * as PublicPagesModule from '@/features/public/pages/PublicPages';
+import type { LandingPage as LandingPageComponent } from '@/features/landing/pages/LandingPage';
 
-// Public marketing pages are eager: their route HTML is prerendered, so the
-// client tree must match on the first hydration render (lazy() suspends).
-import { LandingPage } from '@/features/landing/pages/LandingPage';
-import {
-  PrivacyPage,
-  TermsPage,
-  SecurityPage,
-  PricingPage,
-  FeaturesPage,
-  GSTPage,
-  UPIPage,
-  ContractsPage,
-  DocsPage,
-  ContactPage,
-  StatusPage,
-  FAQPage,
-  NotFoundPage,
-} from '@/features/public/pages/PublicPages';
+// Public pages are prerendered, so the client tree must match on the first
+// hydration render. main.tsx preloads these modules on public routes and passes
+// them in; every other route loads them on demand (auth users never pay for
+// marketing/legal copy).
+export type PreloadedPublicPages = Partial<typeof PublicPagesModule> & {
+  LandingPage?: typeof LandingPageComponent;
+};
+
+const lazyPage = <K extends keyof typeof PublicPagesModule>(name: K) =>
+  lazy(() => import('@/features/public/pages/PublicPages').then(m => ({ default: m[name] })));
 
 // Lazy-loaded route components — each route only downloads its chunk on first visit
+const LazyLandingPage = lazy(() => import('@/features/landing/pages/LandingPage').then(m => ({ default: m.LandingPage })));
+const LazyPrivacyPage = lazyPage('PrivacyPage');
+const LazyTermsPage = lazyPage('TermsPage');
+const LazySecurityPage = lazyPage('SecurityPage');
+const LazyPricingPage = lazyPage('PricingPage');
+const LazyFeaturesPage = lazyPage('FeaturesPage');
+const LazyGSTPage = lazyPage('GSTPage');
+const LazyUPIPage = lazyPage('UPIPage');
+const LazyContractsPage = lazyPage('ContractsPage');
+const LazyDocsPage = lazyPage('DocsPage');
+const LazyContactPage = lazyPage('ContactPage');
+const LazyStatusPage = lazyPage('StatusPage');
+const LazyFAQPage = lazyPage('FAQPage');
+const LazyNotFoundPage = lazyPage('NotFoundPage');
 const AuthPage = lazy(() => import('@/features/auth/pages/AuthPage').then(m => ({ default: m.AuthPage })));
 const WorkspaceView = lazy(() => import('@/features/workspace/pages/WorkspaceView').then(m => ({ default: m.WorkspaceView })));
 const PortalView = lazy(() => import('@/features/portal/pages/PortalView').then(m => ({ default: m.PortalView })));
@@ -53,8 +61,24 @@ function RouteLoader() {
   );
 }
 
-function UjratApp() {
+function UjratApp({ preloaded }: { preloaded?: PreloadedPublicPages | undefined }) {
   const { user, authLoading } = useAuth();
+  const {
+    LandingPage = LazyLandingPage,
+    PrivacyPage = LazyPrivacyPage,
+    TermsPage = LazyTermsPage,
+    SecurityPage = LazySecurityPage,
+    PricingPage = LazyPricingPage,
+    FeaturesPage = LazyFeaturesPage,
+    GSTPage = LazyGSTPage,
+    UPIPage = LazyUPIPage,
+    ContractsPage = LazyContractsPage,
+    DocsPage = LazyDocsPage,
+    ContactPage = LazyContactPage,
+    StatusPage = LazyStatusPage,
+    FAQPage = LazyFAQPage,
+    NotFoundPage = LazyNotFoundPage,
+  } = preloaded ?? {};
 
   // Public routes (landing, portal, print) render immediately.
   // Auth-gated routes get a spinner only while the session resolves.
@@ -132,22 +156,22 @@ function UjratApp() {
 
 // Everything above the router. The prerenderer renders this same tree inside a
 // MemoryRouter so the server markup matches what the client hydrates.
-export function AppShell() {
+export function AppShell({ preloaded }: { preloaded?: PreloadedPublicPages | undefined } = {}) {
   return (
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
         <AuthProvider>
-          <UjratApp />
+          <UjratApp preloaded={preloaded} />
         </AuthProvider>
       </ErrorBoundary>
     </QueryClientProvider>
   );
 }
 
-export default function App() {
+export default function App({ preloaded }: { preloaded?: PreloadedPublicPages | undefined } = {}) {
   return (
     <BrowserRouter>
-      <AppShell />
+      <AppShell preloaded={preloaded} />
     </BrowserRouter>
   );
 }

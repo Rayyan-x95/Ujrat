@@ -4,11 +4,13 @@
 import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 import { AppShell } from '@/app/router/App';
+import * as PublicPages from '@/features/public/pages/PublicPages';
+import { LandingPage } from '@/features/landing/pages/LandingPage';
 
 export function render(path: string): string {
   return renderToString(
     <MemoryRouter initialEntries={[path]}>
-      <AppShell />
+      <AppShell preloaded={{ ...PublicPages, LandingPage }} />
     </MemoryRouter>,
   );
 }

@@ -39,8 +39,8 @@ export class ProjectService {
 
   /**
    * Regenerate-to-reveal: tokens are hashed at rest, so the raw value can
-   * never be read back. Each call issues a fresh link and rotates the old
-   * one out (previous shared links stop working).
+   * never be read back. Each call issues a fresh link and rotates the old one
+   * into a 30-day grace window (the token before that stops working).
    */
   static async getProjectPortalToken(workspaceId: string, projectId: string): Promise<Result<string | null>> {
     try {

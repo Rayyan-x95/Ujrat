@@ -106,8 +106,9 @@ export class ProjectRepository {
   /**
    * Rotate the passwordless portal credential and return the NEW RAW token
    * (only the sha256 hash is persisted — the trigger nulls the stored copy).
-   * The old token stops working immediately. The raw value is revealed once
-   * here and then unrecoverable; callers must copy/return it right away.
+   * The previous token keeps working for 30 days; the one before it does not.
+   * The raw value is revealed once here and then unrecoverable; callers must
+   * copy/return it right away.
    */
   static async regeneratePortalToken(workspaceId: string, id: string): Promise<Project> {
     for (let attempt = 0; attempt < 2; attempt++) {

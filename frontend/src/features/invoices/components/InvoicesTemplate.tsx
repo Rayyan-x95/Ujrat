@@ -128,7 +128,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
   const handleWhatsAppShare = async (row: InvoiceWithItems) => {
     // Share the zero-auth client portal, never the freelancer's auth-gated
     // /invoices route. Tokens are hashed at rest, so mint a fresh link for
-    // the share (issue-and-copy — previous links stop working).
+    // the share (issue-and-copy; the previous link keeps a 30-day grace window).
     let portalUrl: string | undefined;
     try {
       const tokenRes = await ProjectService.regeneratePortalToken(workspaceId, row.project_id);

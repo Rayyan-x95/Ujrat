@@ -73,6 +73,8 @@ describe('prerender output (post-build)', () => {
       const html = read(file);
       expect(html).toContain(`<title>${esc(title)}</title>`);
       expect(html).toContain(`rel="canonical" href="https://ujrat.ninety5.in${p}"`);
+      // The page module must be in the SSR tree, not suspended behind lazy().
+      expect(html, `${p} was prerendered with an empty root`).not.toContain('<div id="root"></div>');
     }
     // App routes rewrite to the empty-root shell; it must not be indexable.
     const app = read(join(distDir, 'app.html'));
