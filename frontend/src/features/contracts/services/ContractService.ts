@@ -1,10 +1,9 @@
 import { ContractRepository } from '../repositories/ContractRepository';
 import { ProjectRepository } from '@/features/projects/repositories/ProjectRepository';
-import { ContractSchema, ContractSignatureSchema } from '@/shared/validation/schemas';
-import type { Result, Contract, ContractStatus, ContractSignature } from '@/shared/types';
+import { ContractSchema } from '@/shared/validation/schemas';
+import type { Result, Contract, ContractStatus, ProjectStatus } from '@/shared/types';
 import { LoggingService } from '@/features/auth/services/LoggingService';
-import { ContractStateMachine } from '@/shared/utils/StateMachine';
-import { supabase } from '@/shared/lib/supabaseClient';
+import { ContractStateMachine, ProjectStateMachine } from '@/shared/utils/StateMachine';
 
 export class ContractService {
   static async getContract(workspaceId: string, projectId: string): Promise<Result<Contract | null>> {
@@ -78,85 +77,14 @@ export class ContractService {
         details: { ...transition.activityLog.details, contractId: contract.id },
       });
 
-      if (status === 'sent') {
+      // The contract is already persisted at this point and the DB trigger
+      // rejects a status the project is not in, so skip the move instead of
+      // failing the whole call after the write.
+      if (status === 'sent' && ProjectStateMachine.validate(project.status as ProjectStatus, 'approved')) {
         await ProjectRepository.update(workspaceId, projectId, { status: 'approved' });
       }
 
       return { success: true, data: contract };
-    } catch (e) {
-      return { success: false, error: e as Error };
-    }
-  }
-
-  static async signContract(
-    workspaceId: string,
-    _profileId: string,
-    projectId: string,
-    contractId: string,
-    signatureData: { signature_name: string; ip_address?: string | null; signature_image?: string | null; signature_type?: string }
-  ): Promise<Result<ContractSignature>> {
-    try {
-      const project = await ProjectRepository.getById(workspaceId, projectId);
-      if (!project) throw new Error('Unauthorized project workspace access');
-
-      const contract = await ContractRepository.getByProjectId(workspaceId, projectId);
-      if (!contract || contract.id !== contractId) {
-        throw new Error('Contract not found for specified project');
-      }
-
-      if (contract.status === 'signed') {
-        if (contract.contract_signatures) {
-          return {
-            success: true,
-            data: contract.contract_signatures,
-          };
-        }
-
-        const { data: persistedSig, error: sigError } = await (supabase as any)
-          .from('contract_signatures')
-          .select('*')
-          .eq('contract_id', contractId)
-          .eq('workspace_id', workspaceId)
-          .maybeSingle();
-
-        if (sigError) {
-          throw new Error(`Failed to query contract signature: ${sigError.message}`);
-        }
-
-        if (persistedSig) {
-          return {
-            success: true,
-            data: persistedSig,
-          };
-        }
-
-        throw new Error('Contract is marked signed but no persisted signature record was found');
-      }
-
-      ContractStateMachine.transition(contract.status as ContractStatus, 'signed', {
-        contractId,
-      });
-
-      const validated = ContractSignatureSchema.parse({
-        signature_name: signatureData.signature_name,
-        ip_address: signatureData.ip_address || '0.0.0.0',
-      });
-
-      const { data, error } = await (supabase as any).rpc('sign_contract_transactional', {
-        p_workspace_id: workspaceId,
-        p_project_id: projectId,
-        p_signature_name: validated.signature_name,
-        p_signature_image: signatureData.signature_image ?? null,
-        p_signature_type: signatureData.signature_type ?? 'typed',
-        p_ip: validated.ip_address ?? '0.0.0.0',
-      });
-
-      if (error) throw new Error(error.message);
-
-      const signature = (Array.isArray(data) ? data[0] : data) as ContractSignature;
-      if (!signature) throw new Error('Contract signature was not persisted');
-
-      return { success: true, data: signature };
     } catch (e) {
       return { success: false, error: e as Error };
     }

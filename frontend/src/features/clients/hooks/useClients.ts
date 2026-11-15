@@ -1,16 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ClientService } from '@/features/clients';
-import type { Client } from '@/shared/types';
+import type { Client, QueryOptions } from '@/shared/types';
 
-export function useClients(workspaceId: string, profileId: string) {
+export function useClients(workspaceId: string, profileId: string, options: QueryOptions = {}) {
   const queryClient = useQueryClient();
 
   const clientsQuery = useQuery({
-    queryKey: ['clients', workspaceId],
+    queryKey: ['clients', workspaceId, options],
     queryFn: async () => {
-      // Single round-trip: repository getListPage issues one .range() +
-      // count:exact (1000 = Supabase per-request cap, not a 100-row loop).
-      const res = await ClientService.listClients(workspaceId, { page: 1, pageSize: 1000 });
+      // One page per request: the repository issues a single .range() call
+      // with an exact count, so the table never holds more than a page.
+      // Pickers that need every row pass { pageSize: 1000 }.
+      const res = await ClientService.listClients(workspaceId, { page: 1, pageSize: 25, ...options });
       if (res.success === false) throw res.error;
       return res.data;
     },
@@ -51,6 +52,7 @@ export function useClients(workspaceId: string, profileId: string) {
 
   return {
     clients: clientsQuery.data?.data || [],
+    clientsResult: clientsQuery.data,
     isLoading: clientsQuery.isLoading,
     error: clientsQuery.error,
     addClient: addClientMutation.mutateAsync,

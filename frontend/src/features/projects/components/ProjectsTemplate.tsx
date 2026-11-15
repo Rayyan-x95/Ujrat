@@ -10,10 +10,12 @@ import { Dialog } from '@/shared/ui/Dialog';
 import { Input, Select, CurrencyInput } from '@/shared/ui/Input';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { useProjects } from '@/features/projects';
+import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 import { useClients } from '@/features/clients';
+import { PROJECT_PROGRESS } from '@/features/projects/workflowProgress';
 import { formatCurrency } from '@/shared/utils/currency';
-import type { ProjectWithClient } from '@/shared/types';
-import { Plus, Calendar1 as Calendar, Coins, ArrowRight, FolderClosed, Users, AlertCircle, Briefcase, Pencil, Trash2 } from 'lucide-react';
+import type { ProjectWithClient, ProjectStatus } from '@/shared/types';
+import { Plus, Calendar1 as Calendar, Coins, ArrowRight, FolderClosed, Users, AlertCircle, Briefcase, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ProjectsTemplateProps {
   workspaceId: string;
@@ -30,8 +32,17 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
 }) => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { projects, isLoading, addProject, editProject, removeProject } = useProjects(workspaceId, profileId);
-  const { clients } = useClients(workspaceId, profileId);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
+  const [sort, setSort] = useState<{ key: string | null; dir: 'asc' | 'desc' | null }>({ key: null, dir: null });
+  const { projects, projectsResult, isLoading, addProject, editProject, removeProject } = useProjects(workspaceId, profileId, {
+    page,
+    search: debouncedSearch,
+    sortBy: sort.key ?? undefined,
+    sortOrder: sort.dir ?? undefined,
+  });
+  const { clients } = useClients(workspaceId, profileId, { pageSize: 1000 });
   
   const [showAdd, setShowAdd] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState<ProjectWithClient | null>(null);
@@ -189,21 +200,8 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
       key: 'progress', 
       header: 'Progress Timeline',
       render: row => {
-        // Matches ProjectDetailsTemplate.getWorkflowProgress exactly —
-        // the two pages must agree on what "60% there" means.
-        const progressMap: Record<string, number> = {
-          lead: 10,
-          proposal: 20,
-          approved: 40,
-          contract_signed: 60,
-          advance_paid: 70,
-          in_progress: 75,
-          delivered: 90,
-          invoice_sent: 95,
-          paid: 100,
-          archived: 100,
-        };
-        const val = progressMap[row.status] || 0;
+        // Single source of truth (shared with ProjectDetailsTemplate).
+        const val = PROJECT_PROGRESS[row.status as ProjectStatus] ?? 0;
         return (
           <div className="w-30 select-none">
             <ProgressBar 
@@ -279,6 +277,12 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
         data={projects}
         keyField="id"
         searchable
+        search={search}
+        onSearchChange={(value) => { setSearch(value); setPage(1); }}
+        sortKey={sort.key}
+        sortDir={sort.dir}
+        onSortChange={(key, dir) => { setSort({ key, dir }); setPage(1); }}
+        totalCount={projectsResult?.total}
         searchPlaceholder="Search project name..."
         emptyState={{
           icon: <Briefcase className="h-5 w-5" />,
@@ -311,6 +315,32 @@ export const ProjectsTemplate: React.FC<ProjectsTemplateProps> = ({
         }}
         loading={isLoading}
       />
+
+      {projectsResult && projectsResult.totalPages > 1 && (
+        <div className="flex justify-between items-center pt-4 border-t border-border-subtle select-none">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            icon={<ChevronLeft className="h-3.5 w-3.5" />}
+          >
+            Previous
+          </Button>
+          <span className="text-small text-muted-foreground font-medium">
+            Page {page} of {projectsResult.totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(p => Math.min(projectsResult.totalPages, p + 1))}
+            disabled={page >= projectsResult.totalPages}
+            icon={<ChevronRight className="h-3.5 w-3.5" />}
+          >
+            Next
+          </Button>
+        </div>
+      )}
 
       <Dialog open={showAdd} onClose={() => { setShowAdd(false); setProjectToEdit(null); }} title={projectToEdit ? 'Edit Project' : 'Initialize New Project Pipeline'} size="md">
         <form onSubmit={handleAddProject} className="space-y-4 pt-2">

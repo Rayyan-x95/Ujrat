@@ -1,11 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { calculateInvoiceTax } from '../features/invoices/tax/InvoiceCalculator';
 import { numberToIndianRupeeWords } from '@/shared/utils/currency';
-import { UPIPaymentProvider } from '../features/payments/providers/UPIPaymentProvider';
+import { PaymentService } from '@/features/payments/services/PaymentService';
 
 describe('🚀 BRUTAL PERFORMANCE & SLA BENCHMARKS SUITE', () => {
-  const upiProvider = new UPIPaymentProvider();
-
   describe('1. High-Throughput Tax Calculation Benchmark', () => {
     it('calculates 500 complete GST tax breakdowns in under 150ms (<0.3ms per invoice)', () => {
       const start = performance.now();
@@ -33,30 +31,26 @@ describe('🚀 BRUTAL PERFORMANCE & SLA BENCHMARKS SUITE', () => {
       const start = performance.now();
 
       for (let i = 0; i < 2500; i++) {
-        upiProvider.generateDeepLink({
-          workspaceId: `ws-${i}`,
-          invoiceId: `inv-${i}`,
-          invoiceNumber: `INV-2026-${i}`,
-          amount: 5000 + (i % 500),
-          payeeVpa: `freelancer${i}@okhdfcbank`,
+        PaymentService.generateUpiLink({
+          vpa: `freelancer${i}@okhdfcbank`,
+          amountPaise: (5000 + (i % 500)) * 100,
           payeeName: `Freelancer Studio ${i}`,
+          reference: `INV-2026-${i}`,
         });
       }
 
       const duration = performance.now() - start;
       // Invariant: 2,500 URIs in under 100ms on a CI runner, with a retry
-      // for warm-up noise (the link builder does crypto.randomUUID per call,
-      // the slowest bit; 100ms is the same bar it always used).
+      // for warm-up noise (the retry masks first-run noise; a systematic
+      // regression still fails on the retry).
       if (duration > 100) {
         const retryStart = performance.now();
         for (let i = 0; i < 2500; i++) {
-          upiProvider.generateDeepLink({
-            workspaceId: `ws-${i}`,
-            invoiceId: `inv-${i}`,
-            invoiceNumber: `INV-2026-${i}`,
-            amount: 5000 + (i % 500),
-            payeeVpa: `freelancer${i}@okhdfcbank`,
+          PaymentService.generateUpiLink({
+            vpa: `freelancer${i}@okhdfcbank`,
+            amountPaise: (5000 + (i % 500)) * 100,
             payeeName: `Freelancer Studio ${i}`,
+            reference: `INV-2026-${i}`,
           });
         }
         const retryDuration = performance.now() - retryStart;

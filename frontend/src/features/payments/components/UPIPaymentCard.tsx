@@ -113,6 +113,8 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
           amount,
           paymentMethod: 'UPI',
           transactionReference: utrNumber.trim(),
+          screenshotUrl: screenshotUrl.trim() || null,
+          notes: notes.trim() || null,
         });
         if (res.success) {
           if (addToast) addToast('success', 'Payment Submitted', 'Transaction UTR submitted for verification.');

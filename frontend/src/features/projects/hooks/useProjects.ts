@@ -1,16 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ProjectService } from '../services/ProjectService';
-import type { Project } from '@/shared/types';
+import type { Project, QueryOptions } from '@/shared/types';
 
-export function useProjects(workspaceId: string, profileId: string) {
+export function useProjects(workspaceId: string, profileId: string, options: QueryOptions = {}) {
   const queryClient = useQueryClient();
 
   const projectsQuery = useQuery({
-    queryKey: ['projects', workspaceId],
+    queryKey: ['projects', workspaceId, options],
     queryFn: async () => {
-      // Single round-trip: repository getListPage issues one .range() +
-      // count:exact (1000 = Supabase per-request cap, not a 100-row loop).
-      const res = await ProjectService.listProjects(workspaceId, { page: 1, pageSize: 1000 });
+      // One page per request: the repository issues a single .range() call
+      // with an exact count, so the table never holds more than a page.
+      // Pickers that need every row pass { pageSize: 1000 }.
+      const res = await ProjectService.listProjects(workspaceId, { page: 1, pageSize: 25, ...options });
       if (res.success === false) throw res.error;
       return res.data;
     },
@@ -52,34 +53,14 @@ export function useProjects(workspaceId: string, profileId: string) {
     },
   });
 
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: Project['status'] }) => {
-      const res = await ProjectService.updateProjectStatus(workspaceId, profileId, id, status);
-      if (res.success === false) throw res.error;
-      return res.data;
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
-      queryClient.invalidateQueries({ queryKey: ['project', variables.id] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard', workspaceId, profileId] });
-    },
-  });
-
-  const getPortalToken = async (projectId: string) => {
-    const res = await ProjectService.getProjectPortalToken(workspaceId, projectId);
-    if (res.success === false) throw res.error;
-    return res.data;
-  };
-
   return {
     projects: projectsQuery.data?.data || [],
+    projectsResult: projectsQuery.data,
     isLoading: projectsQuery.isLoading,
     error: projectsQuery.error,
     addProject: addProjectMutation.mutateAsync,
     editProject: editProjectMutation.mutateAsync,
     removeProject: removeProjectMutation.mutateAsync,
-    updateStatus: updateStatusMutation.mutateAsync,
-    getPortalToken,
   };
 }
 export default useProjects;

@@ -5,7 +5,6 @@ import { ProposalService } from '@/features/proposals';
 import { ContractService } from '@/features/contracts';
 import { DeliverableService } from '@/features/deliverables';
 import { InvoiceService } from '@/features/invoices/services/InvoiceService';
-import { PaymentService } from '@/features/payments/services/PaymentService';
 import { StorageService } from '@/features/settings/services/StorageService';
 
 interface UseProjectDetailsOptions {
@@ -155,18 +154,6 @@ export function useProjectDetails({
     onError: (e: any) => addToast('error', 'Send Failed', e.message),
   });
 
-  const signContract = useMutation({
-    mutationFn: async (signatureData: { signature_name: string; ip_address?: string; }) =>
-      unwrapResult(await ContractService.signContract(workspaceId, profileId, projectId, contract?.id || '', signatureData)),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['contract', workspaceId, projectId] });
-      queryClient.invalidateQueries({ queryKey: ['project', workspaceId, projectId] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard', workspaceId, profileId] });
-      addToast('success', 'Contract Signed', 'Signature recorded successfully');
-    },
-    onError: (e: any) => addToast('error', 'Sign Failed', e.message),
-  });
-
   // Deliverable mutations
   const uploadDeliverable = useMutation({
     mutationFn: async (file: File) => {
@@ -245,31 +232,6 @@ export function useProjectDetails({
     onError: (e: any) => addToast('error', 'Issue Failed', e.message),
   });
 
-  // Payment mutations
-  const submitPayment = useMutation({
-    mutationFn: async (data: { invoice_id: string; amount: number; payment_method?: string; transaction_reference: string }) =>
-      unwrapResult(await PaymentService.submitPayment(workspaceId, data)),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices', workspaceId] });
-      queryClient.invalidateQueries({ queryKey: ['payments', workspaceId] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard', workspaceId, profileId] });
-      addToast('success', 'Payment Submitted', 'Payment reference sent for verification');
-    },
-    onError: (e: any) => addToast('error', 'Submit Failed', e.message),
-  });
-
-  const verifyPayment = useMutation({
-    mutationFn: async (data: { paymentId: string; status: 'completed' | 'failed'; notes?: string }) =>
-      unwrapResult(await PaymentService.verifyPayment(workspaceId, profileId, data.paymentId, data.status, data.notes)),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices', workspaceId] });
-      queryClient.invalidateQueries({ queryKey: ['payments', workspaceId] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard', workspaceId, profileId] });
-      addToast('success', 'Payment Verified', 'Payment status updated');
-    },
-    onError: (e: any) => addToast('error', 'Verification Failed', e.message),
-  });
-
   // Status change mutation
   const changeStatus = useMutation({
     mutationFn: (status: string) => ProjectService.updateProjectStatus(workspaceId, profileId, projectId, status as any),
@@ -307,15 +269,12 @@ export function useProjectDetails({
     sendProposal: sendProposal.mutateAsync,
     saveContract: saveContract.mutateAsync,
     sendContract: sendContract.mutateAsync,
-    signContract: signContract.mutateAsync,
     uploadDeliverable: uploadDeliverable.mutateAsync,
     addDeliverableLink: addDeliverableLink.mutateAsync,
     removeDeliverable: removeDeliverable.mutateAsync,
     generateInvoice: generateInvoice.mutateAsync,
     issueInvoice: issueInvoice.mutateAsync,
     regeneratePortalToken: regeneratePortalToken.mutateAsync,
-    submitPayment: submitPayment.mutateAsync,
-    verifyPayment: verifyPayment.mutateAsync,
     changeStatus: changeStatus.mutateAsync,
   };
 }

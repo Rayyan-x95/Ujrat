@@ -9,8 +9,9 @@ import { Dialog } from '@/shared/ui/Dialog';
 import { Input, Textarea } from '@/shared/ui/Input';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { useClients } from '@/features/clients';
+import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 import type { Client } from '@/shared/types';
-import { Plus, Mail, Building, Phone, Archive, Users, Pencil } from 'lucide-react';
+import { Plus, Mail, Building, Phone, Archive, Users, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ClientsTemplateProps {
   workspaceId: string;
@@ -23,8 +24,17 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
   profileId,
   addToast,
 }) => {
-  const { clients, isLoading, addClient, editClient, removeClient } = useClients(workspaceId, profileId);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
+  const [sort, setSort] = useState<{ key: string | null; dir: 'asc' | 'desc' | null }>({ key: null, dir: null });
+  const { clients, clientsResult, isLoading, addClient, editClient, removeClient } = useClients(workspaceId, profileId, {
+    page,
+    search: debouncedSearch,
+    sortBy: sort.key ?? undefined,
+    sortOrder: sort.dir ?? undefined,
+  });
   const [showAdd, setShowAdd] = useState(false);
   const [clientToEdit, setClientToEdit] = useState<Client | null>(null);
   const [clientToArchive, setClientToArchive] = useState<Client | null>(null);
@@ -253,6 +263,12 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
         data={clients}
         keyField="id"
         searchable
+        search={search}
+        onSearchChange={(value) => { setSearch(value); setPage(1); }}
+        sortKey={sort.key}
+        sortDir={sort.dir}
+        onSortChange={(key, dir) => { setSort({ key, dir }); setPage(1); }}
+        totalCount={clientsResult?.total}
         searchPlaceholder="Search clients by name or company..."
         emptyState={{
           icon: <Users className="h-5 w-5" />,
@@ -276,6 +292,32 @@ export const ClientsTemplate: React.FC<ClientsTemplateProps> = ({
         }}
         loading={isLoading}
       />
+
+      {clientsResult && clientsResult.totalPages > 1 && (
+        <div className="flex justify-between items-center pt-4 border-t border-border-subtle select-none">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            icon={<ChevronLeft className="h-3.5 w-3.5" />}
+          >
+            Previous
+          </Button>
+          <span className="text-small text-muted-foreground font-medium">
+            Page {page} of {clientsResult.totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(p => Math.min(clientsResult.totalPages, p + 1))}
+            disabled={page >= clientsResult.totalPages}
+            icon={<ChevronRight className="h-3.5 w-3.5" />}
+          >
+            Next
+          </Button>
+        </div>
+      )}
 
       {/* Confirmation Dialog for Archiving Client */}
       <Dialog 

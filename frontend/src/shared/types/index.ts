@@ -85,12 +85,12 @@ export type Result<T, E = Error> =
 
 // Query options for repository pagination, searching, sorting, and filtering
 export interface QueryOptions {
-  page?: number;
-  pageSize?: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-  search?: string;
-  filter?: Record<string, unknown>;
+  page?: number | undefined;
+  pageSize?: number | undefined;
+  sortBy?: string | undefined;
+  sortOrder?: 'asc' | 'desc' | undefined;
+  search?: string | undefined;
+  filter?: Record<string, unknown> | undefined;
 }
 
 // Universal paginated result wrapper

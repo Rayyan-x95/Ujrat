@@ -121,7 +121,9 @@ export class PortalRepository {
     invoiceId: string,
     amount: number,
     method: string,
-    reference: string
+    reference: string,
+    screenshotUrl?: string | null,
+    notes?: string | null
   ): Promise<void> {
     const { error } = await supabase.rpc('submit_portal_payment', {
       token_val: token,
@@ -129,6 +131,8 @@ export class PortalRepository {
       amt: amount,
       pay_method: method,
       tx_ref: reference,
+      p_screenshot_url: screenshotUrl || null,
+      p_notes: notes || null,
     });
     if (error) throw new Error(error.message);
   }

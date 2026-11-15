@@ -2,6 +2,7 @@ import React from 'react';
 import { InvoiceStatusBadge } from '@/shared/ui/Badge';
 import { formatCurrency } from '@/shared/utils/currency';
 import { formatIndianDate } from '@/shared/utils/date';
+import { PaymentService } from '@/features/payments/services/PaymentService';
 import type { Invoice } from '@/shared/types';
 
 type FollowUpInvoice = Pick<Invoice, 'invoice_number' | 'total' | 'outstanding_balance'> & { status: string };
@@ -16,18 +17,19 @@ export const buildFollowUpUpiLink = (
   payeeName?: string | null,
 ): string | null => {
   if (!isFollowUpPayable(invoice.status)) return null;
-  const vpa = (payeeVpa || '').trim();
   const amount = Number(invoice.outstanding_balance ?? invoice.total);
-  if (!vpa.includes('@') || !Number.isFinite(amount) || amount <= 0) return null;
-  const params: Record<string, string> = {
-    pa: vpa,
-    pn: (payeeName || 'Freelancer').trim(),
-    am: amount.toFixed(2),
-    cu: 'INR',
-    tr: invoice.invoice_number,
-    tn: `Invoice ${invoice.invoice_number}`,
-  };
-  return `upi://pay?${Object.entries(params).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&')}`;
+  try {
+    return PaymentService.generateUpiLink({
+      vpa: (payeeVpa || '').trim(),
+      amountPaise: Math.round(amount * 100),
+      payeeName: (payeeName || 'Freelancer').trim(),
+      reference: invoice.invoice_number,
+      note: `Invoice ${invoice.invoice_number}`,
+      currency: 'INR',
+    });
+  } catch {
+    return null;
+  }
 };
 
 interface PortalInvoiceTableProps {

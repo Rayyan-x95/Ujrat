@@ -243,7 +243,7 @@ export type PaymentsRow = {
   payment_method: string;
   transaction_reference: string | null;
   payment_date: string;
-  status: 'pending' | 'completed' | 'failed';
+  status: 'pending' | 'pending_verification' | 'completed' | 'failed';
   verifier_id: string | null;
   verified_at: string | null;
   notes: string | null;
@@ -359,17 +359,15 @@ export type PaymentRequestsRow = {
 
 export type PaymentAttemptsRow = {
   id: string;
-  payment_request_id: string;
+  payment_request_id: string | null;
   workspace_id: string;
   invoice_id: string;
   utr_number: string;
   amount: number;
+  status: string | null;
+  rejection_reason: string | null;
   screenshot_url: string | null;
   notes: string | null;
-  app_name: string | null;
-  ip_address: string | null;
-  user_agent: string | null;
-  status: string;
   attempted_at: string;
 };
 
@@ -416,10 +414,10 @@ export type PaymentAuditLogsRow = {
 export type TaxAuditLogsRow = {
   id: string;
   workspace_id: string;
-  invoice_id: string | null;
+  invoice_id: string;
   event_type: string;
-  payload: unknown;
-  performed_by: string | null;
+  changes: unknown;
+  actor_id: string | null;
   created_at: string;
 };
 

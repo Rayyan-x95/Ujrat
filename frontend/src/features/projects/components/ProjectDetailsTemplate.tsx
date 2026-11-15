@@ -5,6 +5,8 @@ import { ProjectStatusBadge } from '@/shared/ui/Badge';
 import { Card } from '@/shared/ui/Card';
 import { ProgressBar } from '@/shared/ui/Feedback';
 import { useProjectDetails } from '@/features/projects';
+import { PROJECT_PROGRESS } from '@/features/projects/workflowProgress';
+import type { ProjectStatus } from '@/shared/types';
 import { BriefTab } from '@/features/briefs/components/BriefTab';
 import { ProposalTab } from '@/features/proposals/components/ProposalTab';
 import { ContractTab } from '@/features/contracts/components/ContractTab';
@@ -40,6 +42,7 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
     setActiveTab,
     saveProposal,
     sendProposal,
+    saveContract,
     sendContract,
     uploadDeliverable,
     addDeliverableLink,
@@ -89,14 +92,12 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
           proposalData,
           status,
         });
-        addToast('success', 'Proposal Sent to Client');
       } else {
         await saveProposal({
           proposalId: proposal?.id,
           proposalData,
           status,
         });
-        addToast('success', 'Proposal Draft Saved');
       }
     } catch (e: any) {
       console.error('[ProjectDetails] Save proposal failed:', e?.message || e);
@@ -106,8 +107,11 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
 
   const handleSaveContract = async (content: string, status: 'draft' | 'sent') => {
     try {
-      await sendContract([content, status]);
-      addToast('success', status === 'sent' ? 'Contract Shared with Client' : 'Contract Draft Saved');
+      if (status === 'sent') {
+        await sendContract([content, status]);
+      } else {
+        await saveContract([content, status]);
+      }
     } catch (e: any) {
       console.error('[ProjectDetails] Save contract failed:', e?.message || e);
       addToast('error', 'Failed to save contract', e?.message || 'Error occurred');
@@ -212,19 +216,7 @@ export const ProjectDetailsTemplate: React.FC<ProjectDetailsProps> = ({
     );
   }
 
-  const getWorkflowProgress = () => {
-    switch (project.status) {
-      case 'proposal': return 20;
-      case 'approved': return 40;
-      case 'contract_signed': return 60;
-      case 'advance_paid': return 70;
-      case 'in_progress': return 75;
-      case 'delivered': return 90;
-      case 'invoice_sent': return 95;
-      case 'paid': return 100;
-      default: return 10;
-    }
-  };
+  const getWorkflowProgress = () => PROJECT_PROGRESS[project.status as ProjectStatus] ?? 10;
 
   const getWorkflowMessage = () => {
     switch (project.status) {

@@ -48,26 +48,38 @@ npx supabase functions delete send-email || true
 npx supabase functions delete health || true
 ```
 
-## 5. Push the 3 new migrations
+## 5. Apply the pending migrations
 
 ```bash
 npx supabase db push
+npx supabase migration list   # verify every version shows as applied
 ```
 
-Applies (in order):
+The canonical SQL lives in `backend/supabase/migrations/`. The file name is
+the version: `<version>_<name>.sql`, matching the `version` column in
+`supabase_migrations.schema_migrations`.
 
-- `20261108000000_dashboard_aging_overdue.sql`
-- `20261108000001_portal_bundle.sql`
-- `20261108000002_contract_sign_tx.sql`
+**Current state (2026-11-14):** every migration in the repo is applied to the
+live database — including the two most recent ones:
 
-## 6. Apply the `portal_verifications` drop
+- `20261114184606_portal_projections_and_rls_gaps.sql` — portal projections
+  (no token hashes in portal reads), workspace-scoped UTR uniqueness, the
+  `payment_attempts` DELETE policy + `utr_number` index, the `profiles`
+  INSERT policy, and `invoices.outstanding_balance` defaulting to the total.
+- `20261114184847_payment_attempt_screenshot_and_notes.sql` — stores the
+  payment screenshot/notes a client submits.
 
-```bash
-npx supabase db push
-# applies 20261107000000_drop_portal_verifications_dead.sql
-# (drops the dead portal_verifications table)
-npx supabase migration list
-# verify 20261107000000 shows as applied
+If `npx supabase db push` fails with `DbConnectError` ("Connection terminated
+unexpectedly"), the CLI cannot reach the database. Apply the SQL through the
+Management API instead (Supabase MCP `apply_migration`), then **rename the
+local file to the version the API stamped** — it generates its own timestamp,
+so `20261114184606_...` above is what the ledger actually holds.
+
+## 6. Verify the portal_verifications drop
+
+```sql
+select version, name from supabase_migrations.schema_migrations order by version desc limit 5;
+select to_regclass('public.portal_verifications');  -- expect NULL
 ```
 
 ## Verify
@@ -168,4 +180,4 @@ Edge (via `npx supabase functions deploy/delete --use-api --remote=ipibagojxiwun
 - `send-email` + `health` deleted. Only the 2 functions remain, both `verify_jwt: false`.
 - `PAYMENT_WEBHOOK_SECRET` secret set (generated value stored in Supabase dashboard → Secrets; webhook smoke → `200 {"received":true,...}`).
 
-Drift note: remote migration history versions differ from local file names (MCP `apply_migration` stamped its own versions: `dashboard_aging_overdue@20261106171639`, `drop_portal_verifications_dead@20261106172141`, plus the 5 above). A future CLI `db push` needs `migration repair` reconciliation once DB connectivity is fixed. Local files under `backend/supabase/migrations/20261107*/20261108*` hold the canonical SQL.
+Drift note: remote migration history versions differ from local file names for the migrations that were applied through the Management API (MCP `apply_migration` stamps its own timestamp — e.g. `dashboard_aging_overdue@20261106171639`). The local files were renamed to the stamped versions afterwards, so the repo and the ledger agree today; a future CLI `db push` still needs `migration repair` reconciliation once DB connectivity is fixed.

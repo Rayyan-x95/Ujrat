@@ -19,7 +19,17 @@ This runbook covers operational routines, emergency incident responses, security
    npx supabase functions deploy create-signed-url --no-verify-jwt
    ```
 
-### Open-Source Email Transports (Plunk / SMTP / Postal) Configuration
+### Email Transports (Plunk / SMTP / Postal) — NOT WIRED UP YET
+
+> **Current state:** the app writes an `email_logs` row for every message it
+> wants to send, but **no `send-email` edge function exists** (it was removed
+> from the deployment — see `docs/DEPLOY_EDGE.md`). Nothing dispatches those
+> rows, so every row stays `status = 'pending'` forever. Treat `pending` as
+> "not sent", not "in flight".
+>
+> To actually deliver mail, deploy a `send-email` edge function that reads
+> `email_logs` and hands the message to a transport, then set the secrets
+> below. Until that function exists, no email reaches a client.
 
 1. **Plunk Email Platform (Recommended Open-Source Email Platform)**:
    - Create an API Key at [useplunk.com](https://useplunk.com) or your self-hosted Plunk instance.
@@ -40,7 +50,9 @@ This runbook covers operational routines, emergency incident responses, security
    npx supabase secrets set POSTAL_HOST=postal.ninety5.in POSTAL_API_KEY=your_postal_key
    ```
 
-4. Verify by checking email dispatch in `supabase/functions/send-email`.
+4. Verify by checking that the `email_logs` rows for that recipient move to
+   `status = 'sent'` — there is nothing to check inside `supabase/functions/send-email`
+   until that function is deployed.
 
 ---
 
@@ -97,9 +109,12 @@ LIMIT 50;
 ```
 
 ### Common Failures & Remediation
-1. **Status stuck in `pending` or Edge Function returns 500:**
-   - Check Supabase Edge Function logs (`supabase functions logs send-email`).
-   - Check if `SMTP_HOST` / `SMTP_USER` / `SMTP_PASS` are configured correctly and the mail server is reachable.
+1. **Status stuck in `pending`:**
+   - Expected today: there is no `send-email` edge function, so nothing ever
+     dispatches the queued row. Deploy the function (see section 1) to fix it.
+   - Once deployed, check Supabase Edge Function logs (`supabase functions logs send-email`)
+     and whether `SMTP_HOST` / `SMTP_USER` / `SMTP_PASS` are configured correctly
+     and the mail server is reachable.
 2. **Client did not receive verification OTP:**
    - Verify client email in `clients` table.
    - Client can trigger OTP resend button on portal (subject to 60-second cooldown).

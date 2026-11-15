@@ -5,11 +5,10 @@ import { PortalService } from '@/features/portal/services/PortalService';
 import { Spinner } from '@/shared/ui/Feedback';
 import { Button } from '@/shared/ui/Button';
 import { QRCodeSVG } from 'qrcode.react';
-import { calculateInvoiceTax } from '@/features/invoices/tax/InvoiceCalculator';
 import { TDS_SECTIONS } from '@/features/invoices/tax/TaxTypes';
+import { PaymentService } from '@/features/payments/services/PaymentService';
 import { formatCurrency, numberToIndianRupeeWords } from '@/shared/utils/currency';
 import { formatIndianDate } from '@/shared/utils/date';
-import { generateUpiDeepLink } from '@/features/payments/providers/UPIPaymentProvider';
 
 export const InvoicePrintView: React.FC = () => {
   const { portalToken, invoiceId } = useParams<{ portalToken: string; invoiceId: string }>();
@@ -63,50 +62,45 @@ export const InvoicePrintView: React.FC = () => {
   const settings = data.settings;
   const client = data.client;
 
-  // Recompute ONLY what the invoice doesn't store (declarations, place of
-  // supply) using the snapshot's own fields. Every printed amount reads the
-  // stored invoice columns below - re-running the tax math from today's
-  // settings or rules would silently rewrite issued invoices.
-  const { breakdown: taxFallback, lineItems } = calculateInvoiceTax({
-    freelancer: {
-      is_gst_registered: Boolean(invoice.freelancer_gstin),
-      gstin: invoice.freelancer_gstin,
-      state: invoice.freelancer_state,
-      tax_scheme: (invoice.tax_scheme as any) || 'regular',
-      lut_number: invoice.lut_number,
-    },
-    client: {
-      gstin: invoice.client_gstin || client?.gstin,
-      state: invoice.client_state || client?.state,
-    },
-    items: (invoice.invoice_items || []).map((item: any) => ({
-      description: item.description,
-      quantity: Number(item.quantity || 1),
-      rate: Number(item.rate || 0),
-      gst_rate: Number(item.gst_rate || 0),
-      cess_rate: Number(item.cess_rate || 0),
-      hsn_code: item.hsn_code,
-      sac_code: item.sac_code,
-      unit: item.unit || 'NOS',
-      discount_amount: Number(item.discount_amount || 0),
-    })),
-    invoiceDiscount: {
-      type: (invoice.discount_type as any) || 'fixed',
-      value: Number(invoice.discount_amount || 0),
-      scope: (invoice.discount_scope as any) || 'before_tax',
-    },
-    tds: {
-      section: invoice.tds_section || 'NONE',
-      rate: Number(invoice.tds_rate || 0),
-    },
-    isReverseCharge: Boolean(invoice.is_reverse_charge),
-    currency: (invoice.currency as any) || 'INR',
-    exchangeRate: Number(invoice.exchange_rate || 1.0),
-    lutNumber: invoice.lut_number,
-  });
+  // Every printed figure comes from the stored invoice columns. Recomputing
+  // here would rewrite an issued invoice from today's client/settings rows -
+  // a client that registered later, or a line discount, silently changed the
+  // printed amounts.
+  const lineItems = (invoice.invoice_items || []).map((item) => ({
+    description: item.description,
+    hsn_code: item.hsn_code,
+    sac_code: item.sac_code ?? null,
+    unit: item.unit || 'NOS',
+    quantity: Number(item.quantity || 0),
+    rate: Number(item.rate || 0),
+    gst_rate: Number(item.gst_rate || 0),
+    taxable_amount: Number(item.taxable_amount || 0),
+    line_total: Number(item.line_total ?? item.amount ?? 0),
+  }));
 
-  const placeOfSupply = taxFallback.place_of_supply;
-  const declarations = taxFallback.declarations || [];
+  const supplyType = (invoice.supply_type as any) || 'taxable';
+  const placeOfSupply = supplyType.startsWith('zero_rated')
+    ? 'export'
+    : supplyType.startsWith('sez')
+      ? 'sez'
+      : invoice.is_interstate ? 'inter_state' : 'intra_state';
+
+  const declarations: string[] = [];
+  if (invoice.tax_scheme === 'composition') {
+    declarations.push('COMPOSITION TAXABLE PERSON, NOT ELIGIBLE TO COLLECT TAX ON SUPPLIES.');
+  }
+  if (invoice.is_reverse_charge) {
+    declarations.push('TAX ON THIS INVOICE IS PAYABLE ON REVERSE CHARGE BASIS BY THE RECIPIENT OF SUPPLY.');
+  }
+  if (supplyType === 'zero_rated_lut') {
+    declarations.push(`SUPPLY MEANT FOR EXPORT UNDER BOND OR LETTER OF UNDERTAKING (LUT NO: ${invoice.lut_number}) WITHOUT PAYMENT OF INTEGRATED TAX.`);
+  } else if (supplyType === 'zero_rated_non_lut') {
+    declarations.push('SUPPLY MEANT FOR EXPORT ON PAYMENT OF INTEGRATED TAX.');
+  } else if (supplyType === 'sez_without_tax') {
+    declarations.push(`SUPPLY TO SEZ DEVELOPER/UNIT UNDER BOND/LUT (NO: ${invoice.lut_number}) WITHOUT PAYMENT OF INTEGRATED TAX.`);
+  } else if (supplyType === 'sez_with_tax') {
+    declarations.push('SUPPLY TO SEZ DEVELOPER/UNIT ON PAYMENT OF INTEGRATED TAX.');
+  }
 
   // Issued amounts from the stored columns, never recomputed.
   const currency = (invoice.currency as any) || 'INR';
@@ -133,14 +127,15 @@ export const InvoicePrintView: React.FC = () => {
   // Reuse the validated NPCI builder (VPA/amount checks + real currency).
   const upiUrl = (() => {
     try {
-      return generateUpiDeepLink({
-        workspaceId: '',
-        invoiceId: invoice.id,
-        payeeVpa: upiId,
+      return PaymentService.generateUpiLink({
+        vpa: upiId,
+        amountPaise: Math.round(upiAmount * 100),
         payeeName: merchantName,
-        amount: upiAmount,
-        currency: currency || 'INR',
-        invoiceNumber: invoice.invoice_number,
+        // Two links generated in the same second must not collide, so the
+        // transaction reference carries a UUID suffix.
+        reference: `INV-${invoice.invoice_number}-${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`,
+        note: `Invoice ${invoice.invoice_number}`,
+        currency: 'INR',
       });
     } catch {
       return '';
@@ -171,9 +166,9 @@ export const InvoicePrintView: React.FC = () => {
             <h2 className="text-lg font-bold text-neutral-900 mb-1">{settings?.company_name || 'Freelancer / Studio'}</h2>
             {settings?.address && <p className="text-neutral-600 whitespace-pre-line">{settings.address}</p>}
             {settings?.phone && <p className="text-neutral-500 mt-0.5">Phone: {settings.phone}</p>}
-            {(settings?.gstin || invoice.freelancer_gstin) && (
+            {(invoice.freelancer_gstin) && (
               <p className="text-neutral-700 font-semibold mt-1">
-                GSTIN: <span className="font-mono">{settings?.gstin || invoice.freelancer_gstin}</span>
+                GSTIN: <span className="font-mono">{invoice.freelancer_gstin}</span>
               </p>
             )}
             {settings?.state && <p className="text-neutral-500">State: {settings.state}</p>}
@@ -211,9 +206,9 @@ export const InvoicePrintView: React.FC = () => {
             {client?.company && <div className="text-neutral-700">{client.company}</div>}
             <p className="text-neutral-500 mt-1 max-w-xs whitespace-pre-wrap">{client?.address || ''}</p>
             {client?.phone && <div className="text-neutral-500 mt-0.5">Phone: {client.phone}</div>}
-            {(client?.gstin || invoice.client_gstin) && (
+            {(invoice.client_gstin) && (
               <div className="text-neutral-700 font-semibold mt-1">
-                GSTIN: <span className="font-mono">{client?.gstin || invoice.client_gstin}</span>
+                GSTIN: <span className="font-mono">{invoice.client_gstin}</span>
               </div>
             )}
             {client?.state && <div className="text-neutral-500">State: {client.state}</div>}

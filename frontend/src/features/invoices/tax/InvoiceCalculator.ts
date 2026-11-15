@@ -589,79 +589,6 @@ export function calculateInvoiceTax(input: InvoiceTaxCalculationInput): InvoiceT
 }
 
 // ==========================================
-// 6. Tax Invariant Validation Guard
-// ==========================================
-
-export function validateTaxCalculation(
-  inputOrBreakdown: InvoiceTaxCalculationInput | TaxBreakdownResult,
-  lineItems?: CalculatedLineItem[]
-): { isValid: boolean; errors: string[] } {
-  const errors: string[] = [];
-
-  if ('freelancer' in inputOrBreakdown) {
-    const input = inputOrBreakdown as InvoiceTaxCalculationInput;
-    if (!input.items || input.items.length === 0) {
-      errors.push('Invoice must contain at least one line item');
-    }
-    (input.items || []).forEach((it: InvoiceItemTaxInput, idx: number) => {
-      if (!Number.isFinite(it.quantity) || it.quantity < 0) {
-        errors.push(`Line item #${idx + 1}: quantity must be non-negative`);
-      }
-      if (!Number.isFinite(it.rate) || it.rate < 0) {
-        errors.push(`Line item #${idx + 1}: rate must be non-negative`);
-      }
-      if (it.gst_rate !== undefined && (!Number.isFinite(it.gst_rate) || it.gst_rate < 0)) {
-        errors.push(`Line item #${idx + 1}: gst_rate must be non-negative`);
-      }
-      if (it.cess_rate !== undefined && (!Number.isFinite(it.cess_rate) || it.cess_rate < 0)) {
-        errors.push(`Line item #${idx + 1}: cess_rate must be non-negative`);
-      }
-    });
-
-    return {
-      isValid: errors.length === 0,
-      errors,
-    };
-  }
-
-  const breakdown = inputOrBreakdown as TaxBreakdownResult;
-  const items = lineItems || (breakdown as any).lineItems || (breakdown as any).line_items || [];
-  const headerTaxablePaise = toPaise(breakdown.taxable_amount);
-
-  const lineSumPaise = items.reduce((acc: number, it: any) => acc + toPaise(it.taxable_amount), 0);
-  if (items.length > 0 && Math.abs(lineSumPaise - headerTaxablePaise) > 1) {
-    errors.push(`Taxable subtotal mismatch: lines sum to ₹${fromPaise(lineSumPaise)} but header reports ₹${breakdown.taxable_amount}`);
-  }
-
-  if (breakdown.place_of_supply === 'intra_state') {
-    if (breakdown.cgst !== breakdown.sgst) {
-      errors.push(`Intra-state GST asymmetry: CGST (₹${breakdown.cgst}) must equal SGST (₹${breakdown.sgst})`);
-    }
-    if (breakdown.igst > 0) {
-      errors.push(`Intra-state supply cannot levy IGST (found ₹${breakdown.igst})`);
-    }
-  }
-
-  if (breakdown.place_of_supply === 'inter_state' || breakdown.place_of_supply === 'export' || breakdown.place_of_supply === 'sez') {
-    if (breakdown.cgst > 0 || breakdown.sgst > 0) {
-      errors.push(`Inter-state/Export supply cannot levy CGST or SGST`);
-    }
-  }
-
-  const postTaxDiscountPaise = toPaise(breakdown.post_tax_discount || 0);
-  const calculatedGrandUnroundedPaise = Math.max(0, headerTaxablePaise + toPaise(breakdown.total_gst) - postTaxDiscountPaise);
-  const diffGrand = Math.abs(calculatedGrandUnroundedPaise - toPaise(breakdown.grand_total_unrounded));
-  if (diffGrand > 2) {
-    errors.push(`Grand total arithmetic divergence: expected ₹${fromPaise(calculatedGrandUnroundedPaise)}, got ₹${breakdown.grand_total_unrounded}`);
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-  };
-}
-
-// ==========================================
 // 7. GSTR-1 Aggregation Repository (Inlined)
 // ==========================================
 
@@ -678,7 +605,7 @@ export class TaxRepository {
     workspaceId: string,
     invoiceId: string | null,
     eventType: string,
-    payload: Record<string, unknown>,
+    changes: Record<string, unknown>,
     userId?: string
   ): Promise<void> {
     try {
@@ -686,8 +613,8 @@ export class TaxRepository {
         workspace_id: workspaceId,
         invoice_id: invoiceId,
         event_type: eventType,
-        payload,
-        performed_by: userId || null,
+        changes,
+        actor_id: userId || null,
       });
       if (error) {
         LoggingService.logWarning(`Tax audit log insert failed: ${error.message}`, {
@@ -826,94 +753,5 @@ export class TaxRepository {
       nilExemptCount: nilCount,
     };
   }
-}
-
-export function determineGSTType(
-  freelancer: { is_gst_registered: boolean; state?: string | null; gstin?: string | null; tax_scheme?: any; lut_number?: string | null },
-  client: { state?: string | null; gstin?: string | null; country?: string | null; is_sez?: boolean }
-): { isInterstate: boolean; isZeroRated: boolean; isReverseCharge: boolean; suppressesGst: boolean } {
-  const rules = evaluateTaxRules(
-    {
-      is_gst_registered: freelancer.is_gst_registered,
-      state: freelancer.state,
-      gstin: freelancer.gstin,
-      tax_scheme: freelancer.tax_scheme,
-      lut_number: freelancer.lut_number,
-    },
-    {
-      state: client.state,
-      gstin: client.gstin,
-      country: client.country,
-      is_sez: client.is_sez,
-    }
-  );
-
-  return {
-    isInterstate: rules.isInterstate,
-    isZeroRated: rules.isZeroRated,
-    isReverseCharge: rules.isReverseCharge,
-    suppressesGst: rules.suppressesGst,
-  };
-}
-
-export function calculateGST(
-  baseAmount: number,
-  gstRate: number,
-  isInterstate: boolean,
-  isZeroRated: boolean,
-  suppressesGst: boolean = false
-): { subtotal: number; cgst: number; sgst: number; igst: number; total: number } {
-  const items: InvoiceItemTaxInput[] = [
-    {
-      description: 'Item',
-      quantity: 1,
-      rate: baseAmount,
-      gst_rate: gstRate,
-    },
-  ];
-
-  const breakdown = calculateGSTBreakdown(items, isInterstate, isZeroRated, false, 0, suppressesGst);
-
-  return {
-    subtotal: breakdown.subtotal,
-    cgst: breakdown.cgstTotal,
-    sgst: breakdown.sgstTotal,
-    igst: breakdown.igstTotal,
-    total: breakdown.subtotal + breakdown.totalGst,
-  };
-}
-
-export function calculateTDS(
-  taxableAmount: number,
-  invoiceTotalOrSection?: number | string,
-  sectionOrRate?: string | number,
-  rate?: number
-): { tdsAmount: number; netReceivable: number; section: string | null; rate: number } {
-  let section: string = '194J';
-  let appliedRate: number | undefined = rate;
-  let totalAmount = taxableAmount;
-
-  if (typeof invoiceTotalOrSection === 'number') {
-    totalAmount = invoiceTotalOrSection;
-    if (typeof sectionOrRate === 'string') {
-      section = sectionOrRate;
-    }
-    appliedRate = rate;
-  } else if (typeof invoiceTotalOrSection === 'string') {
-    section = invoiceTotalOrSection;
-    if (typeof sectionOrRate === 'number') {
-      appliedRate = sectionOrRate;
-    }
-  }
-
-  const res = calculateTDSBreakdown(taxableAmount, { section, rate: appliedRate });
-  const netReceivable = fromPaise(Math.max(0, toPaise(totalAmount) - toPaise(res.tdsAmount)));
-
-  return {
-    tdsAmount: res.tdsAmount,
-    netReceivable,
-    section: res.section,
-    rate: res.rate,
-  };
 }
 

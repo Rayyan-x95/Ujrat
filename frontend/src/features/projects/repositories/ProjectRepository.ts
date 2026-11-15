@@ -21,7 +21,9 @@ export class ProjectRepository {
     if (options.search) {
       const term = sanitizeSearchTerm(options.search);
       if (term) {
-        query = query.or(`name.ilike.%${term}%,notes.ilike.%${term}%`);
+        // Same fields the table used to filter client-side, so switching to
+        // server-side search does not narrow what a user can find.
+        query = query.or(`name.ilike.%${term}%,status.ilike.%${term}%`);
       }
     }
 

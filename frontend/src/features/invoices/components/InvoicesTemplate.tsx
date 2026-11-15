@@ -36,11 +36,14 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
 }) => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { projects } = useProjects(workspaceId, profileId);
-  const { invoices, isLoading, payInvoice, issueInvoice, editInvoice, removeInvoice, getInvoiceDetails } = useInvoices(workspaceId, profileId);
+  const { projects } = useProjects(workspaceId, profileId, { pageSize: 1000 });
+  const { invoices, isLoading, payInvoice, rejectPayment, issueInvoice, editInvoice, removeInvoice, getInvoiceDetails } = useInvoices(workspaceId, profileId);
   const { settings } = useWorkspaceSettings(workspaceId, profileId);
   const vpa = settings?.upi_id ?? null;
   const [invoiceToVerify, setInvoiceToVerify] = useState<Invoice | null>(null);
+  const [invoiceToReject, setInvoiceToReject] = useState<Invoice | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejecting, setRejecting] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [showTaxReports, setShowTaxReports] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
@@ -97,6 +100,21 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
       addToast('error', 'Verification Failed', (e as Error).message);
     } finally {
       setVerifying(false);
+    }
+  };
+
+  const confirmRejection = async () => {
+    if (!invoiceToReject) return;
+    try {
+      setRejecting(true);
+      await rejectPayment({ invoiceId: invoiceToReject.id, reason: rejectReason.trim() || undefined });
+      addToast('success', 'Payment Rejected', `The payment for ${invoiceToReject.invoice_number} was rejected.`);
+      setInvoiceToReject(null);
+      setRejectReason('');
+    } catch (e) {
+      addToast('error', 'Rejection Failed', (e as Error).message);
+    } finally {
+      setRejecting(false);
     }
   };
 
@@ -161,21 +179,30 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
   };
 
   const handleShareUpi = async (row: InvoiceWithItems) => {
-    const generateUpiLink = (PaymentService as unknown as { generateUpiLink?: (p: Record<string, unknown>) => string }).generateUpiLink;
-    if (typeof generateUpiLink === 'function' && vpa) {
-      try {
-        const upiLink = generateUpiLink.call(PaymentService, { invoiceId: row.id, invoiceNumber: row.invoice_number, amount: row.total, payeeVpa: vpa });
-        if (typeof navigator?.share === 'function') {
-          await navigator.share({ title: `Pay ${row.invoice_number}`, text: `UPI payment for ${row.invoice_number}`, url: upiLink });
-          return;
-        }
-        window.open(upiLink, '_blank', 'noopener,noreferrer');
-        return;
-      } catch {
-        // Fall through to wa.me fallback
-      }
+    if (!vpa) {
+      handleWhatsAppShare(row);
+      return;
     }
-    handleWhatsAppShare(row);
+    try {
+      const upiLink = PaymentService.generateUpiLink({
+        vpa,
+        // What the client still owes, not the invoice total - a partly paid
+        // invoice must not ask for the full amount again.
+        amountPaise: Math.round((row.outstanding_balance ?? row.total) * 100),
+        payeeName: settings?.company_name || 'Freelancer',
+        reference: row.invoice_number,
+        note: `Invoice ${row.invoice_number}`,
+        currency: 'INR',
+      });
+      if (typeof navigator?.share === 'function') {
+        await navigator.share({ title: `Pay ${row.invoice_number}`, text: `UPI payment for ${row.invoice_number}`, url: upiLink });
+        return;
+      }
+      window.open(upiLink, '_blank', 'noopener,noreferrer');
+    } catch {
+      // Fall through to wa.me fallback
+      handleWhatsAppShare(row);
+    }
   };
 
   const handleMarkPaid = useCallback(async (row: InvoiceWithItems) => {
@@ -399,15 +426,27 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
             </Button>
           )}
           {row.status === 'pending_verification' && (
-            <Button 
-              variant="primary" 
-              size="sm" 
-              className="min-h-[44px] min-w-[44px]"
-              onClick={() => setInvoiceToVerify(row)}
-              icon={<Check className="h-3 w-3" />}
-            >
-              Verify
-            </Button>
+            <>
+              <Button
+                variant="primary"
+                size="sm"
+                className="min-h-[44px] min-w-[44px]"
+                onClick={() => setInvoiceToVerify(row)}
+                icon={<Check className="h-3 w-3" />}
+              >
+                Verify
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                className="min-h-[44px] min-w-[44px]"
+                onClick={() => setInvoiceToReject(row)}
+                icon={<X className="h-3 w-3" />}
+                title="Reject this payment attempt"
+              >
+                Reject
+              </Button>
+            </>
           )}
         </div>
       )
@@ -531,6 +570,34 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
             </Button>
             <Button variant="primary" size="sm" onClick={confirmVerification} loading={verifying} icon={<ShieldCheck className="h-4 w-4" />}>
               Confirm & Mark Paid
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Confirmation Dialog for Rejecting a Payment Attempt */}
+      <Dialog
+        open={!!invoiceToReject}
+        onClose={() => setInvoiceToReject(null)}
+        title="Reject Payment Attempt"
+        size="sm"
+      >
+        <div className="space-y-4 pt-1">
+          <p className="text-small text-muted-foreground leading-relaxed">
+            Reject the payment submitted for <strong className="text-foreground font-mono">{invoiceToReject?.invoice_number}</strong>? The invoice returns to its unpaid state and the client can submit the payment again.
+          </p>
+          <Textarea
+            label="Reason (optional)"
+            placeholder="e.g. UTR not found in bank statement"
+            value={rejectReason}
+            onChange={e => setRejectReason(e.target.value)}
+          />
+          <div className="flex justify-end gap-2 border-t border-border pt-4">
+            <Button variant="ghost" size="sm" onClick={() => setInvoiceToReject(null)} type="button">
+              Cancel
+            </Button>
+            <Button variant="danger" size="sm" onClick={confirmRejection} loading={rejecting} icon={<X className="h-4 w-4" />}>
+              Reject Payment
             </Button>
           </div>
         </div>

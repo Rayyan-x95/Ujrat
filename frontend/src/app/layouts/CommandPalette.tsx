@@ -26,8 +26,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   profileId,
 }) => {
   const navigate = useNavigate();
-  const { clients } = useClients(workspaceId, profileId);
-  const { projects } = useProjects(workspaceId, profileId);
+  const { clients } = useClients(workspaceId, profileId, { pageSize: 1000 });
+  const { projects } = useProjects(workspaceId, profileId, { pageSize: 1000 });
 
   const [search, setSearch] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);

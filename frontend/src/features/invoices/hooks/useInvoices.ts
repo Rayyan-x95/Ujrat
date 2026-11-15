@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { InvoiceService } from '@/features/invoices';
+import { PaymentService } from '@/features/payments/services/PaymentService';
+import { PaymentRepository } from '@/features/payments/repositories/PaymentRepository';
 import type { InvoiceItem, InvoiceWithItems, PaginatedResult } from '@/shared/types';
 
 export function useInvoices(workspaceId: string, profileId: string) {
@@ -8,8 +10,8 @@ export function useInvoices(workspaceId: string, profileId: string) {
   const invoicesQuery = useQuery({
     queryKey: ['invoices', workspaceId],
     queryFn: async (): Promise<PaginatedResult<InvoiceWithItems>> => {
-      // Single round-trip: repository getListPage issues one .range() +
-      // count:exact (1000 = Supabase per-request cap, not a 100-row loop).
+      // Not paginated: the page's money metrics (total invoiced, GST, out-
+      // standing) and the GSTR-1 statutory export both need every invoice.
       const res = await InvoiceService.listInvoices(workspaceId, { page: 1, pageSize: 1000 });
       if (res.success === false) throw res.error;
       return res.data;
@@ -98,6 +100,23 @@ export function useInvoices(workspaceId: string, profileId: string) {
     },
   });
 
+  const rejectPaymentMutation = useMutation({
+    mutationFn: async ({ invoiceId, reason }: { invoiceId: string; reason?: string | undefined }) => {
+      const payments = await PaymentRepository.getByInvoiceId(workspaceId, invoiceId);
+      const pending = payments.find(p => p.status === 'pending' || p.status === 'pending_verification');
+      if (!pending) throw new Error('No payment awaiting verification on this invoice.');
+      const res = await PaymentService.verifyPayment(workspaceId, profileId, pending.id, 'failed', reason);
+      if (res.success === false) throw res.error;
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['payments', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', workspaceId, profileId] });
+    },
+  });
+
   const getInvoiceDetails = async (invoiceId: string) => {
     const res = await InvoiceService.getInvoiceDetails(workspaceId, invoiceId);
     if (res.success === false) throw res.error;
@@ -113,6 +132,7 @@ export function useInvoices(workspaceId: string, profileId: string) {
     editInvoice: editInvoiceMutation.mutateAsync,
     removeInvoice: removeInvoiceMutation.mutateAsync,
     payInvoice: payInvoiceMutation.mutateAsync,
+    rejectPayment: rejectPaymentMutation.mutateAsync,
     getInvoiceDetails,
   };
 }

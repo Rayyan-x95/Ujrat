@@ -7,11 +7,8 @@ import { supabase } from '@/shared/lib/supabaseClient';
 import { PaymentRepository } from '@/features/payments/repositories/PaymentRepository';
 import { InvoiceRepository } from '@/features/invoices/repositories/InvoiceRepository';
 import type { Result, QueryOptions, PaginatedResult, Payment, InvoiceStatus } from '@/shared/types';
-import type { SupportedCurrency } from '@/features/invoices/tax/TaxTypes';
-import type { PaymentReceiptData } from '../types/PaymentTypes';
 import { UTR_REGEX } from '../constants/PaymentConstants';
 import { PaymentStateMachine, InvoiceStateMachine } from '@/shared/utils/StateMachine';
-import { PaymentSchema } from '@/shared/validation/schemas';
 import { LoggingService } from '@/features/auth/services/LoggingService';
 import { toPaise, fromPaise } from '@/shared/utils/currency';
 import { parseLocalDate } from '@/shared/utils/date';
@@ -102,120 +99,6 @@ export class PaymentService {
     return `upi://pay?${query}`;
   }
 
-  /**
-   * Generates a formal payment receipt record
-   */
-  static async generateReceipt(
-    workspaceId: string,
-    params: {
-      invoiceId: string;
-      amount: number;
-      utrNumber: string;
-      clientName: string;
-      clientEmail?: string;
-      notes?: string;
-      currency?: SupportedCurrency | string;
-    }
-  ): Promise<Result<PaymentReceiptData>> {
-    try {
-      const utrValidation = this.validateUTR(params.utrNumber);
-      if (!utrValidation.isValid) {
-        throw new Error(utrValidation.error);
-      }
-
-      // A receipt is proof of payment — never issue one against an invoice
-      // that isn't settled, or without a completed payment matching the UTR.
-      const invoice = await InvoiceRepository.getById(workspaceId, params.invoiceId);
-      if (!invoice) {
-        throw new Error('Invoice not found');
-      }
-      if (invoice.status !== 'paid') {
-        throw new Error(`Cannot issue a receipt: invoice ${invoice.invoice_number} is not marked paid`);
-      }
-      const completed = await PaymentRepository.getByInvoiceId(workspaceId, params.invoiceId);
-      const match = (completed || []).find(
-        (p) => p.status === 'completed' && (p.transaction_reference || '') === params.utrNumber.trim()
-      );
-      if (!match) {
-        throw new Error(`Cannot issue a receipt: no completed payment found for UTR ${params.utrNumber.trim()}`);
-      }
-      if (Number(params.amount) !== Number(match.amount)) {
-        throw new Error(
-          `Receipt amount ${params.amount} does not match completed payment amount ${match.amount}`
-        );
-      }
-
-      const id = crypto.randomUUID();
-      const now = new Date();
-      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
-      const uniqueSuffix = id.replace(/-/g, '').slice(0, 8).toUpperCase();
-      const receiptNumber = `REC-${dateStr}-${uniqueSuffix}`;
-      const currency = params.currency || 'INR';
-
-      const receipt: PaymentReceiptData = {
-        id,
-        receiptNumber,
-        workspaceId,
-        invoiceId: params.invoiceId,
-        amount: params.amount,
-        currency,
-        paymentMethod: 'UPI',
-        utrNumber: params.utrNumber.trim(),
-        clientName: params.clientName,
-        clientEmail: params.clientEmail,
-        notes: params.notes,
-        issuedAt: now.toISOString(),
-      };
-
-      const isTestEnv = import.meta.env?.MODE === 'test';
-      if (isTestEnv) {
-        return { success: true, data: receipt };
-      }
-      try {
-        const { error } = await (supabase as any).from('payment_receipts').insert({
-          id: receipt.id,
-          workspace_id: workspaceId,
-          invoice_id: params.invoiceId,
-          receipt_number: receiptNumber,
-          amount: params.amount,
-          currency: receipt.currency,
-          payment_method: 'UPI',
-          utr_number: params.utrNumber,
-          client_name: params.clientName,
-          client_email: params.clientEmail || null,
-          notes: params.notes || null,
-          issued_at: receipt.issuedAt,
-        });
-
-        const isTest = import.meta.env?.MODE === 'test';
-        if (error) {
-          const isMissingSchema = error.code === '42P01';
-
-          if (!isMissingSchema && !isTest) {
-            return {
-              success: false,
-              error: new Error(`Database error creating payment receipt: ${error.message}`),
-            };
-          }
-        }
-      } catch (err: any) {
-        const isTest = import.meta.env?.MODE === 'test';
-        const isMissingSchema = err?.code === '42P01';
-
-        if (!isMissingSchema && !isTest) {
-          return {
-            success: false,
-            error: new Error(`Database error creating payment receipt: ${err?.message || String(err)}`),
-          };
-        }
-      }
-
-      return { success: true, data: receipt };
-    } catch (e) {
-      return { success: false, error: e as Error };
-    }
-  }
-
   static async listPayments(
     workspaceId: string,
     options: QueryOptions = {}
@@ -224,81 +107,6 @@ export class PaymentService {
       const data = await PaymentRepository.getAll(workspaceId, options);
       return { success: true, data };
     } catch (e) {
-      return { success: false, error: e as Error };
-    }
-  }
-
-  static async submitPayment(
-    workspaceId: string,
-    paymentData: {
-      invoice_id: string;
-      amount: number;
-      payment_method?: string;
-      transaction_reference: string;
-    }
-  ): Promise<Result<Payment>> {
-    try {
-      const validated = PaymentSchema.parse(paymentData);
-
-      const invoice = await InvoiceRepository.getById(workspaceId, validated.invoice_id);
-      if (!invoice) {
-        throw new Error('Invoice not found');
-      }
-
-      if (invoice.status === 'paid') {
-        throw new Error('This invoice has already been fully paid');
-      }
-
-      // Payments can't exceed what the invoice still needs (parity with
-      // submitClientPaymentAttempt) — a ₹1 stub payment must not open a
-      // pending row and flip invoice state.
-      if (validated.amount <= 0) {
-        throw new Error('Payment amount must be a positive number.');
-      }
-      const outstandingBalance = invoice.outstanding_balance ?? invoice.total ?? 0;
-      if (validated.amount > outstandingBalance) {
-        throw new Error(`Submitted payment amount (${validated.amount}) exceeds outstanding invoice balance (${outstandingBalance}).`);
-      }
-
-      // Validate the state transition BEFORE inserting the payment row so a
-      // rejected transition can't leave an orphaned payment behind.
-      const transition =
-        invoice.status !== 'pending_verification'
-          ? InvoiceStateMachine.transition(invoice.status as InvoiceStatus, 'pending_verification' as InvoiceStatus, {
-              invoiceId: invoice.id,
-              invoiceNumber: invoice.invoice_number,
-            })
-          : null;
-
-      const payment = await PaymentRepository.create(workspaceId, {
-        workspace_id: workspaceId,
-        invoice_id: validated.invoice_id,
-        amount: validated.amount,
-        payment_method: validated.payment_method || 'UPI',
-        transaction_reference: validated.transaction_reference,
-        payment_date: new Date().toISOString(),
-        status: 'pending',
-        notes: null,
-        verifier_id: null,
-        verified_at: null,
-      });
-
-      if (transition) {
-        await LoggingService.logActivity({
-          workspaceId,
-          profileId: '',
-          action: transition.activityLog.action,
-          details: transition.activityLog.details,
-        });
-
-        await InvoiceRepository.update(workspaceId, invoice.id, { status: 'pending_verification' as InvoiceStatus });
-      }
-
-      return { success: true, data: payment };
-    } catch (e) {
-      if (e instanceof Error && (e.message.includes('duplicate key') || e.message.includes('unique_transaction_reference'))) {
-        return { success: false, error: new Error('This transaction reference (UTR) has already been submitted.') };
-      }
       return { success: false, error: e as Error };
     }
   }
@@ -314,7 +122,6 @@ export class PaymentService {
       amount: number;
       screenshotUrl?: string | null;
       notes?: string | null;
-      appName?: string;
     }
   ): Promise<Result<{ attemptId: string; message: string }>> {
     try {
@@ -364,7 +171,6 @@ export class PaymentService {
           amount: params.amount,
           screenshot_url: params.screenshotUrl || null,
           notes: params.notes || null,
-          app_name: params.appName || 'UPI_GENERIC',
           status: 'pending_verification',
         });
         if (insertErr) {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { determineGSTType, calculateGST } from '@/features/invoices/tax/InvoiceCalculator';
+import { calculateInvoiceTax } from '@/features/invoices/tax/InvoiceCalculator';
 import { PaymentService } from '@/features/payments';
 import { InvoiceRepository } from '@/features/invoices';
 import { PaymentRepository } from '@/features/payments';
@@ -40,77 +40,90 @@ describe('Sprint 2: Financial System Hardening Test Suite', () => {
   });
 
   describe('TaxEngine GST Determination', () => {
+    const item = { description: 'Service', quantity: 1, rate: 10000, gst_rate: 18 };
+
     it('should determine suppressesGst if freelancer is not GST registered', () => {
-      const freelancer = { is_gst_registered: false, state: 'Karnataka', gstin: '' };
-      const client = { state: 'Karnataka', gstin: '29AAAAA1111A1Z1' };
-      const result = determineGSTType(freelancer, client);
-      expect(result.suppressesGst).toBe(true);
-      expect(result.isInterstate).toBe(false);
+      const result = calculateInvoiceTax({
+        freelancer: { is_gst_registered: false, state: 'Karnataka', gstin: '' },
+        client: { state: 'Karnataka', gstin: '29AAAAA1111A1Z1' },
+        items: [item],
+      });
+      expect(result.rules.suppressesGst).toBe(true);
+      expect(result.rules.isInterstate).toBe(false);
     });
 
     it('should determine intrastate (CGST + SGST) if states match and registered', () => {
-      const freelancer = { is_gst_registered: true, state: 'Karnataka', gstin: '29AAAAA1111A1Z1' };
-      const client = { state: 'Karnataka', gstin: '29BBBBB2222B1Z2' };
-      const result = determineGSTType(freelancer, client);
-      expect(result.isZeroRated).toBe(false);
-      expect(result.isInterstate).toBe(false);
+      const result = calculateInvoiceTax({
+        freelancer: { is_gst_registered: true, state: 'Karnataka', gstin: '29AAAAA1111A1Z1' },
+        client: { state: 'Karnataka', gstin: '29BBBBB2222B1Z2' },
+        items: [item],
+      });
+      expect(result.rules.isZeroRated).toBe(false);
+      expect(result.rules.isInterstate).toBe(false);
     });
 
     it('should determine interstate (IGST) if states differ and registered', () => {
-      const freelancer = { is_gst_registered: true, state: 'Karnataka', gstin: '29AAAAA1111A1Z1' };
-      const client = { state: 'Maharashtra', gstin: '27BBBBB2222B1Z2' };
-      const result = determineGSTType(freelancer, client);
-      expect(result.isZeroRated).toBe(false);
-      expect(result.isInterstate).toBe(true);
+      const result = calculateInvoiceTax({
+        freelancer: { is_gst_registered: true, state: 'Karnataka', gstin: '29AAAAA1111A1Z1' },
+        client: { state: 'Maharashtra', gstin: '27BBBBB2222B1Z2' },
+        items: [item],
+      });
+      expect(result.rules.isZeroRated).toBe(false);
+      expect(result.rules.isInterstate).toBe(true);
     });
 
     it('should fall back to GSTIN state codes if state name is missing', () => {
-      const freelancer = { is_gst_registered: true, state: null, gstin: '29AAAAA1111A1Z1' };
-      const client = { state: null, gstin: '27BBBBB2222B1Z2' };
-      const result = determineGSTType(freelancer, client);
-      expect(result.isInterstate).toBe(true);
-      expect(result.isZeroRated).toBe(false);
+      const result = calculateInvoiceTax({
+        freelancer: { is_gst_registered: true, state: null, gstin: '29AAAAA1111A1Z1' },
+        client: { state: null, gstin: '27BBBBB2222B1Z2' },
+        items: [item],
+      });
+      expect(result.rules.isInterstate).toBe(true);
+      expect(result.rules.isZeroRated).toBe(false);
     });
   });
 
   describe('TaxEngine Calculation Math', () => {
     it('should compute correct splits for Intrastate (CGST + SGST)', () => {
-      const freelancer = { is_gst_registered: true, state: 'Karnataka', gstin: '29AAAAA1111A1Z1' };
-      const client = { state: 'Karnataka', gstin: '29BBBBB2222B1Z2' };
-      const type = determineGSTType(freelancer, client);
-      const tax = calculateGST(10000, 18, type.isInterstate, type.isZeroRated);
+      const tax = calculateInvoiceTax({
+        freelancer: { is_gst_registered: true, state: 'Karnataka', gstin: '29AAAAA1111A1Z1' },
+        client: { state: 'Karnataka', gstin: '29BBBBB2222B1Z2' },
+        items: [{ description: 'Service', quantity: 1, rate: 10000, gst_rate: 18 }],
+      });
 
       expect(tax.subtotal).toBe(10000);
       expect(tax.cgst).toBe(900);
       expect(tax.sgst).toBe(900);
       expect(tax.igst).toBe(0);
-      expect(tax.total).toBe(11800);
+      expect(tax.grand_total).toBe(11800);
     });
 
     it('should compute correct splits for Interstate (IGST)', () => {
-      const freelancer = { is_gst_registered: true, state: 'Karnataka', gstin: '29AAAAA1111A1Z1' };
-      const client = { state: 'Maharashtra', gstin: '27BBBBB2222B1Z2' };
-      const type = determineGSTType(freelancer, client);
-      const tax = calculateGST(10000, 18, type.isInterstate, type.isZeroRated);
+      const tax = calculateInvoiceTax({
+        freelancer: { is_gst_registered: true, state: 'Karnataka', gstin: '29AAAAA1111A1Z1' },
+        client: { state: 'Maharashtra', gstin: '27BBBBB2222B1Z2' },
+        items: [{ description: 'Service', quantity: 1, rate: 10000, gst_rate: 18 }],
+      });
 
       expect(tax.subtotal).toBe(10000);
       expect(tax.cgst).toBe(0);
       expect(tax.sgst).toBe(0);
       expect(tax.igst).toBe(1800);
-      expect(tax.total).toBe(11800);
+      expect(tax.grand_total).toBe(11800);
     });
 
     it('should compute zero GST if zero-rated or suppressed', () => {
-      const freelancer = { is_gst_registered: false, state: 'Karnataka', gstin: '' };
-      const client = { state: 'Karnataka', gstin: '29BBBBB2222B1Z2' };
-      const type = determineGSTType(freelancer, client);
-      const tax = calculateGST(10000, 18, type.isInterstate, type.isZeroRated, type.suppressesGst);
+      const tax = calculateInvoiceTax({
+        freelancer: { is_gst_registered: false, state: 'Karnataka', gstin: '' },
+        client: { state: 'Karnataka', gstin: '29BBBBB2222B1Z2' },
+        items: [{ description: 'Service', quantity: 1, rate: 10000, gst_rate: 18 }],
+      });
 
       expect(tax.subtotal).toBe(10000);
       expect(tax.cgst).toBe(0);
       expect(tax.sgst).toBe(0);
       expect(tax.igst).toBe(0);
-      expect(tax.total).toBe(10000);
+      expect(tax.grand_total).toBe(10000);
     });
   });
 

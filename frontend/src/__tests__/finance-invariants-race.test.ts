@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { InvoiceStateMachine, PaymentStateMachine } from '@/shared/utils/StateMachine';
-import { calculateGST, calculateInvoiceTax } from '@/features/invoices/tax/InvoiceCalculator';
+import { calculateInvoiceTax } from '@/features/invoices/tax/InvoiceCalculator';
 
 describe('Financial Invariants, Tax Engine & Payment Race Conditions Suite (F-003 / F-004 / F-005)', () => {
   describe('Invoice Status Settlement Invariants', () => {
@@ -60,21 +60,29 @@ describe('Financial Invariants, Tax Engine & Payment Race Conditions Suite (F-00
 
   describe('Tax Calculation Precision & Indian GST Integrity', () => {
     it('accurately splits Intra-state GST into CGST (9%) and SGST (9%)', () => {
-      const result = calculateGST(100000, 18, false, false); // Intra-state
+      const result = calculateInvoiceTax({
+        freelancer: { is_gst_registered: true, state: 'Karnataka', gstin: '29AAAAA1111A1Z1' },
+        client: { state: 'Karnataka', gstin: '29BBBBB2222B1Z2' },
+        items: [{ description: 'Item', quantity: 1, rate: 100000, gst_rate: 18 }],
+      });
       expect(result.subtotal).toBe(100000);
       expect(result.cgst).toBe(9000);
       expect(result.sgst).toBe(9000);
       expect(result.igst).toBe(0);
-      expect(result.total).toBe(118000);
+      expect(result.grand_total).toBe(118000);
     });
 
     it('accurately calculates Inter-state GST as IGST (18%)', () => {
-      const result = calculateGST(100000, 18, true, false); // Inter-state
+      const result = calculateInvoiceTax({
+        freelancer: { is_gst_registered: true, state: 'Karnataka', gstin: '29AAAAA1111A1Z1' },
+        client: { state: 'Maharashtra', gstin: '27BBBBB2222B1Z2' },
+        items: [{ description: 'Item', quantity: 1, rate: 100000, gst_rate: 18 }],
+      });
       expect(result.subtotal).toBe(100000);
       expect(result.cgst).toBe(0);
       expect(result.sgst).toBe(0);
       expect(result.igst).toBe(18000);
-      expect(result.total).toBe(118000);
+      expect(result.grand_total).toBe(118000);
     });
 
     it('aggregates multiple line items without rounding loss or floating-point drift', () => {

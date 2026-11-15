@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const payInvoiceMock = vi.fn();
+const rejectPaymentMock = vi.fn();
 const addToastMock = vi.fn();
 const { navigateMock } = vi.hoisted(() => ({ navigateMock: vi.fn() }));
 const { searchState } = vi.hoisted(() => ({
@@ -50,6 +51,19 @@ const testInvoices = [
     sgst: 0,
     igst: 0,
     project_id: 'proj-2',
+    projects: null,
+  },
+  {
+    id: 'inv-4',
+    invoice_number: 'INV-2026-104',
+    status: 'pending_verification',
+    invoice_date: '2026-08-01',
+    due_date: '2026-08-15',
+    total: 12000,
+    cgst: 0,
+    sgst: 0,
+    igst: 0,
+    project_id: 'proj-1',
     projects: null,
   },
 ];
@@ -107,6 +121,7 @@ vi.mock('@/features/invoices', () => ({
     invoices: testInvoices,
     isLoading: false,
     payInvoice: payInvoiceMock,
+    rejectPayment: rejectPaymentMock,
   }),
 }));
 
@@ -220,10 +235,23 @@ describe('InvoicesTemplate money rail', () => {
     expect(writeText).toHaveBeenCalledWith(vpa);
   });
 
-  it('share mints a fresh portal link and falls back to window.open wa.me', async () => {
+  it('share opens a UPI deep link with the invoice amount', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    clickButton(container, 'Share');
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 0));
+    });
+    expect(openSpy).toHaveBeenCalled();
+    const url = String(openSpy.mock.calls[0]?.[0] ?? '');
+    expect(url.startsWith('upi://pay?')).toBe(true);
+    expect(url).toContain('pa=freelancer%40upi');
+    expect(url).toContain('am=25000.00');
+  });
+
+  it('whatsapp share mints a fresh portal link and opens wa.me', async () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     regenerateTokenMock.mockResolvedValue({ success: true, data: 'tok-fresh' });
-    clickButton(container, 'Share');
+    clickButton(container, 'WhatsApp');
     await act(async () => {
       await new Promise(r => setTimeout(r, 0));
       await new Promise(r => setTimeout(r, 0));
@@ -245,14 +273,35 @@ describe('InvoicesTemplate money rail', () => {
   });
 
   it('does not render Mark paid for already paid rows', () => {
-    // 2 unpaid rows -> 2 Mark paid buttons (not 3)
+    // 3 unpaid rows -> 3 Mark paid buttons (not 4)
     const markPaid = Array.from(container.querySelectorAll('button')).filter(b => b.textContent?.trim() === 'Mark paid');
-    expect(markPaid.length).toBe(2);
+    expect(markPaid.length).toBe(3);
   });
 
   it('renders Copy UPI ID on every row', () => {
     const copies = Array.from(container.querySelectorAll('button')).filter(b => b.textContent?.includes('Copy UPI ID'));
-    expect(copies.length).toBe(3);
+    expect(copies.length).toBe(4);
+  });
+
+  it('rejects a payment awaiting verification with an optional reason', async () => {
+    rejectPaymentMock.mockResolvedValue({ id: 'pay-1' });
+    clickButton(container, 'Reject');
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 0));
+    });
+    // The confirm dialog asks for an optional reason before rejecting.
+    const reasonInput = Array.from(container.querySelectorAll('textarea'))[0] as HTMLTextAreaElement;
+    expect(reasonInput).toBeDefined();
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+      setter?.call(reasonInput, 'UTR not found');
+      reasonInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    clickButton(container, 'Reject Payment');
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 0));
+    });
+    expect(rejectPaymentMock).toHaveBeenCalledWith({ invoiceId: 'inv-4', reason: 'UTR not found' });
   });
 
   it('shows Create Invoice primary button next to GST Tax Report', () => {

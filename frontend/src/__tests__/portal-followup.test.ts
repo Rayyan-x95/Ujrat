@@ -9,7 +9,7 @@ describe('portal follow-up — UPI CTA', () => {
     expect(link).toContain('upi://pay?');
     expect(link).toContain('pa=freelancer%40upi');
     expect(link).toContain('am=5000.00');
-    expect(link).toContain('tn=Invoice%20INV-2026-101');
+    expect(link).toContain('tn=Invoice+INV-2026-101');
     expect(link).toContain('cu=INR');
   });
 

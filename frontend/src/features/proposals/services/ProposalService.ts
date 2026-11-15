@@ -1,9 +1,9 @@
 import { ProposalRepository } from '../repositories/ProposalRepository';
 import { ProjectRepository } from '@/features/projects/repositories/ProjectRepository';
 import { ProposalSchema } from '@/shared/validation/schemas';
-import type { Result, Proposal, ProposalStatus, ProposalInsert } from '@/shared/types';
+import type { Result, Proposal, ProposalStatus, ProposalInsert, ProjectStatus } from '@/shared/types';
 import { LoggingService } from '@/features/auth/services/LoggingService';
-import { ProposalStateMachine } from '@/shared/utils/StateMachine';
+import { ProposalStateMachine, ProjectStateMachine } from '@/shared/utils/StateMachine';
 
 export class ProposalService {
   static async getProposal(workspaceId: string, projectId: string): Promise<Result<Proposal | null>> {
@@ -86,7 +86,10 @@ export class ProposalService {
         details: { ...transition.activityLog.details, proposalId: proposal.id },
       });
 
-      if (status === 'sent') {
+      // The proposal is already persisted at this point and the DB trigger
+      // rejects a status the project is not in, so skip the move instead of
+      // failing the whole call after the write.
+      if (status === 'sent' && ProjectStateMachine.validate(project.status as ProjectStatus, 'proposal')) {
         await ProjectRepository.update(workspaceId, projectId, { status: 'proposal' });
       }
 

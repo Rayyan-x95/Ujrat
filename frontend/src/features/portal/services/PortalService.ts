@@ -92,7 +92,14 @@ export class PortalService {
 
   static async submitPayment(
     token: string,
-    paymentData: { invoiceId: string; amount: number; paymentMethod?: string; transactionReference: string }
+    paymentData: {
+      invoiceId: string;
+      amount: number;
+      paymentMethod?: string;
+      transactionReference: string;
+      screenshotUrl?: string | null;
+      notes?: string | null;
+    }
   ): Promise<Result<void>> {
     try {
       const invoices = await PortalRepository.getInvoices(token);
@@ -133,7 +140,9 @@ export class PortalService {
           validated.invoice_id,
           validated.amount,
           validated.payment_method || 'UPI',
-          validated.transaction_reference
+          validated.transaction_reference,
+          paymentData.screenshotUrl || null,
+          paymentData.notes || null
         );
       } catch (err: any) {
         if (err.message.includes('unique_transaction_reference') || err.message.includes('duplicate key')) {

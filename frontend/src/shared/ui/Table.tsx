@@ -29,6 +29,16 @@ interface TableProps<T> {
   };
   actions?: React.ReactNode;
   loading?: boolean;
+  // Server-side mode: when the parent passes `onSearchChange` / `onSortChange`
+  // the rows are already filtered and ordered by the server, so the table
+  // stops filtering and sorting on its own (it would only see one page).
+  search?: string;
+  onSearchChange?: (value: string) => void;
+  sortKey?: string | null;
+  sortDir?: 'asc' | 'desc' | null;
+  onSortChange?: (key: string | null, dir: 'asc' | 'desc' | null) => void;
+  // Total row count for the footer (the loaded rows are only one page).
+  totalCount?: number | undefined;
 }
 
 type SortDir = 'asc' | 'desc' | null;
@@ -45,20 +55,33 @@ function Table<T extends object>({
   emptyState,
   actions,
   loading = false,
+  search: searchProp,
+  onSearchChange,
+  sortKey: sortKeyProp,
+  sortDir: sortDirProp,
+  onSortChange,
+  totalCount,
 }: TableProps<T>) {
-  const [sortKey, setSortKey]     = useState<string | null>(null);
-  const [sortDir, setSortDir]     = useState<SortDir>(null);
-  const [search, setSearch]       = useState('');
-  const deferredSearch            = useDeferredValue(search);
+  const [internalSortKey, setInternalSortKey] = useState<string | null>(null);
+  const [internalSortDir, setInternalSortDir] = useState<SortDir>(null);
+  const [internalSearch, setInternalSearch] = useState('');
+  const deferredSearch            = useDeferredValue(internalSearch);
+
+  const sortKey = onSortChange ? (sortKeyProp ?? null) : internalSortKey;
+  const sortDir = onSortChange ? (sortDirProp ?? null) : internalSortDir;
+  const searchValue = onSearchChange ? (searchProp ?? '') : internalSearch;
 
   const handleSort = (key: string) => {
-    if (sortKey !== key) {
-      setSortKey(key); setSortDir('asc');
-    } else if (sortDir === 'asc') {
-      setSortDir('desc');
-    } else {
-      setSortKey(null); setSortDir(null);
+    const currentKey = sortKey;
+    const currentDir = sortDir;
+    const nextKey = currentKey !== key ? key : currentDir === 'asc' ? key : null;
+    const nextDir = currentKey !== key ? 'asc' : currentDir === 'asc' ? 'desc' : null;
+    if (onSortChange) {
+      onSortChange(nextKey, nextDir);
+      return;
     }
+    setInternalSortKey(nextKey);
+    setInternalSortDir(nextDir);
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,7 +90,7 @@ function Table<T extends object>({
   const sorted = useMemo(() => {
     const cleanQuery = deferredSearch.trim().toLowerCase();
     const filtered =
-      searchable && cleanQuery
+      searchable && cleanQuery && !onSearchChange
         ? data.filter(row =>
             columns.some(col => {
               const val = getValue(row, String(col.key));
@@ -76,10 +99,12 @@ function Table<T extends object>({
           )
         : data;
 
-    return sortKey
+    const activeSortKey = sortKey && !onSortChange ? sortKey : null;
+
+    return activeSortKey
       ? [...filtered].sort((a, b) => {
-          const av = getValue(a, sortKey);
-          const bv = getValue(b, sortKey);
+          const av = getValue(a, activeSortKey);
+          const bv = getValue(b, activeSortKey);
           if (typeof av === 'string' && typeof bv === 'string') {
             return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
           }
@@ -89,7 +114,7 @@ function Table<T extends object>({
           return 0;
         })
       : filtered;
-  }, [data, searchable, deferredSearch, columns, sortKey, sortDir]);
+  }, [data, searchable, deferredSearch, columns, sortKey, sortDir, onSearchChange, onSortChange]);
 
   /* ── Sort Icon ──────────────────────────────────────────────────────────── */
   const SortIcon = ({ col }: { col: ColumnDef<T> }) => {
@@ -134,14 +159,21 @@ function Table<T extends object>({
               <input
                 type="text"
                 placeholder={searchPlaceholder}
-                value={search}
-                onChange={e => setSearch(e.target.value)}
+                value={searchValue}
+                onChange={e => {
+                  const value = e.target.value;
+                  if (onSearchChange) onSearchChange(value);
+                  else setInternalSearch(value);
+                }}
                 className="h-9 w-full rounded-md bg-background border border-border pl-8 pr-8 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary placeholder:text-muted-foreground/40 text-foreground transition-colors"
               />
-              {search && (
+              {searchValue && (
                 <button
                   type="button"
-                  onClick={() => setSearch('')}
+                  onClick={() => {
+                    if (onSearchChange) onSearchChange('');
+                    else setInternalSearch('');
+                  }}
                   aria-label="Clear search"
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground rounded cursor-pointer transition-colors"
                 >
@@ -246,8 +278,8 @@ function Table<T extends object>({
       {/* Count footer */}
       {sorted.length > 0 && (
         <p className="text-[11px] text-muted-foreground px-0.5">
-          {sorted.length} {sorted.length === 1 ? 'record' : 'records'}
-          {search ? ` · matching "${search}"` : ''}
+          {totalCount ?? sorted.length} {(totalCount ?? sorted.length) === 1 ? 'record' : 'records'}
+          {searchValue ? ` · matching "${searchValue}"` : ''}
         </p>
       )}
     </div>

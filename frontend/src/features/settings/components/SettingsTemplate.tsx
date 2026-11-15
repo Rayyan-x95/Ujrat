@@ -11,8 +11,21 @@ import { useWorkspaceSettings } from '@/features/settings';
 import { ProfileSchema, WorkspaceSettingsSchema } from '@/shared/validation/schemas';
 import { AuthService, useAuth } from '@/features/auth';
 import { exportWorkspaceJson } from '@/shared/utils/csvExport';
+import { fetchAllPages, getListPage } from '@/shared/utils/repository';
 import { supabase } from '@/shared/lib/supabaseClient';
 import { Database, HardDriveDownload } from 'lucide-react';
+
+// One PostgREST request returns at most 1000 rows; a backup must be
+// complete, so page through until the server reports no more rows.
+async function fetchAllRows(table: string, columns: string, workspaceId: string): Promise<Record<string, unknown>[]> {
+  const result = await fetchAllPages<Record<string, unknown>>(page =>
+    getListPage<Record<string, unknown>>(
+      (supabase as any).from(table).select(columns, { count: 'exact' }).eq('workspace_id', workspaceId),
+      { page, pageSize: 1000 }
+    )
+  );
+  return result.data;
+}
 
 interface SettingsTemplateProps {
   workspaceId: string;
@@ -203,21 +216,14 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
   const handleExportWorkspace = async () => {
     try {
       setExportingData(true);
-      const [clientsRes, projectsRes, invoicesRes, paymentsRes] = await Promise.all([
-        supabase.from('clients').select('*').eq('workspace_id', workspaceId),
-        supabase.from('projects').select('*').eq('workspace_id', workspaceId),
-        supabase.from('invoices').select('*').eq('workspace_id', workspaceId),
-        supabase.from('payments').select('*').eq('workspace_id', workspaceId),
+      // Explicit columns: the portal token hashes are credentials, not backup
+      // data, and `select('*')` copied them into a file the user shares.
+      const [clients, projects, invoices, payments] = await Promise.all([
+        fetchAllRows('clients', 'id, workspace_id, name, company, email, phone, whatsapp, address, notes, status, state, gstin, pan, billing_address, currency, created_at, updated_at, deleted_at', workspaceId),
+        fetchAllRows('projects', 'id, workspace_id, client_id, name, description, budget, timeline_start, timeline_end, deliverables, notes, status, portal_token_expires_at, created_at, updated_at, deleted_at', workspaceId),
+        fetchAllRows('invoices', 'id, workspace_id, project_id, invoice_number, invoice_date, due_date, notes, gstin, subtotal, taxable_amount, discount_amount, discount_type, discount_scope, cess_amount, cgst, sgst, igst, total, tds_section, tds_rate, tds_amount, net_receivable, round_off, currency, exchange_rate, exchange_rate_date, inr_total, supply_type, tax_scheme, lut_number, lut_date, status, pdf_url, freelancer_gstin, client_gstin, freelancer_state, client_state, is_interstate, is_zero_rated, is_reverse_charge, outstanding_balance, prefix, year, serial_number, revision_number, created_at, updated_at, deleted_at', workspaceId),
+        fetchAllRows('payments', 'id, workspace_id, invoice_id, amount, payment_method, transaction_reference, payment_date, status, verifier_id, verified_at, notes, created_at, updated_at, deleted_at', workspaceId),
       ]);
-      // A partial export must never be advertised as a complete backup.
-      for (const [label, res] of [
-        ['clients', clientsRes],
-        ['projects', projectsRes],
-        ['invoices', invoicesRes],
-        ['payments', paymentsRes],
-      ] as const) {
-        if (res.error) throw new Error(`${label}: ${res.error.message}`);
-      }
 
       const backup = {
         ujrat_schema_version: '1.0',
@@ -225,10 +231,10 @@ export const SettingsTemplate: React.FC<SettingsTemplateProps> = ({
         workspace_id: workspaceId,
         profile: profile,
         settings: settings,
-        clients: clientsRes.data || [],
-        projects: projectsRes.data || [],
-        invoices: invoicesRes.data || [],
-        payments: paymentsRes.data || [],
+        clients,
+        projects,
+        invoices,
+        payments,
       };
 
       exportWorkspaceJson(backup, `ujrat_backup_${new Date().toISOString().slice(0, 10)}.json`);

@@ -50,7 +50,7 @@ const SINGLE_DIGITS = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven'
 const TEEN_DIGITS = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
 const DOUBLE_DIGITS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
 
-export function formatIndianNumberGroup(n: number): string {
+function formatIndianNumberGroup(n: number): string {
   if (n === 0) return '';
   if (n < 10) return SINGLE_DIGITS[n] || '';
   if (n < 20) return TEEN_DIGITS[n - 10] || '';
