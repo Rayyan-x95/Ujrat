@@ -101,3 +101,54 @@ npm test -- --run
 # Run TypeScript compiler check
 npx tsc --noEmit
 ```
+
+---
+
+## 3. End-to-End Coverage (Playwright)
+
+The Playwright suite drives the **production build** (`frontend/dist` served by
+`scripts/e2e-server.mjs`) against the live Supabase backend, so it exercises
+the same bundles and RPCs that production runs.
+
+```bash
+npm run test:e2e                        # all browsers
+npx playwright test --project=chromium  # one browser (fastest)
+```
+
+> The suite writes into the configured backend: each run creates a test user,
+> workspace, client, project, contract and invoice. Run it against a staging
+> project before a release, not against production data you care about.
+
+### Covered flows
+
+| Area | Spec | What it proves |
+|------|------|----------------|
+| Auth | `auth-flow.spec.ts` | Login form, signup/forgot routing, empty-email and weak-password validation |
+| Client portal | `client-portal.spec.ts` | Client + project creation, proposal sent → client approves, contract sent → client signs, invoice issued → client submits the UTR → freelancer confirms, portal view tracking, hash-based portal tokens |
+| Full lifecycle | `full-lifecycle.spec.ts` | Proposal → approval → contract → signature → invoice → payment → verification → paid, deliverables upload/escrow, invalid portal token never leaks project data |
+| Proposal flow | `proposal-contract.spec.ts` | Client + project creation through the UI, proposal draft then share |
+| Payment actions | `invoice-payment-actions.spec.ts` | Contract draft stays a draft (project does not advance), client pays in the portal, freelancer rejects the attempt (invoice returns to unpaid), Share builds a real `upi://pay` link, workspace backup downloads every row **without** the portal token hashes |
+
+### Not covered yet
+
+Dashboard widgets, brief editing, client edit/archive, project edit/delete,
+invoice draft edit/delete, the printed invoice view (unit-tested instead), the
+GSTR-1 CSV export, file-upload deliverables, and the settings tabs other than
+Data & Backup.
+
+### Rules the suite encodes
+
+- Portal tokens are **hashed at rest**: a spec mints one and stores only the
+  hash, exactly like the freelancer's share action does. Reading
+  `projects.portal_token` returns nothing.
+- Specs seed the freelancer's Supabase session from an SDK login instead of
+  typing the password form, so a stalled auth request cannot fail a flow that
+  does not test login. The auth spec still drives the real form.
+- The lifecycle order is enforced by the product: proposal sent → client
+  approves (`approved`) → contract drafted/sent → client signs
+  (`contract_signed`) → only then can an invoice be generated. The invoice tab
+  stays disabled before that, by design.
+- Passwords are 12+ characters (the signup form and `AuthService` agree).
+- Desktop Chrome exposes `navigator.share`; its OS sheet never settles headless,
+  so the Share specs stub it and assert the `window.open` path.
+

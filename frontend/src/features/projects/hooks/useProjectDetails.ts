@@ -114,7 +114,7 @@ export function useProjectDetails({
       queryClient.invalidateQueries({ queryKey: ['proposal', workspaceId, projectId] });
       queryClient.invalidateQueries({ queryKey: ['project', workspaceId, projectId] });
       queryClient.invalidateQueries({ queryKey: ['dashboard', workspaceId, profileId] });
-      addToast('success', 'Proposal Saved', 'Draft saved successfully');
+      addToast('success', 'Proposal Draft Saved');
     },
     onError: (e: any) => addToast('error', 'Save Failed', e.message),
   });
@@ -126,7 +126,7 @@ export function useProjectDetails({
       queryClient.invalidateQueries({ queryKey: ['proposal', workspaceId, projectId] });
       queryClient.invalidateQueries({ queryKey: ['project', workspaceId, projectId] });
       queryClient.invalidateQueries({ queryKey: ['dashboard', workspaceId, profileId] });
-      addToast('success', 'Proposal Sent', 'Proposal has been shared with the client');
+      addToast('success', 'Proposal Sent to Client');
     },
     onError: (e: any) => addToast('error', 'Send Failed', e.message),
   });
@@ -137,7 +137,7 @@ export function useProjectDetails({
       unwrapResult(await ContractService.saveContract(workspaceId, profileId, projectId, contract?.id, args[0], args[1])),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contract', workspaceId, projectId] });
-      addToast('success', 'Contract Saved', 'Draft saved successfully');
+      addToast('success', 'Contract Draft Saved');
     },
     onError: (e: any) => addToast('error', 'Save Failed', e.message),
   });
@@ -149,7 +149,7 @@ export function useProjectDetails({
       queryClient.invalidateQueries({ queryKey: ['contract', workspaceId, projectId] });
       queryClient.invalidateQueries({ queryKey: ['project', workspaceId, projectId] });
       queryClient.invalidateQueries({ queryKey: ['dashboard', workspaceId, profileId] });
-      addToast('success', 'Contract Sent', 'Contract has been shared with the client');
+      addToast('success', 'Contract Shared with Client');
     },
     onError: (e: any) => addToast('error', 'Send Failed', e.message),
   });
