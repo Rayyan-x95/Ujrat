@@ -15,6 +15,11 @@ npx supabase secrets set PAYMENT_WEBHOOK_SECRET=<value>
 
 Without it, `payment-webhook` returns 503. Set it **before** deploying step 1.
 
+Stripe is optional and off until keys exist. `stripe-checkout` and
+`stripe-webhook` return 503 without `STRIPE_SECRET_KEY` /
+`STRIPE_WEBHOOK_SECRET`; the portal card button also needs
+`VITE_STRIPE_ENABLED=true` at build time.
+
 ## 1. Deploy `payment-webhook` (no JWT verification)
 
 ```bash
@@ -33,6 +38,27 @@ npx supabase functions deploy create-signed-url --no-verify-jwt
 
 `--no-verify-jwt` is required: the portal token is validated in the request
 body, so the function is reachable without an `Authorization` header.
+
+## 2b. Stripe card payments (optional)
+
+```bash
+npx supabase secrets set STRIPE_SECRET_KEY=sk_test_... STRIPE_WEBHOOK_SECRET=whsec_...
+npx supabase functions deploy stripe-checkout --no-verify-jwt
+npx supabase functions deploy stripe-webhook --no-verify-jwt
+```
+
+Both functions do their own auth: `stripe-checkout` validates the portal token
+in the request body and reads the invoice amount server-side;
+`stripe-webhook` verifies `Stripe-Signature` over the raw body. Neither has a
+Supabase JWT, hence `--no-verify-jwt`.
+
+In the Stripe dashboard, add a webhook endpoint pointing at
+`https://<project-ref>.supabase.co/functions/v1/stripe-webhook` with events
+`checkout.session.completed` and `checkout.session.async_payment_succeeded`,
+then copy its signing secret into `STRIPE_WEBHOOK_SECRET`.
+
+Set `PORTAL_BASE_URL` only if the portal is not `https://ujrat.ninety5.in`;
+it is used for the Checkout success/cancel return URLs.
 
 ## 3. Delete stale `send-email` (deleted from repo, still ACTIVE live)
 
@@ -86,7 +112,8 @@ select to_regclass('public.portal_verifications');  -- expect NULL
 
 ```bash
 npx supabase functions list
-# expect: payment-webhook, create-signed-url (+ only intentional extras)
+# expect: payment-webhook, create-signed-url (+ stripe-checkout,
+# stripe-webhook once Stripe is configured; + only intentional extras)
 # expect: NO send-email, NO health
 ```
 

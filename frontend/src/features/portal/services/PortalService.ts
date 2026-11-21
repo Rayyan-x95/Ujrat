@@ -157,6 +157,30 @@ export class PortalService {
     }
   }
 
+  static async startStripeCheckout(token: string, invoiceId: string): Promise<Result<string>> {
+    try {
+      if (!token || !invoiceId) throw new Error('Portal token and invoice are required');
+
+      const { data, error } = await supabase.functions.invoke('stripe-checkout', {
+        body: { token, invoice_id: invoiceId },
+      });
+
+      if (error) {
+        // Surface the function's message (e.g. "Card payments are not configured").
+        const context = (error as any).context;
+        const payload = context && typeof context.json === 'function'
+          ? await context.json().catch(() => null)
+          : null;
+        throw new Error(payload?.error || error.message || 'Unable to start card payment');
+      }
+      if (!data?.url) throw new Error('Unable to start card payment');
+
+      return { success: true, data: data.url as string };
+    } catch (e: any) {
+      return { success: false, error: e };
+    }
+  }
+
   static async submitFeedback(token: string, feedback: string): Promise<Result<void>> {
     try {
       if (!feedback.trim()) throw new Error('Feedback content cannot be empty');

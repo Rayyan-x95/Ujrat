@@ -11,6 +11,9 @@ const getEnvVars = () => {
 
   const appUrl = import.meta.env.VITE_APP_URL || 'http://localhost:5173';
 
+  // Card payments stay hidden until the owner opts in at build time.
+  const stripeEnabled = import.meta.env.VITE_STRIPE_ENABLED === 'true';
+
   let urlValid = false;
   try {
     urlValid = Boolean(supabaseUrl && new URL(supabaseUrl));
@@ -35,6 +38,7 @@ const getEnvVars = () => {
         VITE_SUPABASE_URL: 'https://placeholder.supabase.co',
         VITE_SUPABASE_ANON_KEY: 'placeholder-anon-key',
         VITE_APP_URL: appUrl,
+        VITE_STRIPE_ENABLED: stripeEnabled,
       };
     }
 
@@ -83,6 +87,7 @@ const getEnvVars = () => {
     VITE_SUPABASE_URL: supabaseUrl as string,
     VITE_SUPABASE_ANON_KEY: supabaseAnonKey as string,
     VITE_APP_URL: appUrl,
+    VITE_STRIPE_ENABLED: stripeEnabled,
   };
 };
 

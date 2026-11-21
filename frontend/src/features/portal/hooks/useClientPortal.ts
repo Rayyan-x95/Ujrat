@@ -90,15 +90,23 @@ export function useClientPortal(portalToken: string) {
     return res.data;
   };
 
+  const startCardPayment = async (invoiceId: string) => {
+    const res = await PortalService.startStripeCheckout(portalToken, invoiceId);
+    if (res.success === false) throw res.error;
+    return res.data;
+  };
+
   return {
     portalData: portalQuery.data || null,
     isLoading: portalQuery.isLoading,
     error: portalQuery.error,
+    refetch: portalQuery.refetch,
     signContract: signContractMutation.mutateAsync,
     submitPayment: submitPaymentMutation.mutateAsync,
     submitFeedback: submitFeedbackMutation.mutateAsync,
     approveProposal: approveProposalMutation.mutateAsync,
     downloadDeliverable,
+    startCardPayment,
   };
 }
 

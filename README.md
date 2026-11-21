@@ -172,11 +172,11 @@ Supports
 * PhonePe
 * Paytm
 * BHIM
+* Card payments via Stripe Checkout (optional; requires API keys)
 
 Future support
 
 * Razorpay
-* Stripe
 
 ---
 

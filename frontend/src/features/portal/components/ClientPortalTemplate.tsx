@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/shared/ui/Button';
 import { Badge, ProjectStatusBadge } from '@/shared/ui/Badge';
 import { Card } from '@/shared/ui/Card';
@@ -9,6 +9,7 @@ import type { Invoice } from '@/shared/types';
 import { formatCurrency } from '@/shared/utils/currency';
 import { useToastStore } from '@/shared/hooks/useToastStore';
 import { UPIPaymentCard } from '@/features/payments/components/UPIPaymentCard';
+import { env } from '@/app/config/env';
 
 
 import { SignaturePad } from './SignaturePad';
@@ -34,16 +35,21 @@ interface ClientPortalProps {
 // Only these statuses can actually settle — cancelled/draft invoices must
 // not render a payable UPI card (clients could pay dead invoices).
 const PAYABLE_STATUSES = ['sent', 'viewed', 'pending_verification', 'partially_paid', 'overdue'];
+// Card checkout is blocked while a UPI claim is pending; the edge function
+// enforces the same list.
+const CARD_PAYABLE_STATUSES = ['sent', 'viewed', 'partially_paid', 'overdue'];
 
 export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken }) => {
   const addToast = useToastStore((state) => state.addToast);
   const {
     portalData,
     isLoading,
+    refetch,
     signContract: executeSignContract,
     submitFeedback: executeSubmitFeedback,
     approveProposal: executeApproveProposal,
     downloadDeliverable,
+    startCardPayment,
     error,
   } = useClientPortal(portalToken);
 
@@ -53,6 +59,25 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
   const [signing, setSigning] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [feedback, setFeedback] = useState('');
+  const [payingWithCard, setPayingWithCard] = useState(false);
+
+  // Stripe Checkout returns with ?payment=success|cancelled. The webhook
+  // settles asynchronously, so refetch once after it lands.
+  useEffect(() => {
+    const payment = new URLSearchParams(window.location.search).get('payment');
+    if (!payment) return undefined;
+    window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+
+    if (payment === 'success') {
+      addToast('success', 'Card payment received', 'We are confirming it with the bank; this invoice updates in a moment.');
+      const timer = window.setTimeout(() => { void refetch(); }, 3000);
+      return () => window.clearTimeout(timer);
+    }
+    if (payment === 'cancelled') {
+      addToast('info', 'Card payment cancelled', 'No money was taken. You can try again or pay by UPI.');
+    }
+    return undefined;
+  }, [addToast, refetch]);
 
   const project = portalData?.project || null;
   const settings = portalData?.settings || null;
@@ -102,6 +127,17 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
   };
 
 
+
+  const handleCardPayment = async (invoiceId: string) => {
+    try {
+      setPayingWithCard(true);
+      const url = await startCardPayment(invoiceId);
+      window.location.assign(url);
+    } catch (e: any) {
+      addToast('error', 'Card payment failed', e.message);
+      setPayingWithCard(false);
+    }
+  };
 
   const handleDownloadDeliverable = async (name: string, fileUrl?: string | null) => {
     if (fileUrl) {
@@ -420,24 +456,41 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
                   </div>
                 </div>
 
-                {PAYABLE_STATUSES.includes(selectedInvoice.status) && settings?.upi_id ? (
-                  <UPIPaymentCard
-                    workspaceId={project?.workspace_id || ''}
-                    invoiceId={selectedInvoice.id}
-                    invoiceNumber={selectedInvoice.invoice_number}
-                    amount={selectedInvoice.outstanding_balance ?? selectedInvoice.total}
-                    payeeVpa={settings.upi_id}
-                    payeeName={settings?.company_name || 'Freelancer'}
-                    portalToken={portalToken}
-                    onPaymentSubmitted={() => {
-                      setSelectedInvoice(null);
-                    }}
-                    addToast={addToast}
-                  />
+                {PAYABLE_STATUSES.includes(selectedInvoice.status) ? (
+                  <div className="space-y-4">
+                    {settings?.upi_id ? (
+                      <UPIPaymentCard
+                        workspaceId={project?.workspace_id || ''}
+                        invoiceId={selectedInvoice.id}
+                        invoiceNumber={selectedInvoice.invoice_number}
+                        amount={selectedInvoice.outstanding_balance ?? selectedInvoice.total}
+                        payeeVpa={settings.upi_id}
+                        payeeName={settings?.company_name || 'Freelancer'}
+                        portalToken={portalToken}
+                        onPaymentSubmitted={() => {
+                          setSelectedInvoice(null);
+                        }}
+                        addToast={addToast}
+                      />
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic m-0">UPI configuration VPA is not configured for this freelancer account.</p>
+                    )}
+
+                    {env.VITE_STRIPE_ENABLED && CARD_PAYABLE_STATUSES.includes(selectedInvoice.status) && (
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        loading={payingWithCard}
+                        onClick={() => handleCardPayment(selectedInvoice.id)}
+                      >
+                        Pay {formatCurrency(selectedInvoice.outstanding_balance ?? selectedInvoice.total)} by card
+                      </Button>
+                    )}
+                  </div>
                 ) : selectedInvoice.status === 'paid' ? (
                   <AlertBanner variant="success" title="Milestone Settled" message="This invoice reference has been verified and marked as fully paid." />
                 ) : (
-                  <p className="text-xs text-muted-foreground italic m-0">UPI configuration VPA is not configured for this freelancer account.</p>
+                  <p className="text-xs text-muted-foreground italic m-0">This invoice is not payable.</p>
                 )}
               </Card>
             )}
