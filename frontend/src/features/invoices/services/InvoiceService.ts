@@ -398,6 +398,20 @@ export class InvoiceService {
         throw new Error('This invoice has recorded payments and cannot be deleted.');
       }
 
+      // A pending claim must be resolved (verified or rejected) first:
+      // deleting the invoice would orphan the client's money with no invoice
+      // left to settle it against. Fails closed if the check itself errors.
+      const { count, error } = await supabase
+        .from('payments')
+        .select('id', { count: 'exact', head: true })
+        .eq('workspace_id', workspaceId)
+        .eq('invoice_id', id)
+        .in('status', ['pending', 'pending_verification']);
+      if (error) throw new Error(error.message);
+      if ((count ?? 0) > 0) {
+        throw new Error('This invoice has a payment awaiting verification and cannot be deleted.');
+      }
+
       await InvoiceRepository.softDelete(workspaceId, id);
 
       await LoggingService.logActivity({
