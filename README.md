@@ -241,7 +241,7 @@ Automatic emails for
 * **Supabase Infrastructure**:
   * PostgreSQL & Row-Level Security (RLS)
   * Timestamped database migrations & baseline
-  * Deno Edge Functions (email dispatch, payment webhooks)
+  * Deno Edge Functions (payment webhooks, signed URLs, opt-in Stripe checkout)
   * Storage bucket policies
 
 ---
@@ -249,7 +249,6 @@ Automatic emails for
 ## Infrastructure
 
 * Vercel (Frontend SPA Hosting & Strict CSP)
-* Plunk & Open-Source SMTP (Stalwart / Postfix / Postal / Mailcow)
 * Supabase Storage & Database
 
 ---
@@ -452,16 +451,8 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 # Application URL (Required)
 VITE_APP_URL=http://localhost:5173
 
-# Open-Source Email Configuration (Plunk / SMTP / Postal)
-# Option 1: Plunk (https://useplunk.com)
-PLUNK_API_KEY=pk_xxxxxxxxxxxx
-
-# Option 2: Standard SMTP Server (Stalwart / Postfix / Mailcow)
-SMTP_HOST=mail.ninety5.in
-SMTP_PORT=587
-SMTP_USER=noreply@ujrat.ninety5.in
-SMTP_PASS=your_smtp_password
-SMTP_FROM="Ujrat <noreply@ujrat.ninety5.in>"
+# Email is not wired up: no send-email function exists, so no transport
+# secrets are needed. See docs/OPERATIONS_RUNBOOK.md before adding any.
 ```
 
 ---

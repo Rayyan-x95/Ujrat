@@ -150,6 +150,12 @@ export type InvoicePaymentTransactionResult = {
   payments: PaymentsRow[] | null;
 };
 
+export type VerifyPaymentTransactionResult = {
+  success: boolean;
+  invoice: InvoicesRow;
+  payment: PaymentsRow | null;
+};
+
 export type ContractSignaturesRow = {
   id: string;
   workspace_id: string;
@@ -1003,6 +1009,17 @@ export type Database = {
           p_invoice_items: unknown;
         };
         Returns: InvoiceTransactionResult;
+      };
+      verify_payment_transactional: {
+        Args: {
+          p_workspace_id: string;
+          p_profile_id: string;
+          p_invoice_id: string;
+          p_payment_id?: string | null;
+          p_approve?: boolean;
+          p_notes?: string | null;
+        };
+        Returns: VerifyPaymentTransactionResult;
       };
       mark_invoice_paid_transactional: {
         Args: {

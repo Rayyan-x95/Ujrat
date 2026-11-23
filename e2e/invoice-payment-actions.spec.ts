@@ -318,6 +318,98 @@ test.describe('Invoice payment actions (reject / share) & contract draft', () =>
     expect(decodeURIComponent(upi)).toContain(invoice.invoice_number);
   });
 
+  test('partial payments settle atomically: partially_paid, then paid', async ({ page }) => {
+    // The invoice under test is still unpaid here (the share test ran first).
+    const { data: invoice } = await supabase
+      .from('invoices')
+      .select('id, invoice_number, total')
+      .eq('id', invoiceId)
+      .single();
+    if (!invoice) throw new Error('Invoice missing for partial-settlement test.');
+    const totalPaise = Math.round(Number(invoice.total) * 100);
+    const firstPaise = Math.floor(totalPaise / 2);
+    const secondPaise = totalPaise - firstPaise;
+
+    const seedClaim = async (paise: number) => {
+      const utr = String(Math.floor(100000000000 + Math.random() * 900000000000));
+      const amount = paise / 100;
+      const { error: attErr } = await supabase.from('payment_attempts').insert({
+        workspace_id: workspaceId,
+        invoice_id: invoiceId,
+        utr_number: utr,
+        amount,
+        status: 'pending_verification',
+      });
+      if (attErr) throw attErr;
+      const { error: payErr } = await supabase.from('payments').insert({
+        workspace_id: workspaceId,
+        invoice_id: invoiceId,
+        amount,
+        payment_method: 'UPI',
+        transaction_reference: utr,
+        status: 'pending',
+      });
+      if (payErr) throw payErr;
+      const { error: invErr } = await supabase
+        .from('invoices')
+        .update({ status: 'pending_verification' })
+        .eq('id', invoiceId);
+      if (invErr) throw invErr;
+      return utr;
+    };
+
+    const verifyFromList = async () => {
+      await openAsFreelancer(page);
+      await page.goto('/invoices');
+      const row = page.locator('tr', { hasText: invoice!.invoice_number }).first();
+      await expect(row).toBeVisible({ timeout: 35000 });
+      await row.locator('button:has-text("Verify")').click();
+      await expect(page.locator('text=Confirm Payment Settlement').first()).toBeVisible({ timeout: 35000 });
+      await page.click('button:has-text("Confirm Payment")');
+      await expect(page.locator('text=Payment Verified').first()).toBeVisible({ timeout: 35000 });
+    };
+
+    // First partial claim: exactly half the total.
+    const utr1 = await seedClaim(firstPaise);
+    await verifyFromList();
+
+    const { data: partial } = await supabase
+      .from('invoices')
+      .select('status, outstanding_balance')
+      .eq('id', invoiceId)
+      .single();
+    expect(partial?.status).toBe('partially_paid');
+    expect(Math.round(Number(partial?.outstanding_balance) * 100)).toBe(secondPaise);
+
+    const { data: pay1 } = await supabase
+      .from('payments')
+      .select('status, verifier_id')
+      .eq('transaction_reference', utr1)
+      .single();
+    expect(pay1?.status).toBe('completed');
+    expect(pay1?.verifier_id).toBeTruthy();
+
+    // Second claim settles the remainder: the same-status balance
+    // recomputation path (partially_paid -> paid) under the invoice lock.
+    await seedClaim(secondPaise);
+    await verifyFromList();
+
+    const { data: settled } = await supabase
+      .from('invoices')
+      .select('status, outstanding_balance')
+      .eq('id', invoiceId)
+      .single();
+    expect(settled?.status).toBe('paid');
+    expect(Number(settled?.outstanding_balance)).toBe(0);
+
+    const { data: attempts } = await supabase
+      .from('payment_attempts')
+      .select('status')
+      .eq('invoice_id', invoiceId)
+      .eq('status', 'verified');
+    expect(attempts?.length).toBe(2);
+  });
+
   test('workspace backup downloads every row and no portal token hash', async ({ page }) => {
     await openAsFreelancer(page);
     await page.goto('/settings/data');

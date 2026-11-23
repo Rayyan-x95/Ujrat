@@ -5,10 +5,18 @@ import { PortalService } from '@/features/portal/services/PortalService';
 import { PortalRepository } from '@/features/portal/repositories/PortalRepository';
 
 const ROOT = process.cwd();
-const MIGRATION = existsSync(path.join(ROOT, 'backend/supabase/migrations/20261108000001_portal_bundle.sql'))
-  ? path.join(ROOT, 'backend/supabase/migrations/20261108000001_portal_bundle.sql')
-  : path.resolve(ROOT, '../backend/supabase/migrations/20261108000001_portal_bundle.sql');
+// The LIVE bundle definition: 20261108000001 was superseded by the
+// projections migration (which fixed the whole-client-row leak).
+const MIGRATION = existsSync(path.join(ROOT, 'backend/supabase/migrations/20261114184606_portal_projections_and_rls_gaps.sql'))
+  ? path.join(ROOT, 'backend/supabase/migrations/20261114184606_portal_projections_and_rls_gaps.sql')
+  : path.resolve(ROOT, '../backend/supabase/migrations/20261114184606_portal_projections_and_rls_gaps.sql');
 const SQL = readFileSync(MIGRATION, 'utf8');
+const GRANTS_SQL = readFileSync(
+  existsSync(path.join(ROOT, 'backend/supabase/migrations/20261107160011_fix_mark_paid_and_immutability.sql'))
+    ? path.join(ROOT, 'backend/supabase/migrations/20261107160011_fix_mark_paid_and_immutability.sql')
+    : path.resolve(ROOT, '../backend/supabase/migrations/20261107160011_fix_mark_paid_and_immutability.sql'),
+  'utf8'
+);
 
 function mockBundle() {
   return {
@@ -83,12 +91,23 @@ describe('get_portal_bundle migration invariants', () => {
     }
     expect(SQL).toContain('portal_view');
     expect(SQL).toContain('activity_logs');
-    expect(SQL).toMatch(/GRANT EXECUTE ON FUNCTION public\.get_portal_bundle/);
+    expect(GRANTS_SQL).toMatch(/GRANT EXECUTE ON FUNCTION public\.get_portal_bundle/);
   });
 
   it('mirrors sibling guards: soft-delete, live token, draft-free invoices', () => {
     expect(SQL).toContain('deleted_at IS NULL');
     expect(SQL).toContain('portal_token_is_live');
     expect(SQL).toContain("status <> 'draft'");
+  });
+
+  it('projects away token hashes, PAN and internal notes (no whole-row echoes)', () => {
+    expect(SQL).not.toContain('to_jsonb(p.*)');
+    expect(SQL).not.toContain('to_jsonb(c.*)');
+    const proj = SQL.slice(SQL.indexOf('SELECT to_jsonb(proj)'), SQL.indexOf('SELECT to_jsonb(cli)'));
+    expect(proj).not.toMatch(/portal_token/);
+    expect(proj).not.toMatch(/\bnotes\b/);
+    const cli = SQL.slice(SQL.indexOf('SELECT to_jsonb(cli)'), SQL.indexOf('SELECT to_jsonb(s)'));
+    expect(cli).not.toMatch(/\bpan\b/);
+    expect(cli).not.toMatch(/\bnotes\b/);
   });
 });

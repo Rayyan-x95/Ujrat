@@ -1,58 +1,44 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2'
 import { consumeRateLimit } from '../_shared/rate-limit.ts'
+import { verifyStripeSignature } from '../_shared/stripe.ts'
 
-const SIGNATURE_TOLERANCE_SECONDS = 300
 const HANDLED_EVENTS = new Set([
   'checkout.session.completed',
   'checkout.session.async_payment_succeeded',
 ])
-
-async function hmacHex(message: string, secret: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-  );
-  const digest = await crypto.subtle.sign('HMAC', key, encoder.encode(message));
-  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-function timingSafeEqualHex(expected: string, candidate: string): boolean {
-  if (expected.length !== candidate.length) return false;
-  let diff = 0;
-  for (let i = 0; i < expected.length; i++) {
-    diff |= expected.charCodeAt(i) ^ candidate.charCodeAt(i);
-  }
-  return diff === 0;
-}
-
-// Stripe-Signature: t=<unix>,v1=<hex>[,v1=<hex>...]
-// The signed payload is "<t>.<raw body>", HMAC-SHA256 with the endpoint secret.
-async function verifyStripeSignature(rawBody: string, secret: string, header: string): Promise<boolean> {
-  let timestamp = ''
-  const signatures: string[] = []
-  for (const part of header.split(',')) {
-    const separator = part.indexOf('=')
-    if (separator === -1) continue
-    const key = part.slice(0, separator).trim()
-    const value = part.slice(separator + 1).trim()
-    if (key === 't') timestamp = value
-    else if (key === 'v1') signatures.push(value.toLowerCase())
-  }
-
-  const timestampSeconds = Number(timestamp)
-  if (!Number.isFinite(timestampSeconds) || signatures.length === 0) return false
-  if (Math.abs(Math.floor(Date.now() / 1000) - timestampSeconds) > SIGNATURE_TOLERANCE_SECONDS) return false
-
-  const expected = await hmacHex(`${timestamp}.${rawBody}`, secret)
-  return signatures.some((signature) => timingSafeEqualHex(expected, signature))
-}
 
 function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'Content-Type': 'application/json' },
   })
+}
+
+// Money was captured but the invoice cannot take it: record the conflict in
+// the workspace's activity log (not just the function console) so it is
+// visible to the freelancer, then return 200 so Stripe stops retrying.
+// These need a manual refund in the Stripe dashboard.
+async function recordConflict(
+  adminClient: any,
+  invoice: { workspace_id?: string },
+  invoiceId: string,
+  session: any,
+  reason: string
+): Promise<void> {
+  console.error('[stripe-webhook] Paid session conflict:', invoiceId, reason, session.id)
+  if (!invoice?.workspace_id) return
+  const { error } = await adminClient.from('activity_logs').insert({
+    workspace_id: invoice.workspace_id,
+    action: 'stripe_payment_conflict',
+    details: {
+      invoice_id: invoiceId,
+      session_id: session.id,
+      reason,
+      amount_paise: session.amount_total ?? null,
+    },
+  })
+  if (error) console.error('[stripe-webhook] Conflict log insert failed:', error.message)
 }
 
 serve(async (req: Request) => {
@@ -132,7 +118,7 @@ serve(async (req: Request) => {
 
     const { data: invoice, error: invoiceError } = await adminClient
       .from('invoices')
-      .select('status, outstanding_balance, total')
+      .select('status, outstanding_balance, total, workspace_id')
       .eq('id', invoiceId)
       .maybeSingle()
 
@@ -147,13 +133,15 @@ serve(async (req: Request) => {
 
     // Business conflicts return 200 so Stripe stops retrying; they need a
     // manual refund in the Stripe dashboard (money was captured).
-    if (invoice.status === 'paid' || invoice.status === 'cancelled') {
-      console.error('[stripe-webhook] Paid session for non-payable invoice:', invoiceId, invoice.status, session.id)
+    // pending_verification is included: a UPI claim submitted after the
+    // checkout session was created must not be double-settled by the card.
+    if (invoice.status === 'paid' || invoice.status === 'cancelled' || invoice.status === 'pending_verification') {
+      await recordConflict(adminClient, invoice, invoiceId, session, `invoice_${invoice.status}`)
       return json({ received: true, message: 'Invoice is not payable' }, 200)
     }
     const outstanding = Number(invoice.outstanding_balance ?? invoice.total)
     if (Number.isFinite(outstanding) && amountPaise / 100 > outstanding) {
-      console.error('[stripe-webhook] Overpayment for invoice:', invoiceId, amountPaise / 100, '>', outstanding)
+      await recordConflict(adminClient, invoice, invoiceId, session, 'overpayment')
       return json({ received: true, message: 'Payment exceeds outstanding balance' }, 200)
     }
 
@@ -175,6 +163,12 @@ serve(async (req: Request) => {
       // A concurrent settlement of the same invoice is not retryable.
       if (rpcError.message?.includes('already fully settled')) {
         return json({ received: true, message: 'Invoice already settled' }, 200)
+      }
+      // A UPI claim landed between the status read and the RPC: business
+      // conflict, not retryable (manual refund in the Stripe dashboard).
+      if (rpcError.message?.includes('awaiting verification')) {
+        await recordConflict(adminClient, invoice, invoiceId, session, 'pending_upi_claim')
+        return json({ received: true, message: 'Invoice has a pending claim' }, 200)
       }
       console.error('[stripe-webhook] Reconciliation RPC failed:', rpcError.message)
       // Do not echo raw Postgres SECURITY DEFINER messages to the caller.

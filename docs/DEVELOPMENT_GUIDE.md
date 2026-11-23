@@ -49,8 +49,7 @@ The web application will be available at `http://localhost:5173`.
 | Secret | Description | Required | Scope |
 | :--- | :--- | :--- | :--- |
 | `SUPABASE_SERVICE_ROLE_KEY` | Administrative service role key | For migrations/admin scripts | Edge Functions / CI |
-| `PLUNK_API_KEY` | Plunk transactional email API key | For email notifications | Edge Functions |
-| `SMTP_*` | Custom SMTP credentials | For self-hosted email delivery | Edge Functions |
+| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Opt-in card checkout (inert until set) | For card payments | Edge Functions |
 
 ---
 

@@ -69,7 +69,12 @@ export class InvoiceRepository {
       .is('deleted_at', null)
       .single();
 
-    if (error || !data) return null;
+    // Only a genuinely missing row is null; RLS/network errors must surface.
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new Error(error.message);
+    }
+    if (!data) return null;
     return data as InvoiceWithItems;
   }
 
@@ -208,7 +213,7 @@ export class InvoiceRepository {
 
   static async markInvoicePaidTransactional(workspaceId: string, profileId: string, id: string): Promise<{ success: boolean; invoice?: Invoice; error?: Error }> {
     try {
-      const { data, error } = await (supabase.rpc as any)('mark_invoice_paid_transactional', {
+      const { data, error } = await (supabase.rpc as any)('verify_payment_transactional', {
         p_workspace_id: workspaceId,
         p_profile_id: profileId,
         p_invoice_id: id,

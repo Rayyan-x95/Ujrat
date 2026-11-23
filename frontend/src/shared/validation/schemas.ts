@@ -125,7 +125,6 @@ export const ContractSchema = z.object({
 
 export const ContractSignatureSchema = z.object({
   signature_name: z.string().min(2, 'Enter your full legal name to sign'),
-  ip_address: z.string().optional().nullable(),
 });
 
 // Invoice validation
@@ -133,11 +132,11 @@ export const InvoiceItemSchema = z.object({
   description: z.string().min(1, 'Item description is required'),
   quantity: z.coerce.number().positive('Quantity must be greater than 0'),
   rate: z.coerce.number().nonnegative('Rate cannot be negative'),
-  gst_rate: z.coerce.number().nonnegative('GST rate cannot be negative'),
+  gst_rate: z.coerce.number().nonnegative('GST rate cannot be negative').max(100, 'GST rate cannot exceed 100%'),
   hsn_code: z.string().optional().nullable(),
   sac_code: z.string().optional().nullable(),
   unit: z.string().default('NOS'),
-  cess_rate: z.coerce.number().nonnegative().default(0),
+  cess_rate: z.coerce.number().nonnegative().max(100, 'Cess rate cannot exceed 100%').default(0),
   discount_amount: z.coerce.number().nonnegative().default(0),
 });
 
@@ -185,10 +184,20 @@ export const InvoiceSchema = InvoiceBaseSchema.superRefine((data, ctx) => {
   }
 });
 
-// Payment/UTR verification schema
+// Payment/UTR verification schema — one shared rule with the DB RPCs:
+// UPI references are exactly 12 digits, amounts are paise-precise.
 export const PaymentSchema = z.object({
   invoice_id: z.string().uuid('Invalid invoice reference'),
-  amount: z.coerce.number().positive('Payment amount must be greater than 0'),
+  amount: z.coerce.number().positive('Payment amount must be greater than 0')
+    .refine(v => Number(v.toFixed(2)) === v, 'Payment amount must have at most 2 decimal places'),
   payment_method: z.string().default('UPI'),
   transaction_reference: z.string().min(4, 'Enter a valid payment transaction ID or UTR number'),
+}).superRefine((data, ctx) => {
+  if (data.payment_method === 'UPI' && !/^\d{12}$/.test(data.transaction_reference.trim())) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'UPI payments require a 12-digit UTR number',
+      path: ['transaction_reference'],
+    });
+  }
 });

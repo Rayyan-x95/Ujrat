@@ -19,7 +19,7 @@ This runbook covers operational routines, emergency incident responses, security
    npx supabase functions deploy create-signed-url --no-verify-jwt
    ```
 
-### Email Transports (Plunk / SMTP / Postal) — NOT WIRED UP YET
+### Email Transports — NOT WIRED UP
 
 > **Current state:** the app writes an `email_logs` row for every message it
 > wants to send, but **no `send-email` edge function exists** (it was removed
@@ -27,32 +27,20 @@ This runbook covers operational routines, emergency incident responses, security
 > rows, so every row stays `status = 'pending'` forever. Treat `pending` as
 > "not sent", not "in flight".
 >
-> To actually deliver mail, deploy a `send-email` edge function that reads
-> `email_logs` and hands the message to a transport, then set the secrets
-> below. Until that function exists, no email reaches a client.
+> No transport secrets are configured. If email delivery is ever needed,
+> deploy a `send-email` edge function that reads `email_logs` and pick a
+> transport (SMTP/Plunk/Postal) at that time — do not pre-provision keys for
+> a function that does not exist.
 
-1. **Plunk Email Platform (Recommended Open-Source Email Platform)**:
-   - Create an API Key at [useplunk.com](https://useplunk.com) or your self-hosted Plunk instance.
-   - Configure secret in Supabase:
-     ```bash
-     npx supabase secrets set PLUNK_API_KEY=pk_xxxxxxxxxxxx
-     # If self-hosting Plunk, optionally set custom host (defaults to api.useplunk.com):
-     # npx supabase secrets set PLUNK_HOST=plunk.yourdomain.com
-     ```
+### Auth Password Policy (owner action)
 
-2. **Standard SMTP Server** (works with Stalwart, Postfix, Mailcow, Docker-Mailserver):
-   ```bash
-   npx supabase secrets set SMTP_HOST=mail.ninety5.in SMTP_PORT=587 SMTP_USER=noreply@ujrat.ninety5.in SMTP_PASS=your_secure_password SMTP_FROM="Ujrat <noreply@ujrat.ninety5.in>"
-   ```
+The client enforces a 12-character minimum (`AuthService.signUp` /
+`updatePassword`). Supabase's server-side default is **6**, so a direct API
+signup can bypass the client rule until the project config matches:
 
-3. **Self-Hosted Postal API**:
-   ```bash
-   npx supabase secrets set POSTAL_HOST=postal.ninety5.in POSTAL_API_KEY=your_postal_key
-   ```
-
-4. Verify by checking that the `email_logs` rows for that recipient move to
-   `status = 'sent'` — there is nothing to check inside `supabase/functions/send-email`
-   until that function is deployed.
+1. Supabase Dashboard → **Authentication → Providers → Email**.
+2. Set **Minimum password length** to `12`.
+3. Verify: a direct `signUp` API call with an 8-character password must fail.
 
 ---
 

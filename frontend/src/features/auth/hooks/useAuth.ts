@@ -24,24 +24,33 @@ const AuthContext = createContext<AuthState | null>(null);
 
 const WORKSPACE_CACHE_KEY = 'ujrat.workspaceId';
 
-function readWorkspaceCache(): string {
+// The cache is keyed by user: on an account switch the previous user's
+// workspace id must never drive queries, even briefly (RLS is the only
+// barrier until ensureWorkspace resolves).
+function readWorkspaceCache(userId: string): string {
+  if (!userId) return '';
   try {
-    return localStorage.getItem(WORKSPACE_CACHE_KEY) || '';
+    const raw = localStorage.getItem(WORKSPACE_CACHE_KEY);
+    if (!raw) return '';
+    const cached = JSON.parse(raw) as { userId?: string; workspaceId?: string };
+    return cached.userId === userId ? cached.workspaceId || '' : '';
   } catch {
     return '';
   }
 }
 
-function writeWorkspaceCache(id: string) {
+function writeWorkspaceCache(userId: string, id: string) {
   try {
-    if (id) localStorage.setItem(WORKSPACE_CACHE_KEY, id);
+    if (id && userId) {
+      localStorage.setItem(WORKSPACE_CACHE_KEY, JSON.stringify({ userId, workspaceId: id }));
+    }
   } catch {}
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const addToast = useToastStore((state) => state.addToast);
   const [user, setUser] = useState<User | null>(null);
-  const [workspaceId, setWorkspaceId] = useState<string>(readWorkspaceCache);
+  const [workspaceId, setWorkspaceId] = useState<string>('');
   const [profileId, setProfileId] = useState<string>('');
   const [authLoading, setAuthLoading] = useState(true);
   const activeWorkspaceInitRef = useRef<Map<string, Promise<string>>>(new Map());
@@ -59,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const workspacesRes = await WorkspaceService.getWorkspaces(userId);
         if (workspacesRes.success && workspacesRes.data.length > 0) {
           const id = workspacesRes.data[0]?.id || '';
-          writeWorkspaceCache(id);
+          writeWorkspaceCache(userId, id);
           return id;
         }
 
@@ -71,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const createRes = await WorkspaceService.createWorkspace(userId, 'My Workspace');
         if (createRes.success && createRes.data) {
-          writeWorkspaceCache(createRes.data.id);
+          writeWorkspaceCache(userId, createRes.data.id);
           return createRes.data.id;
         }
         return '';
@@ -87,8 +96,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchSession = useCallback(async () => {
-    const cached = readWorkspaceCache();
-    if (cached) setWorkspaceId(cached);
     try {
       setAuthLoading(true);
       const res = await AuthService.getCurrentUser();
@@ -96,6 +103,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(res.data);
         setProfileId(res.data.id);
         setAuthLoading(false);
+        const cached = readWorkspaceCache(res.data.id);
+        if (cached) setWorkspaceId(cached);
         ensureWorkspace(res.data.id).then(setWorkspaceId).catch(() => {});
       } else {
         setUser(null);
@@ -130,8 +139,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (typedSession?.user) {
         setUser(typedSession.user);
         setProfileId(typedSession.user.id);
-        const cached = readWorkspaceCache();
-        if (isMounted && cached) setWorkspaceId(cached);
+        // A different user's cached workspace resolves to '' here, so an
+        // account switch never carries the previous workspace into state.
+        const cached = readWorkspaceCache(typedSession.user.id);
+        if (isMounted) setWorkspaceId(cached);
         if (isMounted) setAuthLoading(false);
         ensureWorkspace(typedSession.user.id)
           .then((wsId) => { if (isMounted) setWorkspaceId(wsId); })
@@ -151,14 +162,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchSession, navigate, addToast, ensureWorkspace]);
 
   const signOut = useCallback(async () => {
-    await AuthService.signOut();
+    const res = await AuthService.signOut();
+    if (!res.success) {
+      // Surface the failure instead of silently pretending the session died;
+      // the local session is still cleared so the UI returns to login.
+      addToast('error', 'Sign Out Failed', res.error?.message || 'The server did not confirm sign-out.');
+    }
     try {
       localStorage.removeItem(WORKSPACE_CACHE_KEY);
     } catch {}
     setUser(null);
     setWorkspaceId('');
     setProfileId('');
-    addToast('info', 'Signed Out');
+    if (res.success) addToast('info', 'Signed Out');
     navigate('/login');
   }, [addToast, navigate]);
 

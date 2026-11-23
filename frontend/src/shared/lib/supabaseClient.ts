@@ -25,7 +25,8 @@ const fetchWithRetry = async (url: RequestInfo | URL, options?: RequestInit): Pr
       delay *= 2;
     }
   }
-  return fetch(url, options);
+  // The loop always returns or throws; this satisfies noImplicitReturns.
+  throw new Error('fetchWithRetry: unreachable retry state');
 };
 
 export const supabase = createClient<Database>(

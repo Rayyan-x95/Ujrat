@@ -117,6 +117,25 @@ export function useInvoices(workspaceId: string, profileId: string) {
     },
   });
 
+  // Approve exactly the pending claim (partial or full) through the atomic
+  // RPC — unlike markInvoicePaid, which asserts full settlement only.
+  const verifyPaymentMutation = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      const payments = await PaymentRepository.getByInvoiceId(workspaceId, invoiceId);
+      const pending = payments.find(p => p.status === 'pending' || p.status === 'pending_verification');
+      if (!pending) throw new Error('No payment awaiting verification on this invoice.');
+      const res = await PaymentService.verifyPayment(workspaceId, profileId, pending.id, 'completed');
+      if (res.success === false) throw res.error;
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['payments', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', workspaceId, profileId] });
+    },
+  });
+
   const getInvoiceDetails = async (invoiceId: string) => {
     const res = await InvoiceService.getInvoiceDetails(workspaceId, invoiceId);
     if (res.success === false) throw res.error;
@@ -133,6 +152,7 @@ export function useInvoices(workspaceId: string, profileId: string) {
     removeInvoice: removeInvoiceMutation.mutateAsync,
     payInvoice: payInvoiceMutation.mutateAsync,
     rejectPayment: rejectPaymentMutation.mutateAsync,
+    verifyPayment: verifyPaymentMutation.mutateAsync,
     getInvoiceDetails,
   };
 }

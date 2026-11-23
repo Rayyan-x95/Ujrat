@@ -43,24 +43,6 @@ export class PortalRepository {
     return data?.[0] || null;
   }
 
-  static async getClient(token: string): Promise<Client | null> {
-    const { data, error } = await supabase.rpc('get_portal_client', { token_val: token });
-    if (error) throw new Error(error.message);
-    return data?.[0] || null;
-  }
-
-  static async getSettings(token: string): Promise<PortalSettings | null> {
-    const { data, error } = await supabase.rpc('get_portal_settings', { token_val: token });
-    if (error) throw new Error(error.message);
-    return data?.[0] || null;
-  }
-
-  static async getProposal(token: string): Promise<Proposal | null> {
-    const { data, error } = await supabase.rpc('get_portal_proposal', { token_val: token });
-    if (error) throw new Error(error.message);
-    return data?.[0] || null;
-  }
-
   static async getContract(token: string): Promise<Contract | null> {
     const { data, error } = await supabase.rpc('get_portal_contract', { token_val: token });
     if (error) throw new Error(error.message);
@@ -101,14 +83,12 @@ export class PortalRepository {
   static async submitSignature(
     token: string,
     name: string,
-    ip: string,
     signatureImage?: string | null,
     signatureType: string = 'drawn'
   ): Promise<string | null> {
     const { data, error } = await supabase.rpc('submit_portal_signature', {
       token_val: token,
       sig_name: name,
-      ip_addr: ip,
       sig_image: signatureImage ?? null,
       sig_type: signatureType,
     });

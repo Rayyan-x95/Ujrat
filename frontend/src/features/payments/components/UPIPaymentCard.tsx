@@ -38,9 +38,7 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  const [linkError, setLinkError] = useState<string | null>(null);
-
-  const deepLinkUri = useMemo(() => {
+  const { deepLinkUri, linkError } = useMemo(() => {
     try {
       const uri = PaymentService.generateUpiLink({
         vpa: payeeVpa,
@@ -50,11 +48,9 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
         reference: `INV-${invoiceNumber}`,
         currency,
       });
-      setLinkError(null);
-      return uri;
+      return { deepLinkUri: uri, linkError: null as string | null };
     } catch (err: any) {
-      setLinkError(err?.message || 'Invalid payment link parameters.');
-      return '';
+      return { deepLinkUri: '', linkError: (err?.message || 'Invalid payment link parameters.') as string | null };
     }
   }, [invoiceNumber, amount, currency, payeeVpa, payeeName]);
 

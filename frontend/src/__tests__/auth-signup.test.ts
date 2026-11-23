@@ -36,7 +36,7 @@ describe('Auth Signup Verification', () => {
     }
   });
 
-  it('caches workspace id synchronously and dropped the 200ms retry sleep', () => {
+  it('caches workspace id per user and dropped the 200ms retry sleep', () => {
     const ROOT = process.cwd();
     const file = existsSync(path.join(ROOT, 'frontend/src/features/auth/hooks/useAuth.ts'))
       ? path.join(ROOT, 'frontend/src/features/auth/hooks/useAuth.ts')
@@ -44,13 +44,44 @@ describe('Auth Signup Verification', () => {
     const src = readFileSync(file, 'utf8');
     expect(src).toContain("WORKSPACE_CACHE_KEY = 'ujrat.workspaceId'");
     expect(src).toContain('localStorage.setItem(WORKSPACE_CACHE_KEY');
-    expect(src).toContain('readWorkspaceCache()');
+    // The cache must be user-scoped: an account switch never reuses the
+    // previous user's workspace id.
+    expect(src).toContain('function readWorkspaceCache(userId: string)');
+    expect(src).toContain('cached.userId === userId');
     expect(src).not.toContain('setTimeout(resolve, 200)');
     const wsFile = existsSync(path.join(ROOT, 'frontend/src/features/workspace/services/WorkspaceService.ts'))
       ? path.join(ROOT, 'frontend/src/features/workspace/services/WorkspaceService.ts')
       : path.join(ROOT, 'src/features/workspace/services/WorkspaceService.ts');
     const wsSrc = readFileSync(wsFile, 'utf8');
     expect(wsSrc).toContain(".select('id,name,profile_id,created_at')");
+  });
+
+  it('getCurrentUser validates against the auth server (getUser, not getSession)', async () => {
+    const mockUser = { id: 'user-123', email: 'test@example.com' };
+    const getUserSpy = vi.spyOn(supabase.auth, 'getUser').mockResolvedValue({
+      data: { user: mockUser as any },
+      error: null,
+    });
+    const getSessionSpy = vi.spyOn(supabase.auth, 'getSession');
+
+    const res = await AuthService.getCurrentUser();
+
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data).toEqual(mockUser);
+    expect(getUserSpy).toHaveBeenCalled();
+    expect(getSessionSpy).not.toHaveBeenCalled();
+  });
+
+  it('getCurrentUser treats a missing session as logged-out, not an error', async () => {
+    vi.spyOn(supabase.auth, 'getUser').mockResolvedValue({
+      data: { user: null },
+      error: { name: 'AuthSessionMissingError', message: 'Auth session missing!' } as any,
+    });
+
+    const res = await AuthService.getCurrentUser();
+
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data).toBeNull();
   });
 
   it('rejects short passwords before invoking backend', async () => {

@@ -148,6 +148,17 @@ serve(async (req: Request) => {
     })
 
     if (rpcError) {
+      // Business conflicts are not retryable: the invoice settled (or gained
+      // a pending UPI claim) between the payload and the RPC. Retrying would
+      // storm forever; log and acknowledge.
+      const msg = rpcError.message || ''
+      if (msg.includes('already fully settled') || msg.includes('awaiting verification')) {
+        console.error('[payment-webhook] Non-retryable settlement conflict:', msg)
+        return new Response(JSON.stringify({ received: true, message: 'Invoice not payable' }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
       console.error('[payment-webhook] Reconciliation RPC failed:', rpcError)
       // Do not echo raw Postgres SECURITY DEFINER messages to the caller.
       return new Response(JSON.stringify({ error: 'Reconciliation failed; event retained for retry' }), {

@@ -10,8 +10,7 @@ import type { Result, QueryOptions, PaginatedResult, Payment, InvoiceStatus } fr
 import { UTR_REGEX } from '../constants/PaymentConstants';
 import { PaymentStateMachine, InvoiceStateMachine } from '@/shared/utils/StateMachine';
 import { LoggingService } from '@/features/auth/services/LoggingService';
-import { toPaise, fromPaise } from '@/shared/utils/currency';
-import { parseLocalDate } from '@/shared/utils/date';
+import { toPaise } from '@/shared/utils/currency';
 
 export class PaymentService {
   /**
@@ -47,6 +46,32 @@ export class PaymentService {
         invoiceId,
         eventType,
       });
+    }
+  }
+
+  /**
+   * Undo a just-created attempt (and payment) when a later write fails.
+   * Failures are logged, never swallowed: an orphaned pending payment would
+   * block every future claim on the invoice.
+   */
+  private static async compensateAttempt(workspaceId: string, attemptId: string, paymentId?: string): Promise<void> {
+    if (paymentId) {
+      // Soft-delete: a hard delete raises once the invoice has settled.
+      const { error } = await (supabase.from('payments') as any)
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', paymentId)
+        .eq('workspace_id', workspaceId);
+      if (error) {
+        LoggingService.logWarning(`Payment compensation failed: ${error.message}`, { workspaceId, paymentId });
+      }
+    }
+    const { error } = await (supabase as any)
+      .from('payment_attempts')
+      .delete()
+      .eq('id', attemptId)
+      .eq('workspace_id', workspaceId);
+    if (error) {
+      LoggingService.logWarning(`Payment attempt compensation failed: ${error.message}`, { workspaceId, attemptId });
     }
   }
 
@@ -142,6 +167,9 @@ export class PaymentService {
       if (typeof params.amount !== 'number' || !Number.isFinite(params.amount) || params.amount <= 0) {
         throw new Error('Payment amount must be a positive finite number.');
       }
+      if (Number(params.amount.toFixed(2)) !== params.amount) {
+        throw new Error('Payment amount must have at most 2 decimal places.');
+      }
 
       const outstandingBalance = invoice.outstanding_balance ?? invoice.total ?? 0;
       if (params.amount > outstandingBalance) {
@@ -161,27 +189,22 @@ export class PaymentService {
       }
 
       const attemptId = crypto.randomUUID();
-      try {
-        const { error: insertErr } = await (supabase as any).from('payment_attempts').insert({
-          id: attemptId,
-          workspace_id: workspaceId,
-          invoice_id: params.invoiceId,
-          payment_request_id: null,
-          utr_number: params.utrNumber.trim(),
-          amount: params.amount,
-          screenshot_url: params.screenshotUrl || null,
-          notes: params.notes || null,
-          status: 'pending_verification',
-        });
-        if (insertErr) {
-          if (insertErr.code === '23505') {
-            throw new Error('This 12-digit UTR Number has already been submitted.');
-          }
-          throw new Error(`Database error recording payment attempt: ${insertErr.message}`);
+      const { error: insertErr } = await (supabase as any).from('payment_attempts').insert({
+        id: attemptId,
+        workspace_id: workspaceId,
+        invoice_id: params.invoiceId,
+        payment_request_id: null,
+        utr_number: params.utrNumber.trim(),
+        amount: params.amount,
+        screenshot_url: params.screenshotUrl || null,
+        notes: params.notes || null,
+        status: 'pending_verification',
+      });
+      if (insertErr) {
+        if (insertErr.code === '23505') {
+          throw new Error('This 12-digit UTR Number has already been submitted.');
         }
-      } catch (err: any) {
-        if (err.message?.includes('already been submitted')) throw err;
-        throw err;
+        throw new Error(`Database error recording payment attempt: ${insertErr.message}`);
       }
 
       let createdPayment: Payment | null = null;
@@ -207,9 +230,12 @@ export class PaymentService {
             .eq('transaction_reference', params.utrNumber.trim())
             .maybeSingle();
 
-          if (existingPayment) {
+          // Only a still-pending claim is idempotent success. A completed
+          // payment (e.g. gateway-reconciled) must not regress the invoice
+          // back to pending_verification.
+          if (existingPayment && (existingPayment.status === 'pending' || existingPayment.status === 'pending_verification')) {
             if (nextInvoiceStatus !== invoice.status) {
-              await InvoiceRepository.update(workspaceId, invoice.id, { status: nextInvoiceStatus });
+              await InvoiceRepository.update(workspaceId, invoice.id, { status: nextInvoiceStatus }, invoice.status as InvoiceStatus);
             }
 
             await this.logEvent(
@@ -227,26 +253,28 @@ export class PaymentService {
               },
             };
           }
-          try {
-            await (supabase as any).from('payment_attempts').delete().eq('id', attemptId).eq('workspace_id', workspaceId);
-          } catch {}
+          await this.compensateAttempt(workspaceId, attemptId);
           throw new Error('This 12-digit UTR Number has already been submitted.');
         }
-        try {
-          await (supabase as any).from('payment_attempts').delete().eq('id', attemptId).eq('workspace_id', workspaceId);
-        } catch {}
+        await this.compensateAttempt(workspaceId, attemptId);
         throw err;
       }
 
       if (!createdPayment) {
-        try {
-          await (supabase as any).from('payment_attempts').delete().eq('id', attemptId).eq('workspace_id', workspaceId);
-        } catch {}
+        await this.compensateAttempt(workspaceId, attemptId);
         throw new Error('Failed to create payment record');
       }
 
       if (nextInvoiceStatus !== invoice.status) {
-        await InvoiceRepository.update(workspaceId, invoice.id, { status: nextInvoiceStatus });
+        try {
+          // Race guard: if the invoice settled between the read and this
+          // write, undo the rows we just created instead of orphaning a
+          // pending payment on a paid invoice.
+          await InvoiceRepository.update(workspaceId, invoice.id, { status: nextInvoiceStatus }, invoice.status as InvoiceStatus);
+        } catch (statusErr) {
+          await this.compensateAttempt(workspaceId, attemptId, createdPayment.id);
+          throw statusErr;
+        }
       }
 
       await this.logEvent(
@@ -280,75 +308,54 @@ export class PaymentService {
       if (!payment) {
         throw new Error('Payment not found');
       }
+      // Terminal payments are history: re-verifying would overwrite the first
+      // verifier's attribution (the DB freeze enforces this too).
+      if (payment.status === 'completed' || payment.status === 'failed') {
+        throw new Error('This payment has already been verified.');
+      }
 
       const nextPaymentStatus = status === 'completed' ? 'completed' : 'failed';
-      
       const transitionPayment = PaymentStateMachine.transition(payment.status, nextPaymentStatus, {
         paymentId,
         utr: payment.transaction_reference || '',
       });
 
-      let invoice: any = null;
-      let nextInvoiceStatus: InvoiceStatus | undefined = undefined;
-      let outstandingBalance: number | undefined = undefined;
-      let transitionInvoice: any = null;
+      const invoice = await InvoiceRepository.getById(workspaceId, payment.invoice_id);
+      if (!invoice) {
+        throw new Error('Invoice not found');
+      }
 
+      // Fast UX preflight only — the RPC re-checks every guard under the
+      // invoice row lock, so a stale pre-read can never corrupt the balance.
       if (status === 'completed') {
-        invoice = await InvoiceRepository.getById(workspaceId, payment.invoice_id);
-        if (invoice) {
-          const allPayments = await PaymentRepository.getByInvoiceId(workspaceId, invoice.id);
-          const otherPending = allPayments.filter(p => p.id !== payment.id && p.status === 'pending');
-          if (otherPending.length > 0) {
-            throw new Error('Other payment attempts are still pending verification for this invoice.');
-          }
-          const invoiceTotalPaise = toPaise(Number(invoice.total || 0));
-          const otherCompletedSumPaise = allPayments
-            .filter(p => p.id !== payment.id && p.status === 'completed')
-            .reduce((sum, p) => sum + toPaise(Number(p.amount)), 0);
-          const duePaise = invoiceTotalPaise - otherCompletedSumPaise;
-          if (toPaise(Number(payment.amount)) > duePaise) {
-            throw new Error('Payment amount exceeds outstanding invoice balance.');
-          }
-          const completedSumPaise = otherCompletedSumPaise + toPaise(Number(payment.amount));
-
-          const outstandingPaise = Math.max(0, invoiceTotalPaise - completedSumPaise);
-          outstandingBalance = fromPaise(outstandingPaise);
-
-          const isOverdue = invoice.due_date ? parseLocalDate(invoice.due_date).getTime() < Date.now() : false;
-          nextInvoiceStatus = 'paid';
-          if (outstandingPaise > 0) {
-            nextInvoiceStatus = isOverdue ? 'overdue' : 'partially_paid';
-          }
-
-          if (invoice.status !== nextInvoiceStatus) {
-            transitionInvoice = InvoiceStateMachine.transition(invoice.status as InvoiceStatus, nextInvoiceStatus, {
-              invoiceId: invoice.id,
-              invoiceNumber: invoice.invoice_number,
-            });
-          }
+        const allPayments = await PaymentRepository.getByInvoiceId(workspaceId, invoice.id);
+        const otherPending = allPayments.filter(
+          p => p.id !== payment.id && (p.status === 'pending' || p.status === 'pending_verification')
+        );
+        if (otherPending.length > 0) {
+          throw new Error('Other payment attempts are still pending verification for this invoice.');
         }
-      } else {
-        // A rejection must not leave the invoice stuck in pending_verification;
-        // restore the status implied by the balance that is still owed.
-        invoice = await InvoiceRepository.getById(workspaceId, payment.invoice_id);
-        if (invoice && invoice.status === 'pending_verification') {
-          const total = Number(invoice.total || 0);
-          const outstanding = Number(invoice.outstanding_balance ?? total);
-          const isOverdue = invoice.due_date ? parseLocalDate(invoice.due_date).getTime() < Date.now() : false;
-          nextInvoiceStatus = outstanding <= 0
-            ? 'paid'
-            : outstanding < total
-              ? (isOverdue ? 'overdue' : 'partially_paid')
-              : (isOverdue ? 'overdue' : 'sent');
-
-          if (nextInvoiceStatus !== invoice.status) {
-            transitionInvoice = InvoiceStateMachine.transition(invoice.status as InvoiceStatus, nextInvoiceStatus, {
-              invoiceId: invoice.id,
-              invoiceNumber: invoice.invoice_number,
-            });
-          }
+        const invoiceTotalPaise = toPaise(Number(invoice.total || 0));
+        const otherCompletedSumPaise = allPayments
+          .filter(p => p.id !== payment.id && p.status === 'completed')
+          .reduce((sum, p) => sum + toPaise(Number(p.amount)), 0);
+        if (toPaise(Number(payment.amount)) > invoiceTotalPaise - otherCompletedSumPaise) {
+          throw new Error('Payment amount exceeds outstanding invoice balance.');
         }
       }
+
+      // One atomic RPC for approve AND reject, partial AND full: it locks the
+      // invoice, moves exactly this payment, recomputes the balance from the
+      // completed payments and returns the actual DB rows.
+      const { payment: updatedPayment, invoice: updatedInvoice } =
+        await PaymentRepository.verifyPaymentTransactional(
+          workspaceId,
+          profileId,
+          invoice.id,
+          paymentId,
+          status === 'completed',
+          notes
+        );
 
       await LoggingService.logActivity({
         workspaceId,
@@ -357,51 +364,18 @@ export class PaymentService {
         details: transitionPayment.activityLog.details,
       });
 
-      // When this approval fully settles the invoice, delegate to the atomic
-      // RPC: it locks the invoice row, promotes matching pending payments
-      // (re-deriving the latest UTR under the lock, not from a JS pre-read)
-      // and flips the invoice to paid — but only if completed payments
-      // already cover the total (no fabricated top-up). Two concurrent
-      // approvals would otherwise both pass the preflight and double-write
-      // the outstanding balance.
-      let usesTransactionalRpc = false;
-      // Tests exercise the repository-mocked JS path; the placeholder Supabase
-      // in the test environment has no RPC server to delegate to.
-      const isTestEnv = Boolean(import.meta.env?.VITEST);
-      if (!isTestEnv && nextInvoiceStatus === 'paid' && invoice) {
-        usesTransactionalRpc = true;
-      }
-
-      if (usesTransactionalRpc && invoice) {
-        const res = await InvoiceRepository.markInvoicePaidTransactional(workspaceId, profileId, invoice.id);
-        if (!res.success) throw res.error || new Error('Transactional settlement failed');
-        return { success: true, data: { ...payment, status: nextPaymentStatus } };
-      }
-
-      const updatedPayment = await PaymentRepository.verifyPayment(
-        workspaceId,
-        paymentId,
-        profileId,
-        status,
-        notes,
-        // Race guard: only verify from the status this decision was computed on.
-        payment.status
-      );
-
-      if (invoice && nextInvoiceStatus !== undefined) {
-        if (transitionInvoice) {
-          await LoggingService.logActivity({
-            workspaceId,
-            profileId,
-            action: transitionInvoice.activityLog.action,
-            details: transitionInvoice.activityLog.details,
-          });
-        }
-
-        await InvoiceRepository.update(workspaceId, invoice.id, {
-          status: nextInvoiceStatus,
-          ...(outstandingBalance !== undefined ? { outstanding_balance: outstandingBalance } : {}),
-        }, invoice.status as InvoiceStatus);
+      if (updatedInvoice && updatedInvoice.status !== invoice.status) {
+        const transitionInvoice = InvoiceStateMachine.transition(
+          invoice.status as InvoiceStatus,
+          updatedInvoice.status as InvoiceStatus,
+          { invoiceId: invoice.id, invoiceNumber: invoice.invoice_number }
+        );
+        await LoggingService.logActivity({
+          workspaceId,
+          profileId,
+          action: transitionInvoice.activityLog.action,
+          details: transitionInvoice.activityLog.details,
+        });
       }
 
       return { success: true, data: updatedPayment };

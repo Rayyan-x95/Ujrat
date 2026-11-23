@@ -18,19 +18,13 @@ vi.mock('@/features/payments/repositories/PaymentRepository', () => ({
     getByInvoiceId: vi.fn(),
     getById: vi.fn(),
     submitPayment: vi.fn(),
-    verifyPayment: vi.fn(),
+    verifyPaymentTransactional: vi.fn(),
   },
 }));
 
 vi.mock('@/features/auth/services/LoggingService', () => ({
   LoggingService: {
     logActivity: vi.fn().mockResolvedValue({ success: true }),
-  },
-}));
-
-vi.mock('../services/NotificationService', () => ({
-  NotificationService: {
-    sendEmail: vi.fn().mockResolvedValue({ success: true, data: { logId: 'log-123', delivered: true } }),
   },
 }));
 
@@ -127,96 +121,127 @@ describe('Sprint 2: Financial System Hardening Test Suite', () => {
     });
   });
 
-  describe('Payment Verification Workflow', () => {
-    it('should verify payment transition and update outstanding balance', async () => {
-      // Mock getById returning the mock invoice
-      const mockInvoice = {
-        id: 'invoice-123',
-        invoice_number: 'INV-001',
-        total: 11800,
-        status: 'pending_verification',
-      };
+  describe('Payment Verification Workflow (atomic RPC)', () => {
+    const mockInvoice = {
+      id: 'invoice-123',
+      invoice_number: 'INV-001',
+      total: 11800,
+      outstanding_balance: 11800,
+      status: 'pending_verification',
+      due_date: '2099-01-01',
+    };
+    const mockPayment = {
+      id: 'payment-456',
+      invoice_id: 'invoice-123',
+      amount: 11800,
+      status: 'pending',
+      transaction_reference: '423156789012',
+    };
+
+    it('approves a covering payment through the RPC and returns the DB row', async () => {
       vi.spyOn(InvoiceRepository, 'getById').mockResolvedValue(mockInvoice as any);
-      vi.spyOn(InvoiceRepository, 'update').mockResolvedValue(mockInvoice as any);
-
-      // Mock getAll returning the single payment
-      const mockPayment = {
-        id: 'payment-456',
-        invoice_id: 'invoice-123',
-        amount: 11800,
-        status: 'pending',
-        transaction_reference: 'UTR123456789',
-      };
       vi.spyOn(PaymentRepository, 'getById').mockResolvedValue(mockPayment as any);
-      vi.spyOn(PaymentRepository, 'getByInvoiceId').mockResolvedValue([
-        { ...mockPayment, status: 'completed' },
-      ] as any);
-
-      vi.spyOn(PaymentRepository, 'verifyPayment').mockResolvedValue({
-        ...mockPayment,
-        status: 'completed',
-        verifier_id: 'verifier-789',
-        verified_at: new Date().toISOString(),
-      } as any);
+      vi.spyOn(PaymentRepository, 'getByInvoiceId').mockResolvedValue([mockPayment] as any);
+      const rpcPayment = { ...mockPayment, status: 'completed', verifier_id: 'verifier-789', verified_at: '2026-11-23T00:00:00Z' };
+      const rpcSpy = vi.spyOn(PaymentRepository, 'verifyPaymentTransactional').mockResolvedValue({
+        payment: rpcPayment as any,
+        invoice: { ...mockInvoice, status: 'paid', outstanding_balance: 0 } as any,
+      });
 
       const result = await PaymentService.verifyPayment(
-        'workspace-999',
-        'verifier-789',
-        'payment-456',
-        'completed',
-        'Manual UTR Match verified successfully'
+        'workspace-999', 'verifier-789', 'payment-456', 'completed', 'Manual UTR Match verified successfully'
       );
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.status).toBe('completed');
+        // The returned payment is the RPC's DB row, not a fabricated object.
+        expect(result.data).toEqual(rpcPayment);
       }
-      expect(InvoiceRepository.update).toHaveBeenCalledWith('workspace-999', 'invoice-123', {
-        outstanding_balance: 0,
-        status: 'paid',
-      }, 'pending_verification');
+      expect(rpcSpy).toHaveBeenCalledWith(
+        'workspace-999', 'verifier-789', 'invoice-123', 'payment-456', true, 'Manual UTR Match verified successfully'
+      );
+      // No JS compute-then-write: the invoice is never updated directly.
+      expect(InvoiceRepository.update).not.toHaveBeenCalled();
     });
 
-    it('restores the invoice when a payment attempt is rejected', async () => {
-      const mockInvoice = {
-        id: 'invoice-123',
-        invoice_number: 'INV-001',
-        total: 11800,
-        outstanding_balance: 11800,
-        status: 'pending_verification',
-        due_date: '2099-01-01',
-      };
+    it('approves a partial payment through the same RPC (partially_paid)', async () => {
+      const partial = { ...mockPayment, amount: 5000 };
       vi.spyOn(InvoiceRepository, 'getById').mockResolvedValue(mockInvoice as any);
-      vi.spyOn(InvoiceRepository, 'update').mockResolvedValue(mockInvoice as any);
+      vi.spyOn(PaymentRepository, 'getById').mockResolvedValue(partial as any);
+      vi.spyOn(PaymentRepository, 'getByInvoiceId').mockResolvedValue([partial] as any);
+      const rpcSpy = vi.spyOn(PaymentRepository, 'verifyPaymentTransactional').mockResolvedValue({
+        payment: { ...partial, status: 'completed' } as any,
+        invoice: { ...mockInvoice, status: 'partially_paid', outstanding_balance: 6800 } as any,
+      });
 
-      const mockPayment = {
-        id: 'payment-456',
-        invoice_id: 'invoice-123',
-        amount: 11800,
-        status: 'pending',
-        transaction_reference: 'UTR123456789',
-      };
+      const result = await PaymentService.verifyPayment('workspace-999', 'verifier-789', 'payment-456', 'completed');
+
+      expect(result.success).toBe(true);
+      expect(rpcSpy).toHaveBeenCalledWith('workspace-999', 'verifier-789', 'invoice-123', 'payment-456', true, undefined);
+      expect(InvoiceRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects through the RPC with approve=false and returns the DB row', async () => {
+      vi.spyOn(InvoiceRepository, 'getById').mockResolvedValue(mockInvoice as any);
       vi.spyOn(PaymentRepository, 'getById').mockResolvedValue(mockPayment as any);
-      vi.spyOn(PaymentRepository, 'verifyPayment').mockResolvedValue({
-        ...mockPayment,
-        status: 'failed',
-      } as any);
+      const rpcPayment = { ...mockPayment, status: 'failed' };
+      const rpcSpy = vi.spyOn(PaymentRepository, 'verifyPaymentTransactional').mockResolvedValue({
+        payment: rpcPayment as any,
+        invoice: { ...mockInvoice, status: 'sent', outstanding_balance: 11800 } as any,
+      });
 
       const result = await PaymentService.verifyPayment(
-        'workspace-999',
-        'verifier-789',
-        'payment-456',
-        'failed',
-        'UTR not found in bank statement'
+        'workspace-999', 'verifier-789', 'payment-456', 'failed', 'UTR not found in bank statement'
       );
 
       expect(result.success).toBe(true);
-      expect(InvoiceRepository.update).toHaveBeenCalledWith(
-        'workspace-999',
-        'invoice-123',
-        { status: 'sent' },
-        'pending_verification'
+      if (result.success) expect(result.data.status).toBe('failed');
+      expect(rpcSpy).toHaveBeenCalledWith(
+        'workspace-999', 'verifier-789', 'invoice-123', 'payment-456', false, 'UTR not found in bank statement'
       );
+      expect(InvoiceRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses to re-verify a terminal payment before any write', async () => {
+      vi.spyOn(PaymentRepository, 'getById').mockResolvedValue({ ...mockPayment, status: 'completed' } as any);
+      const rpcSpy = vi.spyOn(PaymentRepository, 'verifyPaymentTransactional');
+
+      const result = await PaymentService.verifyPayment('workspace-999', 'verifier-789', 'payment-456', 'completed');
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.message).toContain('already been verified');
+      expect(rpcSpy).not.toHaveBeenCalled();
+    });
+
+    it('blocks approval while another claim is pending (pending_verification included)', async () => {
+      vi.spyOn(InvoiceRepository, 'getById').mockResolvedValue(mockInvoice as any);
+      vi.spyOn(PaymentRepository, 'getById').mockResolvedValue(mockPayment as any);
+      vi.spyOn(PaymentRepository, 'getByInvoiceId').mockResolvedValue([
+        mockPayment,
+        { ...mockPayment, id: 'payment-other', status: 'pending_verification' },
+      ] as any);
+      const rpcSpy = vi.spyOn(PaymentRepository, 'verifyPaymentTransactional');
+
+      const result = await PaymentService.verifyPayment('workspace-999', 'verifier-789', 'payment-456', 'completed');
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.message).toContain('still pending verification');
+      expect(rpcSpy).not.toHaveBeenCalled();
+    });
+
+    it('surfaces the RPC error instead of writing around it', async () => {
+      vi.spyOn(InvoiceRepository, 'getById').mockResolvedValue(mockInvoice as any);
+      vi.spyOn(PaymentRepository, 'getById').mockResolvedValue(mockPayment as any);
+      vi.spyOn(PaymentRepository, 'getByInvoiceId').mockResolvedValue([mockPayment] as any);
+      vi.spyOn(PaymentRepository, 'verifyPaymentTransactional').mockRejectedValue(
+        new Error('Payment amount exceeds outstanding invoice balance')
+      );
+
+      const result = await PaymentService.verifyPayment('workspace-999', 'verifier-789', 'payment-456', 'completed');
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.message).toContain('exceeds outstanding');
+      expect(InvoiceRepository.update).not.toHaveBeenCalled();
     });
   });
 });

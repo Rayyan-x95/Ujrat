@@ -122,6 +122,7 @@ vi.mock('@/features/invoices', () => ({
     isLoading: false,
     payInvoice: payInvoiceMock,
     rejectPayment: rejectPaymentMock,
+    verifyPayment: vi.fn(),
   }),
 }));
 

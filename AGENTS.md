@@ -35,7 +35,7 @@ Ujrat is organized as an npm-workspaces monorepo:
 
 - Migrations in `backend/supabase/migrations/`: `000_baseline.sql` plus timestamped files named `YYYYMMDDHHMMSS_name.sql` (strict 14-digit prefix). `npm run validate:migrations` asserts naming, required core tables, and the portal RPCs; it fails if an `archive/` directory exists.
 - The client portal is zero-auth: clients never log into Supabase. All portal reads go through `get_portal_*` SECURITY DEFINER RPCs gated by expiring tokens. Preserve this boundary.
-- Edge functions (`backend/supabase/functions/`) run in Deno with URL/npm imports. Server secrets (`PLUNK_API_KEY`, SMTP creds) are set via `npx supabase secrets set KEY=...` — never prefix server-side secrets with `VITE_`.
+- Edge functions (`backend/supabase/functions/`) run in Deno with URL/npm imports. Server secrets (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `PAYMENT_WEBHOOK_SECRET`) are set via `npx supabase secrets set KEY=...` — never prefix server-side secrets with `VITE_`.
 - Security invariant validator (`backend/scripts/validate-security.mjs`) verifies RLS, payment guards, and webhook constant-time HMAC verifications.
 
 ## Env & deploy

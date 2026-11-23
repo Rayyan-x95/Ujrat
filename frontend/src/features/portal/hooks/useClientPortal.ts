@@ -17,18 +17,15 @@ export function useClientPortal(portalToken: string) {
   const signContractMutation = useMutation({
     mutationFn: async ({
       signatureName,
-      ipAddress,
       signatureImage,
       signatureType,
     }: {
       signatureName: string;
-      ipAddress?: string | null;
       signatureImage?: string | null;
       signatureType?: string;
     }) => {
       const res = await PortalService.signContract(portalToken, {
         signatureName,
-        ipAddress: ipAddress ?? null,
         signatureImage: signatureImage ?? null,
         signatureType: signatureType ?? 'drawn',
       });

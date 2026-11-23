@@ -37,8 +37,8 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { projects } = useProjects(workspaceId, profileId, { pageSize: 1000 });
-  const { invoices, isLoading, payInvoice, rejectPayment, issueInvoice, editInvoice, removeInvoice, getInvoiceDetails } = useInvoices(workspaceId, profileId);
-  const { settings } = useWorkspaceSettings(workspaceId, profileId);
+  const { invoices, isLoading, payInvoice, rejectPayment, verifyPayment, issueInvoice, editInvoice, removeInvoice, getInvoiceDetails } = useInvoices(workspaceId, profileId);
+  const { settings, isLoading: settingsLoading } = useWorkspaceSettings(workspaceId, profileId);
   const vpa = settings?.upi_id ?? null;
   const [invoiceToVerify, setInvoiceToVerify] = useState<Invoice | null>(null);
   const [invoiceToReject, setInvoiceToReject] = useState<Invoice | null>(null);
@@ -93,8 +93,10 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
     if (!invoiceToVerify) return;
     try {
       setVerifying(true);
-      await payInvoice(invoiceToVerify.id);
-      addToast('success', 'Payment Verified', `Invoice ${invoiceToVerify.invoice_number} is now marked as Paid.`);
+      // Approves the pending claim itself: a partial payment settles the
+      // invoice partially_paid, a covering payment marks it paid.
+      await verifyPayment(invoiceToVerify.id);
+      addToast('success', 'Payment Verified', `The payment for ${invoiceToVerify.invoice_number} has been verified.`);
       setInvoiceToVerify(null);
     } catch (e) {
       addToast('error', 'Verification Failed', (e as Error).message);
@@ -287,7 +289,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
     }
   };
 
-  const columns: ColumnDef<InvoiceWithItems>[] = useMemo(() => [
+  const columns: ColumnDef<InvoiceWithItems>[] = [
     { 
       key: 'invoice_number', 
       header: 'Invoice #', 
@@ -342,6 +344,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
             size="sm" 
             className="min-h-[44px] min-w-[44px]"
             onClick={() => void handleShareUpi(row)}
+            disabled={settingsLoading}
             icon={<Share2 className="h-3 w-3" />}
             title="Share payment link"
           >
@@ -451,7 +454,7 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
         </div>
       )
     }
-  ], [onShowInvoiceDetail, vpa, editLoading, issuingId, startEditInvoice, handleIssueInvoice, handleMarkPaid]);
+  ];
 
   return (
     <div className="space-y-6.5 animate-slide-up">
@@ -562,14 +565,14 @@ export const InvoicesTemplate: React.FC<InvoicesTemplateProps> = ({
             </div>
           </div>
           <p className="text-small text-muted-foreground leading-relaxed">
-            Marking this invoice as Paid will update revenue metrics and unlock any escrowed project deliverables for the client.
+            Verifying this payment updates the invoice balance and revenue metrics. A payment covering the full total unlocks escrowed project deliverables for the client.
           </p>
           <div className="flex justify-end gap-2 border-t border-border pt-4">
             <Button variant="ghost" size="sm" onClick={() => setInvoiceToVerify(null)} type="button">
               Cancel
             </Button>
             <Button variant="primary" size="sm" onClick={confirmVerification} loading={verifying} icon={<ShieldCheck className="h-4 w-4" />}>
-              Confirm & Mark Paid
+              Confirm Payment
             </Button>
           </div>
         </div>

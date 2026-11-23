@@ -52,7 +52,6 @@ export class PortalService {
     token: string,
     signatureData: {
       signatureName: string;
-      ipAddress?: string | null;
       signatureImage?: string | null;
       signatureType?: string;
     }
@@ -72,14 +71,13 @@ export class PortalService {
       // Validate digital signature data using Zod
       const validated = ContractSignatureSchema.parse({
         signature_name: signatureData.signatureName,
-        ip_address: signatureData.ipAddress,
       });
 
-      // No emails are sent on sign. The RPC records the signature only.
+      // No emails are sent on sign. The RPC records the signature only; the
+      // IP evidence is derived server-side, never taken from the client.
       await PortalRepository.submitSignature(
         token,
         validated.signature_name,
-        validated.ip_address || '',
         signatureData.signatureImage ?? null,
         signatureData.signatureType || 'drawn'
       );
@@ -145,7 +143,12 @@ export class PortalService {
           paymentData.notes || null
         );
       } catch (err: any) {
-        if (err.message.includes('unique_transaction_reference') || err.message.includes('duplicate key')) {
+        // The RPC's duplicate message plus the raw constraint names.
+        if (
+          err.message.includes('Duplicate transaction reference') ||
+          err.message.includes('unique_transaction_reference') ||
+          err.message.includes('duplicate key')
+        ) {
           throw new Error('This transaction reference (UTR) has already been submitted for payment.');
         }
         throw err;

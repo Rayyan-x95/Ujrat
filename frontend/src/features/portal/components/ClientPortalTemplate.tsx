@@ -476,7 +476,7 @@ export const ClientPortalTemplate: React.FC<ClientPortalProps> = ({ portalToken 
                       <p className="text-xs text-muted-foreground italic m-0">UPI configuration VPA is not configured for this freelancer account.</p>
                     )}
 
-                    {env.VITE_STRIPE_ENABLED && CARD_PAYABLE_STATUSES.includes(selectedInvoice.status) && (
+                    {env.VITE_STRIPE_ENABLED && CARD_PAYABLE_STATUSES.includes(selectedInvoice.status) && (selectedInvoice.currency || 'INR') === 'INR' && (
                       <Button
                         variant="outline"
                         className="w-full"

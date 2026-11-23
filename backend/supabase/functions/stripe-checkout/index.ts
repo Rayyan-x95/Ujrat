@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2'
 import { consumeRateLimit } from '../_shared/rate-limit.ts'
 import { getCorsHeaders } from '../_shared/cors.ts'
+import { invoiceAmountPaise } from '../_shared/stripe.ts'
 
 const ALLOWED_METHODS = 'POST, OPTIONS';
 // pending_verification is excluded: a UPI claim is already awaiting review.
@@ -94,9 +95,13 @@ serve(async (req: Request) => {
     if (!PAYABLE_STATUSES.has(invoice.status)) {
       return json({ error: 'This invoice cannot be paid by card' }, 409, corsHeaders)
     }
+    // The charge is built in INR paise; a native-currency balance on a
+    // non-INR invoice would be charged in the wrong currency and value.
+    if (String(invoice.currency || 'INR').toUpperCase() !== 'INR') {
+      return json({ error: 'Card payments support INR invoices only' }, 409, corsHeaders)
+    }
 
-    const amount = Number(invoice.outstanding_balance ?? invoice.total)
-    const amountPaise = Math.round(amount * 100)
+    const amountPaise = invoiceAmountPaise(invoice)
     if (!Number.isFinite(amountPaise) || amountPaise <= 0) {
       return json({ error: 'This invoice has no outstanding balance' }, 409, corsHeaders)
     }

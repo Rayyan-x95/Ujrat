@@ -44,6 +44,16 @@ const PORTAL_FIXES_SQL = readFileSync(
   path.join(BACKEND, 'supabase/migrations/20261105000000_portal_payment_otp_dashboard_fixes.sql'),
   'utf8'
 );
+// The live money-layer definitions: static pins must read the CURRENT
+// migrations, not the superseded baseline versions of these functions.
+const AUDIT_SQL = readFileSync(
+  path.join(BACKEND, 'supabase/migrations/20261123000001_atomic_settlement_and_payment_guards.sql'),
+  'utf8'
+);
+const STRIPE_WEBHOOK_SRC = readFileSync(
+  path.join(BACKEND, 'supabase/functions/stripe-webhook/index.ts'),
+  'utf8'
+);
 const INVOICE_REPO_SRC = readFileSync(
   path.join(FRONTEND, 'src/features/invoices/repositories/InvoiceRepository.ts'),
   'utf8'
@@ -69,9 +79,10 @@ describe('F1/F2 — gateway webhook settlement is authenticated and schema-corre
   it('reconcile_gateway_payment references only real columns', () => {
     // Regression guard for F2: these phantom columns crashed reconciliation
     // (public.payments has no currency/updated_at; audit trail uses event_type).
-    const fn = HARDENING_SQL.slice(
-      HARDENING_SQL.indexOf('reconcile_gateway_payment('),
-      HARDENING_SQL.indexOf('-- F6:')
+    // Read the LIVE definition (audit migration), not the superseded baseline.
+    const fn = AUDIT_SQL.slice(
+      AUDIT_SQL.indexOf('CREATE OR REPLACE FUNCTION public.reconcile_gateway_payment('),
+      AUDIT_SQL.indexOf('CREATE OR REPLACE FUNCTION public.submit_portal_payment')
     );
     expect(fn).not.toMatch(/INSERT INTO public\.payments\s*\([^)]*\bcurrency\b/);
     expect(fn).not.toMatch(/INSERT INTO public\.payments\s*\([^)]*\bupdated_at\b/);
@@ -157,15 +168,20 @@ describe('F5 — payment state integrity at the database boundary', () => {
   });
 });
 
-describe('F6 — OTP generation uses cryptographic randomness', () => {
-  it('generate_portal_verification derives codes from pgcrypto entropy', () => {
-    const fn = HARDENING_SQL.slice(
-      HARDENING_SQL.indexOf('generate_portal_verification(token_val text)'),
-      HARDENING_SQL.indexOf('F9: Absolute portal-token lifetime')
+describe('F6 — OTP gate removed (the portal token is the credential)', () => {
+  it('signing no longer requires an OTP verification row', () => {
+    const removal = readFileSync(
+      path.join(BACKEND, 'supabase/migrations/20261106130000_remove_portal_email_verification.sql'),
+      'utf8'
     );
-    expect(fn).toContain('gen_random_bytes(4)');
-    expect(fn).not.toMatch(/random\(\)\s*\*/);
-    expect(fn).toContain("crypt(v_code, extensions.gen_salt('bf', 8))");
+    expect(removal).toContain('CREATE OR REPLACE FUNCTION public.submit_portal_signature');
+    expect(removal).not.toContain('Email verification is required before signing');
+    // The live signature RPC must not reintroduce the removed gate.
+    const sigFn = AUDIT_SQL.slice(
+      AUDIT_SQL.indexOf('CREATE OR REPLACE FUNCTION public.submit_portal_signature')
+    );
+    expect(sigFn).not.toContain('portal_verifications');
+    expect(sigFn).not.toContain('verified = true');
   });
 });
 
@@ -268,29 +284,86 @@ describe('Signed-URL authorization surface', () => {
   });
 });
 
-describe('Portal payment and OTP hardening (2026-11-05)', () => {
+describe('Portal payment hardening (live definitions)', () => {
   it('deliverable downloads are escrowed until every issued invoice is paid', () => {
     expect(SIGNED_URL_SRC).toContain('Downloads unlock once all invoices are paid');
     expect(SIGNED_URL_SRC).toContain("rpc('get_portal_invoices'");
   });
 
-  it('signature requires a verified, unexpired OTP row instead of a client boolean', () => {
-    expect(PORTAL_FIXES_SQL).toContain('verified = true');
-    expect(PORTAL_FIXES_SQL).toContain('Email verification is required before signing');
-  });
-
   it('drafts are neither readable nor payable through the portal', () => {
-    expect(PORTAL_FIXES_SQL).toMatch(/inv\.status <> 'draft'/);
-    expect(PORTAL_FIXES_SQL).toContain('Invoice has not been issued yet');
+    expect(AUDIT_SQL).toMatch(/v_invoice_status = 'draft'/);
+    expect(AUDIT_SQL).toContain('Invoice has not been issued yet');
   });
 
   it('a second payment attempt cannot be queued while one awaits verification', () => {
-    expect(PORTAL_FIXES_SQL).toContain('A payment for this invoice is already awaiting verification');
+    expect(AUDIT_SQL).toContain('A payment for this invoice is already awaiting verification');
   });
 
   it('portal tokens have an explicit 90-day default and backfill', () => {
     expect(PORTAL_FIXES_SQL).toContain("SET DEFAULT (now() + interval '90 days')");
     expect(PORTAL_FIXES_SQL).toMatch(/SET portal_token_expires_at = created_at \+ interval '90 days'/);
+  });
+});
+
+describe('Audit 2026-11-23 — atomic settlement & server-side money guards', () => {
+  it('verify_payment_transactional locks the invoice and returns DB rows', () => {
+    const fn = AUDIT_SQL.slice(
+      AUDIT_SQL.indexOf('CREATE OR REPLACE FUNCTION public.verify_payment_transactional('),
+      AUDIT_SQL.indexOf('-- Compatibility alias')
+    );
+    expect(fn).toContain('FOR UPDATE');
+    expect(fn).toContain('Unauthorized workspace access');
+    expect(fn).toContain('Payment is not awaiting verification');
+    expect(fn).toContain('Payment amount exceeds outstanding invoice balance');
+    expect(fn).toContain("'payment', to_jsonb(v_payment)");
+    expect(fn).toContain('GREATEST(0, v_invoice.total - v_completed_sum)');
+    // The legacy mark-paid alias keeps deployed bundles working.
+    expect(AUDIT_SQL).toContain('SELECT public.verify_payment_transactional(p_workspace_id, p_profile_id, p_invoice_id)');
+  });
+
+  it('completed payments can never exceed the invoice total', () => {
+    expect(AUDIT_SQL).toContain('would exceed invoice total');
+    expect(AUDIT_SQL).toMatch(/NEW\.status = 'completed' AND \(TG_OP = 'INSERT' OR OLD\.status <> 'completed'\)/);
+  });
+
+  it('terminal payments are fully frozen (no attribution overwrite)', () => {
+    expect(AUDIT_SQL).toMatch(
+      /IF OLD\.status IN \('completed', 'failed'\) THEN\s+RAISE EXCEPTION 'Payments in terminal state % cannot be modified'/
+    );
+  });
+
+  it('reconcile replay check is workspace-scoped and blocks pending claims', () => {
+    expect(AUDIT_SQL).toContain('AND workspace_id = v_invoice.workspace_id');
+    expect(AUDIT_SQL).toContain('Invoice has a payment awaiting verification');
+    // The webhook's non-retryable string must match the RPC's message.
+    expect(STRIPE_WEBHOOK_SRC).toContain('already fully settled');
+    expect(AUDIT_SQL).toContain('Invoice is already fully settled');
+    expect(STRIPE_WEBHOOK_SRC).toContain('awaiting verification');
+  });
+
+  it('UPI has one 12-digit UTR rule and paise-precise amounts, enforced in the DB', () => {
+    expect(AUDIT_SQL).toContain('UPI payments require a 12-digit UTR number');
+    expect(AUDIT_SQL).toContain('Payment amount must have at most 2 decimal places');
+  });
+
+  it('signature IP evidence is derived server-side, not from the client', () => {
+    const sigFn = AUDIT_SQL.slice(
+      AUDIT_SQL.indexOf('CREATE OR REPLACE FUNCTION public.submit_portal_signature')
+    );
+    expect(sigFn).toContain("current_setting('request.headers', true)");
+    expect(sigFn).toContain('x-forwarded-for');
+    expect(sigFn).toContain('v_server_ip');
+    // The client-supplied ip_addr parameter must not reach the stored row.
+    expect(sigFn).not.toContain('COALESCE(ip_addr');
+  });
+
+  it('the 7-arg submit_portal_payment carries explicit REVOKE/GRANT', () => {
+    expect(AUDIT_SQL).toMatch(
+      /REVOKE EXECUTE ON FUNCTION public\.submit_portal_payment\(text, uuid, numeric, text, text, text, text\) FROM PUBLIC/
+    );
+    expect(AUDIT_SQL).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.submit_portal_payment\(text, uuid, numeric, text, text, text, text\) TO anon, authenticated, service_role/
+    );
   });
 });
 

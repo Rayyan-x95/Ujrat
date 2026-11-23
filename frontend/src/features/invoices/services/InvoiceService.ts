@@ -163,8 +163,11 @@ export class InvoiceService {
         const parts = validated.invoice_number.split('-');
         if (parts.length >= 3) {
           prefix = parts[0] || 'INV';
-          year = parseInt(parts[1] || String(new Date().getFullYear()), 10);
-          serial_number = parseInt(parts[2] || '0', 10);
+          // A user-supplied number must never persist NaN year/serial.
+          const parsedYear = parseInt(parts[1] || '', 10);
+          const parsedSerial = parseInt(parts[2] || '', 10);
+          year = Number.isFinite(parsedYear) ? parsedYear : new Date().getFullYear();
+          serial_number = Number.isFinite(parsedSerial) ? parsedSerial : 0;
         }
       }
 

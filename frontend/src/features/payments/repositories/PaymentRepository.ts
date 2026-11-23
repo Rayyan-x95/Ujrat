@@ -1,7 +1,7 @@
 import { supabase } from '@/shared/lib/supabaseClient';
 import { sanitizeSearchTerm } from '@/shared/utils/sanitize';
 import { getPaginationBounds, toPaginatedResult, softDeleteRecord } from '@/shared/utils/repository';
-import type { Payment, PaymentInsert, PaymentUpdate, QueryOptions, PaginatedResult } from '@/shared/types';
+import type { Payment, PaymentInsert, Invoice, QueryOptions, PaginatedResult } from '@/shared/types';
 
 export class PaymentRepository {
   private static readonly sortableColumns = new Set(['created_at', 'payment_date', 'amount', 'status']);
@@ -50,7 +50,11 @@ export class PaymentRepository {
       .is('deleted_at', null)
       .single();
 
-    if (error) return null;
+    // Only a genuinely missing row is null; RLS/network errors must surface.
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new Error(error.message);
+    }
     return data as Payment;
   }
 
@@ -91,38 +95,28 @@ export class PaymentRepository {
     return data as Payment;
   }
 
-  static async verifyPayment(
+  // Approve/reject one payment atomically: the RPC locks the invoice, moves
+  // exactly this payment, recomputes the balance from completed payments and
+  // returns the DB rows. Concurrent verifiers serialize on the invoice lock.
+  static async verifyPaymentTransactional(
     workspaceId: string,
-    paymentId: string,
     verifierId: string,
-    status: 'completed' | 'failed',
-    notes?: string,
-    // Optimistic concurrency: when supplied, the update only applies if the
-    // row is still in this status, so a second verifier racing a settled
-    // payment matches zero rows instead of writing over the first decision.
-    expectedStatus?: Payment['status']
-  ): Promise<Payment> {
-    const updateData: PaymentUpdate = {
-      status,
-      verifier_id: verifierId,
-      verified_at: new Date().toISOString(),
-      notes: notes || null,
-    };
-
-    let query = supabase
-      .from('payments')
-      .update(updateData)
-      .eq('id', paymentId)
-      .eq('workspace_id', workspaceId);
-
-    if (expectedStatus !== undefined) {
-      query = query.eq('status', expectedStatus);
-    }
-
-    const { data, error } = await query.select().single();
+    invoiceId: string,
+    paymentId: string,
+    approve: boolean,
+    notes?: string
+  ): Promise<{ payment: Payment; invoice: Invoice }> {
+    const { data, error } = await (supabase.rpc as any)('verify_payment_transactional', {
+      p_workspace_id: workspaceId,
+      p_profile_id: verifierId,
+      p_invoice_id: invoiceId,
+      p_payment_id: paymentId,
+      p_approve: approve,
+      p_notes: notes ?? null,
+    });
 
     if (error) throw new Error(error.message);
-    return data as Payment;
+    return { payment: data?.payment as Payment, invoice: data?.invoice as Invoice };
   }
 
   static async softDelete(workspaceId: string, id: string): Promise<void> {

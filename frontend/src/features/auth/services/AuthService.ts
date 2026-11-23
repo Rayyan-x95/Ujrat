@@ -1,15 +1,22 @@
 import { supabase } from '@/shared/lib/supabaseClient';
+import { ProfileSchema } from '@/shared/validation/schemas';
 import type { Profile, Result } from '@/shared/types';
 
 export class AuthService {
   static async getCurrentUser(): Promise<Result<any>> {
     try {
-      // getSession() reads from localStorage — instant, no network call.
-      // The onAuthStateChange listener in useAuth handles background token validation.
-      const { data, error } = await supabase.auth.getSession();
-      if (error) return { success: false, error: new Error(error.message) };
-      if (!data.session?.user) return { success: true, data: null };
-      return { success: true, data: data.session.user };
+      // getUser() validates the token against the auth server. getSession()
+      // alone trusts localStorage and would render a stale/tampered session
+      // as authenticated.
+      const { data, error } = await supabase.auth.getUser();
+      if (error) {
+        // No local session is the normal logged-out state, not a failure.
+        if (error.name === 'AuthSessionMissingError' || /session/i.test(error.message)) {
+          return { success: true, data: null };
+        }
+        return { success: false, error: new Error(error.message) };
+      }
+      return { success: true, data: data.user ?? null };
     } catch (e) {
       return { success: false, error: e as Error };
     }
@@ -28,45 +35,31 @@ export class AuthService {
         .is('deleted_at', null)
         .maybeSingle();
 
-      // If profile record is missing or email/full_name is missing, enrich from auth user
-      if (!data || !data.full_name || !data.email) {
-        try {
-          const { data: sessionData } = await supabase.auth.getSession();
-          const authUser = sessionData?.session?.user;
-          if (authUser && (authUser.id === profileId || !profileId)) {
-            const fullName = data?.full_name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Freelancer';
-            const email = data?.email || authUser.email || '';
+      // Check the error BEFORE any enrichment: an RLS/network failure must
+      // never be masked as a synthesized profile.
+      if (error) return { success: false, error: new Error(error.message) };
+      if (data) return { success: true, data };
 
-            const enriched: Profile = {
-              id: profileId || authUser.id,
-              full_name: fullName,
-              email: email,
-              avatar_url: data?.avatar_url || null,
-              created_at: data?.created_at || new Date().toISOString(),
-              updated_at: data?.updated_at || new Date().toISOString(),
-              deleted_at: null,
-            };
-
-            // Self-heal/upsert in the background
-            (supabase.from('profiles') as any)
-              .upsert({
-                id: profileId || authUser.id,
-                full_name: fullName,
-                email: email,
-                updated_at: new Date().toISOString(),
-              }, { onConflict: 'id' })
-              .then(() => {})
-              .catch(() => {});
-
-            return { success: true, data: enriched };
-          }
-        } catch {
-          // session fallback error ignored
-        }
+      // Missing profile row (pre-trigger legacy account): self-heal from the
+      // server-validated auth user, awaited so a failure is never silent.
+      const { data: userData } = await supabase.auth.getUser();
+      const authUser = userData?.user;
+      if (!authUser || authUser.id !== profileId) {
+        return { success: true, data: null };
       }
 
-      if (error) return { success: false, error: new Error(error.message) };
-      return { success: true, data };
+      const { data: healed, error: healError } = await (supabase.from('profiles') as any)
+        .upsert({
+          id: profileId,
+          full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Freelancer',
+          email: authUser.email || '',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'id' })
+        .select()
+        .maybeSingle();
+
+      if (healError) return { success: false, error: new Error(healError.message) };
+      return { success: true, data: healed ?? null };
     } catch (e) {
       return { success: false, error: e as Error };
     }
@@ -74,16 +67,22 @@ export class AuthService {
 
   static async updateProfile(profileId: string, profileData: Partial<Profile>): Promise<Result<Profile>> {
     try {
+      const parsed = ProfileSchema.partial().safeParse(profileData);
+      if (!parsed.success) {
+        return { success: false, error: new Error(parsed.error.issues[0]?.message || 'Invalid profile data') };
+      }
+
       const payload: Record<string, any> = {};
-      if (profileData.full_name !== undefined) payload.full_name = profileData.full_name ?? null;
-      if (profileData.email !== undefined) payload.email = profileData.email ?? null;
-      if (profileData.avatar_url !== undefined) payload.avatar_url = profileData.avatar_url ?? null;
+      if (parsed.data.full_name !== undefined) payload.full_name = parsed.data.full_name ?? null;
+      if (parsed.data.email !== undefined) payload.email = parsed.data.email ?? null;
+      if (parsed.data.avatar_url !== undefined) payload.avatar_url = parsed.data.avatar_url ?? null;
       payload.updated_at = new Date().toISOString();
 
-      if (profileData.full_name) {
-        supabase.auth.updateUser({
-          data: { full_name: profileData.full_name }
-        }).catch(() => {});
+      if (parsed.data.full_name) {
+        const { error: metaError } = await supabase.auth.updateUser({
+          data: { full_name: parsed.data.full_name }
+        });
+        if (metaError) return { success: false, error: new Error(metaError.message) };
       }
 
       const { data, error } = await (supabase
@@ -96,28 +95,20 @@ export class AuthService {
       if (error) return { success: false, error: new Error(error.message) };
 
       if (!data) {
-        // If 0 rows were updated (profile record did not exist in profiles table yet), perform an upsert fallback
+        // 0 rows updated (profile row missing): upsert, but return only the
+        // DB row — never a client-fabricated object.
         const { data: authUserData } = await supabase.auth.getUser();
-        const userEmail = profileData.email || authUserData?.user?.email || '';
-
-        const upsertPayload: Record<string, any> = {
-          id: profileId,
-          email: userEmail,
-          ...payload,
-        };
+        const userEmail = parsed.data.email || authUserData?.user?.email || '';
 
         const { data: upsertData, error: upsertError } = await (supabase
           .from('profiles') as any)
-          .upsert(upsertPayload, { onConflict: 'id' })
+          .upsert({ id: profileId, email: userEmail, ...payload }, { onConflict: 'id' })
           .select()
           .maybeSingle();
 
         if (upsertError) return { success: false, error: new Error(upsertError.message) };
-
-        return {
-          success: true,
-          data: upsertData || (upsertPayload as Profile),
-        };
+        if (!upsertData) return { success: false, error: new Error('Profile could not be saved') };
+        return { success: true, data: upsertData as Profile };
       }
 
       return { success: true, data: data as Profile };

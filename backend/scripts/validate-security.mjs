@@ -69,10 +69,13 @@ for (const marker of [
   check(`hardening migration contains "${marker}"`, has(HARDENING, marker));
 }
 
-// --- OTP entropy (F6) ---
+// --- OTP gate removed (F6, revised) ---
+// The OTP functions/portal_verifications gate was dropped from signing in
+// 20261106130000; checking entropy of dead code guarded nothing. The live
+// signature RPC must simply never reintroduce the gate.
 check(
-  'OTP generation uses pgcrypto CSPRNG',
-  has(HARDENING, /gen_random_bytes\(4\)[\s\S]{0,600}% 900000/)
+  'OTP signing gate stays removed',
+  !has('supabase/migrations/20261123000001_atomic_settlement_and_payment_guards.sql', /portal_verifications|Email verification is required/)
 );
 
 // --- Portal settings projection (F7, revised) ---
@@ -96,6 +99,33 @@ check(
   const sql = readFileSync(join(projectRoot, HARDENING), 'utf8');
   const calls = (sql.match(/public\.portal_token_is_live\(/g) || []).length;
   check('portal_token_is_live enforced across portal functions', calls >= 12);
+  // The live (post-baseline) portal RPCs must enforce it too — the baseline
+  // count alone would pass while a later migration dropped the guard.
+  for (const file of [
+    'supabase/migrations/20261114184606_portal_projections_and_rls_gaps.sql',
+    'supabase/migrations/20261114184847_payment_attempt_screenshot_and_notes.sql',
+    'supabase/migrations/20261123000001_atomic_settlement_and_payment_guards.sql',
+  ]) {
+    check(`live portal RPCs enforce token lifetime (${file.split('/').pop()})`, has(file, /portal_token_is_live/));
+  }
+}
+
+// --- Audit 2026-11-23: atomic settlement & server-side money guards ---
+{
+  const AUDIT = 'supabase/migrations/20261123000001_atomic_settlement_and_payment_guards.sql';
+  check('atomic verify RPC locks the invoice', has(AUDIT, /verify_payment_transactional[\s\S]*?FOR UPDATE/));
+  check('completed payments capped at invoice total', has(AUDIT, /would exceed invoice total/));
+  check('terminal payments fully frozen', has(AUDIT, /IF OLD\.status IN \('completed', 'failed'\) THEN\s+RAISE EXCEPTION 'Payments in terminal state/));
+  check('reconcile replay check workspace-scoped', has(AUDIT, /AND workspace_id = v_invoice\.workspace_id/));
+  check('reconcile blocks pending UPI claims', has(AUDIT, /Invoice has a payment awaiting verification/));
+  check('UPI 12-digit UTR rule enforced server-side', has(AUDIT, /UPI payments require a 12-digit UTR number/));
+  check('payment amounts paise-precise server-side', has(AUDIT, /Payment amount must have at most 2 decimal places/));
+  check('signature IP derived from request headers', has(AUDIT, /current_setting\('request.headers', true\)/));
+  check('7-arg submit_portal_payment revoked from PUBLIC', has(AUDIT, /REVOKE EXECUTE ON FUNCTION public\.submit_portal_payment\(text, uuid, numeric, text, text, text, text\) FROM PUBLIC/));
+  // The webhooks' non-retryable string must keep matching the RPC message.
+  check('stripe-webhook settled-string matches RPC', has('supabase/functions/stripe-webhook/index.ts', /already fully settled/) && has(AUDIT, /Invoice is already fully settled/));
+  check('stripe-checkout INR-only guard', has('supabase/functions/stripe-checkout/index.ts', /Card payments support INR invoices only/));
+  check('stripe-webhook blocks pending-claim conflicts', has('supabase/functions/stripe-webhook/index.ts', /invoice\.status === 'pending_verification'/));
 }
 
 // --- No email dispatch (F8) ---

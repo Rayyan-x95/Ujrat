@@ -11,6 +11,7 @@ const PAYMENT_WEBHOOK_SRC = readFileSync(path.join(FUNCTIONS_DIR, 'payment-webho
 const SIGNED_URL_SRC = readFileSync(path.join(FUNCTIONS_DIR, 'create-signed-url/index.ts'), 'utf8');
 const STRIPE_CHECKOUT_SRC = readFileSync(path.join(FUNCTIONS_DIR, 'stripe-checkout/index.ts'), 'utf8');
 const STRIPE_WEBHOOK_SRC = readFileSync(path.join(FUNCTIONS_DIR, 'stripe-webhook/index.ts'), 'utf8');
+const STRIPE_SHARED_SRC = readFileSync(path.join(FUNCTIONS_DIR, '_shared/stripe.ts'), 'utf8');
 
 describe('edge deploy config', () => {
   it('has no stale send-email/health function folders', () => {
@@ -28,6 +29,9 @@ describe('edge deploy config', () => {
     expect(PAYMENT_WEBHOOK_SRC).toContain('verifyHmacSignature');
     // reconcile_gateway_payment() stores rupees — paise must be converted.
     expect(PAYMENT_WEBHOOK_SRC).toContain('amountPaise / 100');
+    // Settled / pending-claim conflicts are acknowledged, not retried forever.
+    expect(PAYMENT_WEBHOOK_SRC).toContain('already fully settled');
+    expect(PAYMENT_WEBHOOK_SRC).toContain('awaiting verification');
   });
 
   it('create-signed-url sets Cache-Control on its response', () => {
@@ -37,16 +41,22 @@ describe('edge deploy config', () => {
   it('stripe-checkout derives the charge server-side and fails closed without keys', () => {
     // The client sends only token + invoice id; amount comes from the portal bundle.
     expect(STRIPE_CHECKOUT_SRC).toContain('get_portal_bundle');
-    expect(STRIPE_CHECKOUT_SRC).toContain('outstanding_balance');
+    expect(STRIPE_CHECKOUT_SRC).toContain('invoiceAmountPaise');
     expect(STRIPE_CHECKOUT_SRC).not.toContain('body.amount');
     // No STRIPE_SECRET_KEY → 503, so the scaffold is inert until configured.
     expect(STRIPE_CHECKOUT_SRC).toMatch(/if \(!stripeSecretKey\)[\s\S]{0,200}503/);
+    // Non-INR invoices must never be charged in rupees (wrong currency/value).
+    expect(STRIPE_CHECKOUT_SRC).toContain('Card payments support INR invoices only');
+    // pending_verification is excluded: a UPI claim already awaits review.
+    expect(STRIPE_CHECKOUT_SRC).not.toMatch(/PAYABLE_STATUSES = new Set\(\[[^\]]*pending_verification/);
   });
 
   it('stripe-webhook verifies Stripe-Signature over the raw body before parsing JSON', () => {
     expect(STRIPE_WEBHOOK_SRC).toContain('stripe-signature');
     expect(STRIPE_WEBHOOK_SRC).toContain('verifyStripeSignature');
-    expect(STRIPE_WEBHOOK_SRC).toContain('SIGNATURE_TOLERANCE_SECONDS = 300');
+    // The tolerance lives in the shared module the behavior tests exercise.
+    expect(STRIPE_SHARED_SRC).toContain('SIGNATURE_TOLERANCE_SECONDS = 300');
+    expect(STRIPE_WEBHOOK_SRC).toContain("from '../_shared/stripe.ts'");
     // Signature check must precede JSON.parse (body is untrusted until verified).
     const signatureIndex = STRIPE_WEBHOOK_SRC.indexOf('stripe-signature');
     expect(signatureIndex).toBeGreaterThan(-1);
@@ -55,5 +65,9 @@ describe('edge deploy config', () => {
     expect(STRIPE_WEBHOOK_SRC).toContain('reconcile_gateway_payment');
     expect(STRIPE_WEBHOOK_SRC).toContain('amountPaise / 100');
     expect(STRIPE_WEBHOOK_SRC).toContain("p_gateway: 'stripe'");
+    // A pending UPI claim is a conflict (200 + activity log), never a settle.
+    expect(STRIPE_WEBHOOK_SRC).toContain("invoice.status === 'pending_verification'");
+    expect(STRIPE_WEBHOOK_SRC).toContain('stripe_payment_conflict');
+    expect(STRIPE_WEBHOOK_SRC).toContain('awaiting verification');
   });
 });
