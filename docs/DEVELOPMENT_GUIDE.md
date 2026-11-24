@@ -58,6 +58,7 @@ The web application will be available at `http://localhost:5173`.
 * **`npm run dev`**: Starts Vite development server for the frontend (`@ujrat/frontend`).
 * **`npm run build`**: Builds production bundle into `dist/` folder via `tsc -b && vite build`.
 * **`npm run typecheck`**: Compiles TypeScript project references across all workspaces (`tsc -b --noEmit`).
+* **`npm run typecheck:edge`**: Type-checks the Supabase edge functions with Deno (`npx deno check`); remote imports are fetched on first run.
 * **`npm run lint`**: Lints the codebase with oxlint.
 * **`npm test`**: Executes the 25 Vitest frontend test suites (234 tests) once.
 * **`npm run test:all`**: Runs the complete test suite (frontend Vitest + backend Python).

@@ -7,7 +7,9 @@ type RateLimitClient = {
   rpc: (
     functionName: string,
     arguments_: Record<string, number | string>,
-  ) => Promise<RateLimitRpcResponse>
+  // PromiseLike, not Promise: Supabase's rpc() returns a PostgrestFilterBuilder
+  // (an awaitable thenable), which is not a real Promise but resolves the same.
+  ) => PromiseLike<RateLimitRpcResponse>
 }
 
 type RateLimitRow = {

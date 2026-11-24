@@ -7,6 +7,7 @@ Ujrat: React 19 + TypeScript + Vite SPA talking to Supabase directly (RLS + SECU
 ```bash
 npm run dev          # Vite dev server at http://localhost:5173
 npm run typecheck    # tsc -b --noEmit (project references)
+npm run typecheck:edge # deno check on Supabase edge functions
 npm test             # Vitest frontend tests (single run)
 npm run lint         # oxlint
 npm run build        # tsc -b && vite build
@@ -14,7 +15,7 @@ npm run build        # tsc -b && vite build
 
 - Single unit test (frontend): `npx vitest run src/__tests__/finance-tax-engine.test.ts` (add `-t "name"` to filter).
 - E2E: `npm run test:e2e`. Playwright auto-starts the dev server, runs **serially** (`workers: 1`, `fullyParallel: false`) because lifecycle specs share external backend state, and executes every spec against 5 projects (chromium, firefox, webkit, Mobile Chrome, Mobile Safari). Load tests (`test:load*`) need k6 installed separately.
-- CI (`.github/workflows/ci.yml`, single `verify` job): migration + security validators, secret scan, typecheck, lint, frontend (Vitest) test suite, `npm audit --omit=dev --audit-level=high`, production build. E2E is intentionally NOT in CI (needs seeded external backend) — run `npm run test:e2e` against staging before release.
+- CI (`.github/workflows/ci.yml`, single `verify` job): migration + security validators, secret scan, typecheck (frontend + edge functions), lint, frontend (Vitest) test suite, `npm audit --omit=dev --audit-level=high`, production build. E2E is intentionally NOT in CI (needs seeded external backend) — run `npm run test:e2e` against staging before release.
 - Lint baseline is dirty: oxlint reports 0 errors and ~270 warnings (mostly `no-explicit-any`). Don't mass-fix; just don't add new violations.
 
 ## Architecture (Monorepo Workspaces)

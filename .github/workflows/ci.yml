@@ -66,6 +66,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Edge function typecheck (Deno)
+        run: npm run typecheck:edge
+
       - name: Lint
         run: npm run lint
 

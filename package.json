@@ -13,6 +13,7 @@
     "prerender": "node scripts/prerender.mjs",
     "lint": "oxlint frontend",
     "typecheck": "tsc -b --noEmit",
+    "typecheck:edge": "npx -y deno check backend/supabase/functions/create-signed-url/index.ts backend/supabase/functions/payment-webhook/index.ts backend/supabase/functions/stripe-checkout/index.ts backend/supabase/functions/stripe-webhook/index.ts",
     "validate:migrations": "node backend/scripts/validate-migrations.mjs",
     "validate:security": "node backend/scripts/validate-security.mjs",
     "test": "npm run test --workspace=@ujrat/frontend",
