@@ -5,6 +5,7 @@
 **Scope:** Full public surface (17 routes), indexation, technical SEO, on-page/content, AI search visibility (GEO), positioning, funnel, competitive landscape.
 **Data sources:** Google Search Console API (28-day window to 2026-11-04), URL Inspection API, live HTTP checks, Playwright crawl of all routes, Lighthouse (mobile), lab perf runs, DuckDuckGo SERP checks, GitHub API, live competitor sites.
 **Caveat:** Performance numbers are single-run lab measurements, not field data (CrUX/PSI was rate-limited). Treat them as directional.
+**Superseded (2026-11-24):** the repository is now private and proprietary. All MIT/license/visibility recommendations below are historical and must not be applied.
 
 ---
 

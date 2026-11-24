@@ -17,7 +17,6 @@
   <img src="https://img.shields.io/badge/Vite-8.x-646CFF?style=flat-square&logo=vite" />
   <img src="https://img.shields.io/badge/Supabase-Backend-3ECF8E?style=flat-square&logo=supabase" />
   <img src="https://img.shields.io/badge/TailwindCSS-4.x-06B6D4?style=flat-square&logo=tailwindcss" />
-  <img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" />
 </p>
 
 ---
@@ -503,9 +502,9 @@ Detailed technical specifications, architecture records, schema definitions, and
 
 ---
 
-# 🤝 Contributing
+# 🧑‍💻 Development
 
-Contributions are welcome.
+This repository is private and maintained by the Ujrat team; it is not open to external contributions.
 
 Before opening a Pull Request
 
@@ -519,7 +518,7 @@ Before opening a Pull Request
 
 # 📜 License
 
-This project is licensed under the MIT License.
+Proprietary and confidential. All rights reserved. No license is granted to use, copy, modify, or distribute this software.
 
 ---
 
